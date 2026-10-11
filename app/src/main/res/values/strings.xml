@@ -1,5 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Libreta</string>
-    <string name="smoke_status">Kotlin %1$s · API %2$d\nTítulo de prueba: «%3$s»</string>
+
+    <string name="action_new_note">Nueva nota</string>
+    <string name="action_delete">Borrar</string>
+    <string name="action_sync">Sincronizar</string>
+    <string name="action_settings">Ajustes</string>
+    <string name="action_category">Categoría</string>
+
+    <string name="new_note">Nota nueva</string>
+    <string name="empty_list">No hay notas todavía.\nPulsa ⊕ para crear la primera.</string>
+    <string name="category_and_age">%1$s · %2$s</string>
+    <string name="editor_hint"># Título\n\nEscribe aquí…</string>
+
+    <string name="category_all">Todas las notas</string>
+    <string name="category_none">Sin categoría</string>
+    <string name="category_new">Nueva categoría…</string>
+    <string name="category_hint">Categoría o Categoría/Subcategoría</string>
+
+    <string name="delete_confirm">¿Borrar «%1$s»?</string>
+    <string name="saved_as_conflict_copy">«%1$s» cambió mientras la editabas. Tu versión se ha guardado como «%2$s».</string>
+
+    <string name="error_loading">No se pudieron leer las notas.</string>
+    <string name="error_opening">No se pudo abrir la nota.</string>
+    <string name="error_saving">No se pudo guardar la nota. Se volverá a intentar.</string>
+
+    <!-- Sync -->
+    <string name="sync_not_configured">Sin sincronizar: configura el servidor en Ajustes.</string>
+    <string name="sync_running">Sincronizando…</string>
+    <string name="sync_done">Sincronizado a las %1$s</string>
+    <plurals name="sync_done_with_failures">
+        <item quantity="one">Sincronizado a las %1$s; una nota se reintentará</item>
+        <item quantity="other">Sincronizado a las %1$s; %2$d notas se reintentarán</item>
+    </plurals>
+    <string name="sync_failed">Sin sincronizar: %1$s</string>
+    <plurals name="sync_conflicts">
+        <item quantity="one">Una nota cambió en los dos sitios: se ha guardado una copia «(conflicto)».</item>
+        <item quantity="other">%d notas cambiaron en los dos sitios: se han guardado copias «(conflicto)».</item>
+    </plurals>
+
+    <string name="error_credentials">usuario o contraseña de aplicación incorrectos</string>
+    <string name="error_notes_folder">no existe la carpeta de notas en Nextcloud</string>
+    <string name="error_maintenance">Nextcloud está en modo mantenimiento</string>
+    <string name="error_http">el servidor respondió HTTP %1$d</string>
+    <string name="error_certificate_name">el certificado no está emitido al nombre esperado</string>
+    <string name="error_tls_handshake">el servidor no presenta un certificado de la CA de confianza</string>
+    <string name="error_tls">error de TLS</string>
+    <string name="error_unreachable">no se puede conectar con el servidor</string>
+    <string name="error_conscrypt">no se pudo cargar el cifrado (Conscrypt)</string>
+    <string name="error_settings">la configuración del servidor no es válida</string>
+
+    <!-- Settings -->
+    <string name="settings_url">Dirección del servidor</string>
+    <string name="settings_url_hint">https://192.0.2.10</string>
+    <string name="settings_user">Usuario de Nextcloud</string>
+    <string name="settings_password">Contraseña de aplicación</string>
+    <string name="settings_password_kept">Guardada · déjalo vacío para no cambiarla</string>
+    <string name="settings_folder">Carpeta de notas</string>
+    <string name="settings_certificate">Nombre del certificado</string>
+    <string name="settings_certificate_hint">p. ej. nextcloud.local</string>
+    <string name="settings_certificate_help">Solo si el certificado del servidor está emitido a un nombre distinto de la dirección (por ejemplo, al conectar por IP). Se acepta únicamente si además lo firma la CA incluida en la app.</string>
+    <string name="settings_test">Probar conexión</string>
+    <string name="settings_save">Guardar</string>
+    <string name="settings_testing">Probando…</string>
+    <string name="settings_test_ok">Conexión correcta: TLS verificado, credenciales aceptadas y carpeta de notas encontrada.</string>
+    <string name="settings_test_tls_only">TLS correcto con el servidor. Falta la contraseña de aplicación.</string>
+    <string name="settings_invalid">La dirección debe empezar por https:// y el usuario no puede estar vacío.</string>
+    <string name="settings_incomplete">Faltan datos: dirección https://, usuario y contraseña de aplicación.</string>
 </resources>

@@ -27,7 +27,7 @@
 | Protocolos | TLS 1.0/1.1 **rechazados**; TLS 1.2 y 1.3 aceptados |
 | Suites TLS 1.2 | Solo AEAD: `ECDHE-RSA-AES128-GCM-SHA256`, `ECDHE-RSA-AES256-GCM-SHA384`, `DHE-RSA-AES256-GCM-SHA384`, `ECDHE-RSA-CHACHA20-POLY1305` |
 | Certificado del servidor | `CN=nextcloud.local`, RSA 2048, SHA-256, **sin SAN**, válido hasta **2026-12-28** |
-| CA | `CN=Home CA` (propia y autofirmada), RSA 4096, válida hasta 2035-12-26 → [`certs/my-local-ca.pem`](../certs/my-local-ca.pem) |
+| CA | `CN=Home CA` (propia y autofirmada), RSA 4096, válida hasta 2035-12-26 → [`app/src/main/res/raw/nextcloud_ca.pem`](../app/src/main/res/raw/nextcloud_ca.pem) |
 | Huella SHA-256 de la CA | `(fingerprint removed)` |
 
 ## Problemas que cambian el plan
@@ -35,8 +35,7 @@
 1. **Suites de cifrado.** El TLS del sistema en API 19 solo ofrece suites ECDHE con CBC-SHA en TLS 1.2; las GCM y ChaCha20 llegan con API 20. El servidor solo acepta suites AEAD, así que **con el TLS del sistema no hay ninguna suite en común**. Forzar TLS 1.2 en OkHttp no basta.
    → Empaquetar **Conscrypt** (`conscrypt-android` 2.5.x, `minSdkVersion 9`, incluye `armeabi-v7a`) y registrarlo como proveedor de seguridad prioritario. Es independiente de Google Play Services y de las CAs del sistema.
 2. **Verificación del nombre del servidor.** La app conectará por IP, el certificado no tiene SAN y OkHttp 3.12 no acepta un certificado solo por su CN.
-   → Opción preferida: reemitir el certificado del servidor con `subjectAltName = DNS:nextcloud.local, IP:192.0.2.10`. Hay que renovarlo de todas formas antes del 2026-12-28, y la CA embebida no cambia. **Requiere confirmación del usuario.**
-   → Alternativa sin tocar el servidor: un `HostnameVerifier` que fije el certificado del servidor, validado contra la CA embebida.
+   → **Decisión (usuario): no tocar el certificado.** La app confía solo en la CA embebida y comprueba que el certificado esté emitido al nombre configurado (`nextcloud.local`), sin exigir que coincida con la IP (`CertificateNameVerifier`). Un certificado nuevo emitido por la misma CA sigue funcionando sin actualizar la app. **Pendiente:** el certificado del servidor caduca el **2026-12-28** y hay que renovarlo con la misma CA.
 3. **Dalvik y límite de 64K métodos.** Medido en la Fase 1: el APK debug sin minificar tiene **13.015** referencias a métodos en un único `classes.dex`. Con OkHttp, Okio y Conscrypt seguirá muy por debajo de 64K → **no hace falta multidex**; R8 solo en release.
 4. **Memoria baja.** Con 64 MB de heap y `low_ram`: lista de notas paginada o con solo los metadatos, sin cargar los cuerpos de las notas en la lista.
 

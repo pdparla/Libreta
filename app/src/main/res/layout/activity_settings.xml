@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:text="@string/settings_url" />
+
+        <EditText
+            android:id="@+id/settings_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/settings_url_hint"
+            android:importantForAutofill="no"
+            android:inputType="textUri" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:labelFor="@+id/settings_user"
+            android:text="@string/settings_user" />
+
+        <EditText
+            android:id="@+id/settings_user"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:importantForAutofill="no"
+            android:inputType="text" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:labelFor="@+id/settings_password"
+            android:text="@string/settings_password" />
+
+        <EditText
+            android:id="@+id/settings_password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:importantForAutofill="no"
+            android:inputType="textPassword" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:labelFor="@+id/settings_folder"
+            android:text="@string/settings_folder" />
+
+        <EditText
+            android:id="@+id/settings_folder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:importantForAutofill="no"
+            android:inputType="text" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:text="@string/settings_certificate" />
+
+        <EditText
+            android:id="@+id/settings_certificate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/settings_certificate_hint"
+            android:importantForAutofill="no"
+            android:inputType="textUri" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_certificate_help"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/settings_test"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_test" />
+
+            <Button
+                android:id="@+id/settings_save"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_save" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/settings_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+    </LinearLayout>
+</ScrollView>

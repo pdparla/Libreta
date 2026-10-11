@@ -10,8 +10,20 @@ El diagnóstico de la tablet y del servidor está en [`docs/00-diagnostico.md`](
 
 | Módulo | Tipo | Contenido |
 |---|---|---|
-| `:core` | Kotlin/JVM, sin Android | Dominio y motor de sincronización. Se prueba en la JVM. |
-| `:app` | Aplicación Android (minSdk 19) | UI con Views clásicas, almacenamiento local y conexión TLS. |
+| `:core` | Kotlin/JVM, sin Android | Dominio (`NotePath`, `NoteRepository`, `NoteService`) y motor de sincronización. Se prueba en la JVM. |
+| `:app` | Aplicación Android (minSdk 19) | Raíz de composición (`AppContainer`), adaptadores (`data.local`: ficheros `.md` y estado de sincronización; `data.remote`: WebDAV y TLS; `data.settings`), orquestación de la sincronización (`sync`) y UI con Views clásicas (`ui`). |
+
+Los adaptadores van en `:app` y no en módulos JVM aparte: son Java puro, así que sus tests corren en la JVM
+(`testDebugUnitTest`), y al estar en `:app` Android lint comprueba que no usen APIs posteriores a API 19.
+
+**Almacenamiento local:** `files/notes/` en el almacenamiento interno de la app, con una subcarpeta por
+categoría, igual que en `Notes/` de Nextcloud. Cada escritura va a un fichero oculto que luego se renombra sobre
+el definitivo, así que un corte nunca deja una nota a medias.
+
+**Editor:** guarda solo al dejar de estar visible (`onPause`), sin botón de guardar, como Nextcloud Notes. El
+nombre del fichero sigue a la primera línea. Si la nota cambió en disco mientras se editaba (por ejemplo, porque
+una sincronización trajo una versión nueva), el texto del editor se guarda como copia de conflicto y no pisa
+nada.
 
 ## Arquitectura de la sincronización
 
@@ -38,6 +50,48 @@ El diagnóstico de la tablet y del servidor está en [`docs/00-diagnostico.md`](
 - **Fallos:** si no hay red, la sincronización se detiene sin tocar nada. El progreso se guarda tras cada paso,
   de modo que una sincronización interrumpida continúa donde lo dejó.
 
+### WebDAV con Nextcloud (`NextcloudWebDavSync`)
+
+- **Listado:** `PROPFIND` con `Depth: 1` carpeta a carpeta (Nextcloud puede rechazar `Depth: infinity`). Se
+  ignoran las carpetas ocultas (`.attachments.*` de Notes) y los ficheros que no son `.md`/`.txt`.
+- **Versiones:** ETag de `getetag` y de las cabeceras `ETag` de `GET` y `PUT`, con `PROPFIND` de respaldo si el
+  servidor no la envía.
+- **Escrituras:** `PUT` con `If-None-Match: *` (crear) o `If-Match` (actualizar); `DELETE` con `If-Match`. Un 412
+  se convierte en conflicto. Las categorías nuevas se crean con `MKCOL`.
+- **Carpeta de notas ausente:** si falta (404), la sincronización se aborta. Nunca se interpreta como «se
+  borraron todas las notas», que vaciaría la tablet.
+
+### TLS en KitKat
+
+- **Conscrypt 2.5.3** se pasa como proveedor del `SSLContext`, no se instala de forma global. Aporta TLS 1.2 con
+  AES-GCM y ChaCha20, que el TLS de Android 4.4 no tiene y el servidor exige.
+- **`ConnectionSpec`:** solo TLS 1.2 y solo suites ECDHE con AEAD.
+- **Confianza:** solo en la CA embebida (`res/raw/nextcloud_ca.pem`); las CAs del sistema no se usan.
+- **Nombre del servidor:** la tablet conecta por IP y el certificado solo lleva `CN=nextcloud.local`, sin
+  SAN. `CertificateNameVerifier` acepta el certificado si está emitido a ese nombre (configurable en Ajustes).
+  Es seguro porque la única raíz de confianza es la CA propia.
+- **Verificado en la tablet:** con el nombre configurado, la conexión se acepta; sin él, se rechaza. En la JVM,
+  `TlsTest` reproduce el caso con certificados equivalentes y además comprueba que se rechazan un nombre
+  distinto y otra CA.
+
+### Cuándo se sincroniza
+
+Al abrir la app y al pasarla a segundo plano (`ActivityLifecycleCallbacks`; las rotaciones no cuentan), con el
+botón ⟳ y al guardar los ajustes. Se ejecuta en un `IntentService`, que agrupa las peticiones acumuladas, porque
+WorkManager pide API 21.
+
+### Credenciales
+
+Usuario y contraseña de aplicación de Nextcloud se configuran en Ajustes y se guardan en las
+`SharedPreferences` privadas de la app (`allowBackup=false`). La contraseña no se muestra nunca; dejar el
+campo vacío la conserva. Si cambian el servidor, el usuario o la carpeta, se borra el estado de sincronización.
+
+### Categorías
+
+Son subcarpetas, como en Nextcloud Notes, y admiten subcategorías con `/`. En la lista se filtran con el
+desplegable de la barra superior; en el editor, el botón «Categoría» mueve la nota, y el cambio se aplica al
+guardar.
+
 ## Toolchain y compatibilidad con API 19
 
 | Pieza | Versión | Nota |
@@ -47,8 +101,8 @@ El diagnóstico de la tablet y del servidor está en [`docs/00-diagnostico.md`](
 | Kotlin | 2.4.20 | El stdlib funciona en Dalvik/API 19, verificado en la tablet |
 | JDK | 21 (bytecode 11) | AGP pide JDK 17 o superior; D8 transforma el bytecode para API 19 |
 | compileSdk / targetSdk | 36 | minSdk 19 |
-| OkHttp *(fase 3)* | 3.12.13 | última rama compatible con API < 21 |
-| Conscrypt *(fase 3)* | 2.5.3 | la 2.6 y posteriores piden minSdk 21 |
+| OkHttp | 3.12.13 | última rama compatible con API < 21 |
+| Conscrypt | 2.5.3 | la 2.6 y posteriores piden minSdk 21 |
 | Animal Sniffer | 2.0.1 + firma `android-api-level-19` | Hace fallar el build si `:core` usa una API del JDK que no existe en API 19 |
 
 Sin AndroidX, sin AppCompat y sin Compose: solo `android.app.Activity` y el tema Holo del sistema.
