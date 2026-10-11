@@ -7,8 +7,8 @@ object ContentHash {
 
     private const val HEX = "0123456789abcdef"
 
-    fun of(content: String): Version {
-        val digest = MessageDigest.getInstance("SHA-1").digest(content.toByteArray(Charsets.UTF_8))
+    fun of(content: ByteArray): Version {
+        val digest = MessageDigest.getInstance("SHA-1").digest(content)
         val hex = StringBuilder(digest.size * 2)
         for (byte in digest) {
             val b = byte.toInt() and 0xff
@@ -16,4 +16,6 @@ object ContentHash {
         }
         return Version("sha1:$hex")
     }
+
+    fun of(text: String): Version = of(text.toByteArray(Charsets.UTF_8))
 }

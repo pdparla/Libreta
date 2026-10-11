@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import com.parla.libreta.core.ink.InkNoteService
 import com.parla.libreta.core.note.ConflictNamer
 import com.parla.libreta.core.note.NoteService
 import com.parla.libreta.core.note.SystemToday
@@ -16,8 +17,10 @@ import com.parla.libreta.data.settings.SettingsStore
 import com.parla.libreta.sync.SyncCoordinator
 import com.parla.libreta.sync.SyncService
 import com.parla.libreta.ui.BackgroundRunner
+import com.parla.libreta.ui.ink.InkRenderer
 import org.conscrypt.Conscrypt
 import java.io.File
+import java.security.SecureRandom
 import java.util.concurrent.Executors
 
 /** Composition root: the object graph, built once per process. */
@@ -27,6 +30,7 @@ class AppContainer(context: Context) {
 
     val notes = FileNoteRepository(File(context.filesDir, "notes"))
     val noteService = NoteService(notes, conflictNamer)
+    val inkNotes = InkNoteService(notes, noteService, InkRenderer, newFolderId = ::randomFolderId)
     val settings = SettingsStore(context)
     val background = BackgroundRunner(Executors.newSingleThreadExecutor())
 
@@ -51,6 +55,12 @@ class AppContainer(context: Context) {
         conflictNamer = conflictNamer,
         remoteFor = { config -> clients.create(config) },
     )
+}
+
+/** Id for a note's `.attachments.<id>` folder: 10 base-36 characters, unique enough for one person's notes. */
+private fun randomFolderId(): String {
+    val random = SecureRandom()
+    return (1..10).map { "0123456789abcdefghijklmnopqrstuvwxyz"[random.nextInt(36)] }.joinToString("")
 }
 
 class LibretaApp : Application() {

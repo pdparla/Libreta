@@ -59,7 +59,7 @@ class NoteService(
     /** @throws NoteNotFoundException */
     fun open(path: NotePath): NoteDraft {
         val note = notes.read(path)
-        return NoteDraft.of(NoteEntry(path, note.version), note.content)
+        return NoteDraft.of(NoteEntry(path, note.version), note.text)
     }
 
     /** Stores [draft]. The editor must continue from the returned note, which may have a new path. */
@@ -75,7 +75,7 @@ class NoteService(
         val target = pathFor(draft, origin.path)
         return try {
             val version = if (target == origin.path) {
-                notes.write(target, draft.content, WritePrecondition.MustMatch(origin.version))
+                notes.writeText(target, draft.content, WritePrecondition.MustMatch(origin.version))
             } else {
                 moveTo(target, draft.content, origin)
             }
@@ -85,28 +85,51 @@ class NoteService(
         }
     }
 
+    /** Deletes the note and the attachments it links to. */
     fun delete(path: NotePath) {
-        try {
-            notes.delete(path)
-        } catch (e: NoteNotFoundException) {
-            // Already gone.
-        }
+        val note = notes.readOrNull(path) ?: return
+        val attachments = NoteAttachments.filesOf(notes, path, note.text)
+        deleteQuietly(path)
+        attachments.forEach { deleteQuietly(it.path) }
     }
 
-    private fun create(content: String, category: String): NoteEntry {
+    /** Creates a note at a free path named after [content]'s title, in [category]. */
+    fun create(content: String, category: String): NoteEntry {
         val path = NoteNaming.uniquePath(NoteNaming.titleOf(content), category, ::exists)
-        return NoteEntry(path, notes.write(path, content, WritePrecondition.MustNotExist))
+        return NoteEntry(path, notes.writeText(path, content, WritePrecondition.MustNotExist))
     }
 
-    /** Renamed or moved: the new file is written first, so a failure never loses the text. */
+    /**
+     * Renamed or moved: the new files are written before the old ones are deleted, so a failure never loses
+     * anything. Attachments follow the note only when its folder changes, since links are relative to it.
+     */
     private fun moveTo(target: NotePath, content: String, origin: NoteEntry): Version {
-        val version = notes.write(target, content, WritePrecondition.MustNotExist)
+        val movesFolder = target.category != origin.path.category
+        val attachments = if (movesFolder) NoteAttachments.filesOf(notes, origin.path, content) else emptyList()
+        for (attachment in attachments) {
+            val bytes = notes.readOrNull(attachment.path)?.bytes ?: continue
+            notes.write(NoteAttachments.relocated(attachment.path, origin.path, target), bytes)
+        }
+        val version = notes.writeText(target, content, WritePrecondition.MustNotExist)
         try {
             notes.delete(origin.path, WritePrecondition.MustMatch(origin.version))
         } catch (e: NoteStoreException) {
-            // The old file changed meanwhile (a sync brought a newer version) or is gone: keep whatever is there.
+            // The old file changed meanwhile (a sync brought a newer version) or is gone: keep whatever is there,
+            // and the attachments it links to as well.
+            return version
         }
+        attachments.forEach { deleteQuietly(it.path, WritePrecondition.MustMatch(it.version)) }
         return version
+    }
+
+    private fun deleteQuietly(path: NotePath, precondition: WritePrecondition = WritePrecondition.None) {
+        try {
+            notes.delete(path, precondition)
+        } catch (e: NoteNotFoundException) {
+            // Already gone.
+        } catch (e: PreconditionFailedException) {
+            // Changed meanwhile: keep it.
+        }
     }
 
     private fun saveAfterConcurrentChange(draft: NoteDraft, origin: NoteEntry): SaveResult {
@@ -116,7 +139,7 @@ class NoteService(
         }
         // Next to the version it conflicts with, so both show up together.
         val copy = conflictNamer.conflictPathFor(origin.path, ::exists)
-        val version = notes.write(copy, draft.content, WritePrecondition.MustNotExist)
+        val version = notes.writeText(copy, draft.content, WritePrecondition.MustNotExist)
         return SaveResult.SavedAsConflictCopy(NoteEntry(copy, version), origin.path)
     }
 

@@ -10,7 +10,6 @@
 
     <string name="new_note">Nota nueva</string>
     <string name="empty_list">No hay notas todavía.\nPulsa ⊕ para crear la primera.</string>
-    <string name="category_and_age">%1$s · %2$s</string>
     <string name="editor_hint"># Título\n\nEscribe aquí…</string>
 
     <string name="category_all">Todas las notas</string>
@@ -24,6 +23,36 @@
     <string name="error_loading">No se pudieron leer las notas.</string>
     <string name="error_opening">No se pudo abrir la nota.</string>
     <string name="error_saving">No se pudo guardar la nota. Se volverá a intentar.</string>
+
+    <!-- Handwritten notes -->
+    <string name="action_new_ink">Nota a mano</string>
+    <string name="action_rename">Título…</string>
+    <string name="action_paper">Papel</string>
+    <string name="action_edit_text">Editar el texto</string>
+    <string name="ink_default_title">Nota a mano %1$s</string>
+    <string name="ink_handwritten">A mano</string>
+    <string name="ink_pen">Pluma</string>
+    <string name="ink_eraser">Borrador</string>
+    <string name="ink_undo">Deshacer</string>
+    <string name="ink_redo">Rehacer</string>
+    <string name="ink_prev">Página anterior</string>
+    <string name="ink_next">Página siguiente</string>
+    <string name="ink_add_page">Añadir página</string>
+    <string name="ink_page">%1$d/%2$d</string>
+    <string name="ink_color">Color</string>
+    <string name="ink_width_thin">Fino</string>
+    <string name="ink_width_medium">Medio</string>
+    <string name="ink_width_thick">Grueso</string>
+    <string name="ink_erase_area">Donde toco</string>
+    <string name="ink_erase_strokes">Trazo entero</string>
+    <string name="ink_eraser_small">Pequeño</string>
+    <string name="ink_eraser_medium">Mediano</string>
+    <string name="ink_eraser_large">Grande</string>
+    <string name="ink_paper_blank">En blanco</string>
+    <string name="ink_paper_lined">Pautado</string>
+    <string name="ink_paper_grid">Cuadrícula</string>
+    <string name="ink_error_open">No se pudo abrir la nota a mano.</string>
+    <string name="ink_draw_first">Escribe o dibuja algo primero.</string>
 
     <!-- Sync -->
     <string name="sync_not_configured">Sin sincronizar: configura el servidor en Ajustes.</string>

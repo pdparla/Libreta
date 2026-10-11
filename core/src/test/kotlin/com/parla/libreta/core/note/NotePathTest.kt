@@ -44,6 +44,37 @@ class NotePathTest {
         ).forEach { raw -> assertNull("'$raw' should be rejected", NotePath.parseOrNull(raw)) }
     }
 
+    @Test
+    fun `attachments live directly inside an attachments folder`() {
+        assertEquals(NotePath.Kind.ATTACHMENT, NotePath("Recetas/.attachments.k3f9/pagina-1.png").kind)
+        assertEquals(NotePath.Kind.ATTACHMENT, NotePath(".attachments.12/libreta.ink.json").kind)
+        assertEquals(NotePath.Kind.NOTE, NotePath("Recetas/Pan.md").kind)
+        listOf(
+            ".attachments./a.png", ".attachments.1/sub/a.png", ".attachments.1/nota.md", "Cat/.oculta/a.png",
+            ".attachments.1/.a.png", ".attachments.1/a.exe", ".attachments.1/.attachments.2/a.png", "a.png",
+        ).forEach { raw -> assertNull("'$raw' should be rejected", NotePath.parseOrNull(raw)) }
+    }
+
+    @Test
+    fun `synced folders are categories and attachment folders`() {
+        assertEquals(true, NotePath.isSyncedFolder(""))
+        assertEquals(true, NotePath.isSyncedFolder("Recetas/Postres"))
+        assertEquals(true, NotePath.isSyncedFolder("Recetas/.attachments.12"))
+        assertEquals(false, NotePath.isSyncedFolder(".oculta"))
+        assertEquals(false, NotePath.isSyncedFolder(".attachments.12/sub"))
+        assertEquals(false, NotePath.isSyncedFolder(".attachments."))
+    }
+
+    @Test
+    fun `links resolve against the note's folder`() {
+        assertEquals(
+            NotePath("Recetas/.attachments.k3/p.png"),
+            NotePath("Recetas/Pan.md").resolveSibling(".attachments.k3/p.png"),
+        )
+        assertEquals(NotePath(".attachments.k3/p.png"), NotePath("Pan.md").resolveSibling(".attachments.k3/p.png"))
+        assertNull(NotePath("Pan.md").resolveSibling("../fuera.png"))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `constructor validates`() {
         NotePath("../escape.md")

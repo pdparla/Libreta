@@ -19,7 +19,8 @@ kotlin {
 
 // The tablet runs Android 4.4 (API 19), whose Java class library is roughly Java 7. Animal Sniffer checks the
 // compiled main classes against the API 19 signature, so calling something the tablet lacks fails the build. That
-// includes JDK classes (java.time) and the JDK 8 methods Kotlin exposes on its collections (Map.getOrDefault).
+// includes JDK classes (java.time) and the JDK 8 methods Kotlin exposes on its collections (Map.getOrDefault). The
+// Gummy Bears signature also lists the Java 8 methods D8 backports (Integer.hashCode...), which data classes call.
 // Android lint cannot do this: it does not run NewApi on JVM modules. Tests run on the regular JDK.
 animalsniffer {
     sourceSets = listOf(project.sourceSets.main.get())

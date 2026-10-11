@@ -77,6 +77,19 @@ class SyncEngineTest {
         assertConverged()
     }
 
+    @Test
+    fun `attachments sync as raw bytes both ways`() {
+        val png = byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 0, 0xff.toByte(), 0x0a)
+        local.putBytes("Dibujos/.attachments.k3/pagina-1.png", png)
+        remote.putBytes(".attachments.99/foto.jpg", byteArrayOf(0xff.toByte(), 0xd8.toByte(), 0))
+
+        engine.sync()
+
+        assertTrue(png.contentEquals(remote.read(path("Dibujos/.attachments.k3/pagina-1.png")).bytes))
+        assertTrue(byteArrayOf(0xff.toByte(), 0xd8.toByte(), 0).contentEquals(local.read(path(".attachments.99/foto.jpg")).bytes))
+        assertConverged()
+    }
+
     // One side changed
 
     @Test

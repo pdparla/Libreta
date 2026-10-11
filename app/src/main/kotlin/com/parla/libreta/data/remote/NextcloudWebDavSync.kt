@@ -1,6 +1,7 @@
 package com.parla.libreta.data.remote
 
 import com.parla.libreta.core.note.NoteEntry
+import com.parla.libreta.core.note.NoteLockedException
 import com.parla.libreta.core.note.NoteNotFoundException
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.PreconditionFailedException
@@ -19,7 +20,7 @@ import org.xml.sax.SAXException
 import java.io.IOException
 
 /** The server answered with an unexpected HTTP status. */
-class HttpStatusException(val code: Int, method: String, url: HttpUrl) :
+class HttpStatusException(val code: Int, val method: String, url: HttpUrl) :
     IOException("$method ${url.encodedPath()} -> HTTP $code")
 
 /**
@@ -64,8 +65,10 @@ class NextcloudWebDavSync(
                 ?: if (folder.isEmpty()) throw notesFolderMissing() else continue
             for (resource in resources) {
                 val relative = relativePathOf(resource.href) ?: continue
-                if (relative == folder || relative.split('/').any { it.startsWith('.') }) continue
+                if (relative == folder) continue
                 if (resource.isCollection) {
+                    // Categories and `.attachments.*` folders; other hidden folders are not part of the notes tree.
+                    if (!NotePath.isSyncedFolder(relative)) continue
                     knownFolders += relative
                     pending += relative
                 } else {
@@ -82,7 +85,7 @@ class NextcloudWebDavSync(
         val url = noteUrl(path)
         val (content, etag) = execute(Request.Builder().url(url).get().build()) { response ->
             when (response.code()) {
-                200 -> response.body()!!.string() to etagOf(response)
+                200 -> response.body()!!.bytes() to etagOf(response)
                 404 -> throw NoteNotFoundException(path)
                 else -> throw statusError(response)
             }
@@ -90,7 +93,7 @@ class NextcloudWebDavSync(
         return VersionedContent(content, etag ?: currentEtag(url))
     }
 
-    override fun write(path: NotePath, content: String, precondition: WritePrecondition): Version {
+    override fun write(path: NotePath, content: ByteArray, precondition: WritePrecondition): Version {
         ensureFolder(path.category)
         var result = put(path, content, precondition)
         if (result is PutResult.FolderMissing && path.category.isNotEmpty()) {
@@ -112,15 +115,16 @@ class NextcloudWebDavSync(
                 200, 204 -> Unit
                 404 -> throw NoteNotFoundException(path)
                 412 -> throw PreconditionFailedException(path)
+                423 -> throw NoteLockedException(path)
                 else -> throw statusError(response)
             }
         }
     }
 
-    private fun put(path: NotePath, content: String, precondition: WritePrecondition): PutResult {
+    private fun put(path: NotePath, content: ByteArray, precondition: WritePrecondition): PutResult {
         val request = Request.Builder()
             .url(noteUrl(path))
-            .put(RequestBody.create(MARKDOWN, content.toByteArray(Charsets.UTF_8)))
+            .put(RequestBody.create(mediaTypeOf(path), content))
             .precondition(precondition)
             .build()
         return execute(request) { response ->
@@ -128,6 +132,7 @@ class NextcloudWebDavSync(
                 200, 201, 204 -> PutResult.Stored(etagOf(response))
                 404, 409 -> PutResult.FolderMissing
                 412 -> throw PreconditionFailedException(path)
+                423 -> throw NoteLockedException(path)
                 else -> throw statusError(response)
             }
         }
@@ -209,6 +214,8 @@ class NextcloudWebDavSync(
 
     private fun segmentsOf(url: HttpUrl): List<String> = url.pathSegments().filter { it.isNotEmpty() }
 
+    private fun mediaTypeOf(path: NotePath): MediaType = MEDIA_TYPES[path.extension.lowercase()] ?: OCTET_STREAM
+
     private fun etagOf(response: Response): Version? =
         (response.header("ETag") ?: response.header("OC-ETag"))?.takeIf { it.isNotEmpty() }?.let(::Version)
 
@@ -219,7 +226,23 @@ class NextcloudWebDavSync(
     }
 
     private companion object {
-        val MARKDOWN: MediaType = MediaType.get("text/markdown; charset=utf-8")
+        val MEDIA_TYPES: Map<String, MediaType> = mapOf(
+            "md" to "text/markdown; charset=utf-8",
+            "txt" to "text/plain; charset=utf-8",
+            "json" to "application/json",
+            "png" to "image/png",
+            "jpg" to "image/jpeg",
+            "jpeg" to "image/jpeg",
+            "gif" to "image/gif",
+            "webp" to "image/webp",
+            "svg" to "image/svg+xml",
+            "m4a" to "audio/mp4",
+            "mp3" to "audio/mpeg",
+            "ogg" to "audio/ogg",
+            "wav" to "audio/wav",
+            "pdf" to "application/pdf",
+        ).mapValues { MediaType.get(it.value) }
+        val OCTET_STREAM: MediaType = MediaType.get("application/octet-stream")
         val XML: MediaType = MediaType.get("application/xml; charset=utf-8")
         const val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8"?>""" +
             """<d:propfind xmlns:d="DAV:"><d:prop><d:getetag/><d:resourcetype/></d:prop></d:propfind>"""

@@ -81,7 +81,7 @@ class SyncEngine(
         private fun upload(path: NotePath, remotePrecondition: WritePrecondition) {
             val mine = local.readOrNull(path) ?: return // Deleted locally after listing: the next run sees it.
             val remoteVersion = try {
-                remote.write(path, mine.content, remotePrecondition)
+                remote.write(path, mine.bytes, remotePrecondition)
             } catch (e: PreconditionFailedException) {
                 return resolveConflict(path) // The remote changed after listing.
             }
@@ -90,7 +90,7 @@ class SyncEngine(
 
         private fun download(path: NotePath, localPrecondition: WritePrecondition) {
             val theirs = remote.readOrNull(path) ?: return // Deleted remotely after listing: the next run sees it.
-            val localVersion = local.write(path, theirs.content, localPrecondition)
+            val localVersion = local.write(path, theirs.bytes, localPrecondition)
             recordDownload(path, localVersion, theirs.version)
         }
 
@@ -121,17 +121,17 @@ class SyncEngine(
             val mine = local.readOrNull(path)
             val theirs = remote.readOrNull(path)
             if (mine == null || theirs == null) {
-                // One side vanished while we looked: whatever text is left is kept on both sides.
+                // One side vanished while we looked: whatever content is left is kept on both sides.
                 when {
                     mine != null -> recordUpload(
-                        path, mine.version, remote.write(path, mine.content, WritePrecondition.MustNotExist),
+                        path, mine.version, remote.write(path, mine.bytes, WritePrecondition.MustNotExist),
                     )
                     theirs != null -> recordDownload(
-                        path, local.write(path, theirs.content, WritePrecondition.MustNotExist), theirs.version,
+                        path, local.write(path, theirs.bytes, WritePrecondition.MustNotExist), theirs.version,
                     )
                     else -> state.remove(path)
                 }
-            } else if (mine.content == theirs.content) {
+            } else if (mine.sameContentAs(theirs)) {
                 state[path] = SyncBase(mine.version, theirs.version)
             } else {
                 keepBoth(path, mine, theirs)
@@ -139,17 +139,17 @@ class SyncEngine(
         }
 
         /**
-         * The remote text keeps the original name, because other devices already show it. The local text moves to
+         * The remote version keeps the original name, because other devices already show it. The local one moves to
          * a conflict copy, written locally first so it survives a failure in any later step.
          */
         private fun keepBoth(path: NotePath, mine: VersionedContent, theirs: VersionedContent) {
             val copy = conflictNamer.conflictPathFor(path) { it in knownPaths }
             knownPaths += copy
-            val copyLocalVersion = local.write(copy, mine.content, WritePrecondition.MustNotExist)
-            val copyRemoteVersion = remote.write(copy, mine.content, WritePrecondition.MustNotExist)
+            val copyLocalVersion = local.write(copy, mine.bytes, WritePrecondition.MustNotExist)
+            val copyRemoteVersion = remote.write(copy, mine.bytes, WritePrecondition.MustNotExist)
             state[copy] = SyncBase(copyLocalVersion, copyRemoteVersion)
 
-            val localVersion = local.write(path, theirs.content, WritePrecondition.MustMatch(mine.version))
+            val localVersion = local.write(path, theirs.bytes, WritePrecondition.MustMatch(mine.version))
             state[path] = SyncBase(localVersion, theirs.version)
             conflicts += SyncConflict(original = path, copy = copy)
         }

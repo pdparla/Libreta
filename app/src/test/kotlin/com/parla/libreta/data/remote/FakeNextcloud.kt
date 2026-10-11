@@ -5,6 +5,7 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okio.Buffer
 import java.util.TreeMap
 import java.util.TreeSet
 
@@ -17,7 +18,7 @@ class FakeNextcloud(
     private val password: String = "app-password",
 ) : Dispatcher() {
 
-    private data class StoredFile(val content: String, val etag: String)
+    private class StoredFile(val content: ByteArray, val etag: String)
 
     private val files = TreeMap<String, StoredFile>()
     private val folders = TreeSet(listOf(""))
@@ -29,6 +30,9 @@ class FakeNextcloud(
     /** Set to false to imitate a missing `Notes/` folder. */
     var notesFolderExists = true
 
+    /** Files open in an editor on the web: writing or deleting them answers 423 Locked. */
+    val locked = mutableSetOf<String>()
+
     val basePath = "/remote.php/dav/files/$user/Notes/"
 
     fun start(server: MockWebServer) {
@@ -37,7 +41,9 @@ class FakeNextcloud(
 
     // Test helpers acting "on the server", like another client would.
 
-    fun put(relative: String, content: String) {
+    fun put(relative: String, content: String) = putBytes(relative, content.toByteArray(Charsets.UTF_8))
+
+    fun putBytes(relative: String, content: ByteArray) {
         relative.substringBeforeLast('/', "").let { if (it.isNotEmpty()) addFolders(it) }
         files[relative] = StoredFile(content, newEtag())
     }
@@ -51,11 +57,13 @@ class FakeNextcloud(
         files.keys.removeAll { it.startsWith("$relative/") }
     }
 
-    fun contentOf(relative: String): String? = files[relative]?.content
+    fun contentOf(relative: String): String? = files[relative]?.content?.let { String(it, Charsets.UTF_8) }
+
+    fun bytesOf(relative: String): ByteArray? = files[relative]?.content
 
     fun etagOf(relative: String): String? = files[relative]?.etag
 
-    fun snapshot(): Map<String, String> = files.mapValues { it.value.content }
+    fun snapshot(): Map<String, String> = files.mapValues { String(it.value.content, Charsets.UTF_8) }
 
     fun hasFolder(relative: String) = relative in folders
 
@@ -69,7 +77,7 @@ class FakeNextcloud(
         val relative = segments.drop(baseSegments.size).joinToString("/")
         return when (request.method) {
             "PROPFIND" -> propfind(relative, request.getHeader("Depth"))
-            "GET" -> files[relative]?.let { MockResponse().setBody(it.content).setHeader("ETag", it.etag) } ?: status(404)
+            "GET" -> files[relative]?.let { MockResponse().setBody(Buffer().write(it.content)).setHeader("ETag", it.etag) } ?: status(404)
             "PUT" -> put(relative, request)
             "DELETE" -> delete(relative, request)
             "MKCOL" -> mkcol(relative)
@@ -98,9 +106,10 @@ class FakeNextcloud(
 
     private fun put(relative: String, request: RecordedRequest): MockResponse {
         if (parentOf(relative) !in folders) return status(409)
+        if (relative in locked) return status(423)
         val current = files[relative]
         if (!preconditionHolds(current, request)) return status(412)
-        val stored = StoredFile(request.body.readUtf8(), newEtag())
+        val stored = StoredFile(request.body.readByteArray(), newEtag())
         files[relative] = stored
         val response = status(if (current == null) 201 else 204)
         return if (sendEtagOnWrite) response.setHeader("ETag", stored.etag) else response
@@ -108,6 +117,7 @@ class FakeNextcloud(
 
     private fun delete(relative: String, request: RecordedRequest): MockResponse {
         val current = files[relative] ?: return status(404)
+        if (relative in locked) return status(423)
         if (!preconditionHolds(current, request)) return status(412)
         files.remove(relative)
         return status(204)

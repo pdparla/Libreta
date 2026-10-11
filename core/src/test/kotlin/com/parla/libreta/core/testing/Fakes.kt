@@ -16,7 +16,7 @@ import com.parla.libreta.core.sync.SyncStrategy
 import java.util.TreeMap
 
 /** In-memory [NoteRepository] that enforces preconditions; [mintVersion] decides how versions are generated. */
-open class InMemoryNoteRepository(private val mintVersion: (String) -> Version) : NoteRepository {
+open class InMemoryNoteRepository(private val mintVersion: (ByteArray) -> Version) : NoteRepository {
 
     private val notes = TreeMap<NotePath, VersionedContent>()
 
@@ -30,11 +30,11 @@ open class InMemoryNoteRepository(private val mintVersion: (String) -> Version) 
 
     override fun read(path: NotePath): VersionedContent = notes[path] ?: throw NoteNotFoundException(path)
 
-    override fun write(path: NotePath, content: String, precondition: WritePrecondition): Version {
+    override fun write(path: NotePath, content: ByteArray, precondition: WritePrecondition): Version {
         beforeMutation(path)
         check(path, precondition)
         val version = mintVersion(content)
-        notes[path] = VersionedContent(content, version)
+        notes[path] = VersionedContent(content.copyOf(), version)
         writes++
         return version
     }
@@ -52,7 +52,9 @@ open class InMemoryNoteRepository(private val mintVersion: (String) -> Version) 
 
     // Test helpers that bypass hooks and counters.
 
-    fun put(path: String, content: String) {
+    fun put(path: String, content: String) = putBytes(path, content.toByteArray(Charsets.UTF_8))
+
+    fun putBytes(path: String, content: ByteArray) {
         notes[NotePath(path)] = VersionedContent(content, mintVersion(content))
     }
 
@@ -60,13 +62,13 @@ open class InMemoryNoteRepository(private val mintVersion: (String) -> Version) 
         notes.remove(NotePath(path))
     }
 
-    fun contentOf(path: String): String? = notes[NotePath(path)]?.content
+    fun contentOf(path: String): String? = notes[NotePath(path)]?.text
 
-    fun snapshot(): Map<String, String> = notes.entries.associate { (path, note) -> path.value to note.content }
+    fun snapshot(): Map<String, String> = notes.entries.associate { (path, note) -> path.value to note.text }
 }
 
 /** Local side: versions are content hashes, like the file-based store will use. */
-class FakeLocal : InMemoryNoteRepository(ContentHash::of)
+class FakeLocal : InMemoryNoteRepository({ ContentHash.of(it) })
 
 /** Remote side: every write gets a fresh ETag, as on a WebDAV server. Can be switched offline. */
 class FakeRemote : InMemoryNoteRepository(EtagSequence()), SyncStrategy {
@@ -84,7 +86,7 @@ class FakeRemote : InMemoryNoteRepository(EtagSequence()), SyncStrategy {
 
     override fun read(path: NotePath): VersionedContent = guarded { super.read(path) }
 
-    override fun write(path: NotePath, content: String, precondition: WritePrecondition): Version =
+    override fun write(path: NotePath, content: ByteArray, precondition: WritePrecondition): Version =
         guarded { super.write(path, content, precondition) }
 
     override fun delete(path: NotePath, precondition: WritePrecondition) = guarded { super.delete(path, precondition) }
@@ -95,9 +97,9 @@ class FakeRemote : InMemoryNoteRepository(EtagSequence()), SyncStrategy {
     }
 }
 
-private class EtagSequence : (String) -> Version {
+private class EtagSequence : (ByteArray) -> Version {
     private var next = 0
-    override fun invoke(content: String) = Version("\"etag-${++next}\"")
+    override fun invoke(content: ByteArray) = Version("\"etag-${++next}\"")
 }
 
 class InMemorySyncStateStore : SyncStateStore {

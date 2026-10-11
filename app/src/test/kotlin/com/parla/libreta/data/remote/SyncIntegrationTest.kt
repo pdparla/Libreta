@@ -49,7 +49,7 @@ class SyncIntegrationTest {
     @After
     fun tearDown() = server.shutdown()
 
-    private fun localSnapshot(): Map<String, String> = local.list().associate { it.path.value to local.read(it.path).content }
+    private fun localSnapshot(): Map<String, String> = local.list().associate { it.path.value to local.read(it.path).text }
 
     private fun write(content: String, category: String = ""): NotePath =
         (notes.save(NoteDraft.blank(category).edit(content)) as SaveResult.Saved).note.path
@@ -71,7 +71,7 @@ class SyncIntegrationTest {
 
         assertTrue(report.isComplete)
         assertEquals("harina", nextcloud.contentOf("Recetas/Pan integral.md")!!.lines()[1])
-        assertEquals("plan", local.read(NotePath("Trabajo/Proyectos/Plan.md")).content)
+        assertEquals("plan", local.read(NotePath("Trabajo/Proyectos/Plan.md")).text)
         assertConverged()
     }
 
@@ -103,6 +103,24 @@ class SyncIntegrationTest {
         assertEquals(1, report.conflicts.size)
         assertEquals("Ideas\nfrom the phone", nextcloud.contentOf("Ideas.md"))
         assertEquals("Ideas\nfrom the tablet", nextcloud.contentOf("Ideas (conflicto 2026-10-11).md"))
+        assertConverged()
+    }
+
+    @Test
+    fun `a note open in an editor on the web waits, and the others still sync`() {
+        val ideas = write("Ideas\nv1")
+        engine.sync()
+        nextcloud.locked += ideas.value
+        notes.save(notes.open(ideas).edit("Ideas\nv2"))
+        write("Compra\npan")
+
+        val locked = engine.sync()
+
+        assertEquals(null, locked.abortedBy)
+        assertEquals(listOf(ideas), locked.failures.map { it.path })
+        assertEquals("Compra\npan", nextcloud.contentOf("Compra.md"))
+        nextcloud.locked.clear()
+        engine.sync()
         assertConverged()
     }
 

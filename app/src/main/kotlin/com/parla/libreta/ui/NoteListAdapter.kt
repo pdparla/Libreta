@@ -10,18 +10,23 @@ import android.widget.TextView
 import com.parla.libreta.R
 import com.parla.libreta.data.local.NoteSummary
 
+/** A note as the list shows it. */
+data class ListedNote(val summary: NoteSummary, val isInk: Boolean) {
+    val path get() = summary.path
+}
+
 class NoteListAdapter(private val context: Context) : BaseAdapter() {
 
-    private var notes: List<NoteSummary> = emptyList()
+    private var notes: List<ListedNote> = emptyList()
 
-    fun submit(notes: List<NoteSummary>) {
+    fun submit(notes: List<ListedNote>) {
         this.notes = notes
         notifyDataSetChanged()
     }
 
     override fun getCount(): Int = notes.size
 
-    override fun getItem(position: Int): NoteSummary = notes[position]
+    override fun getItem(position: Int): ListedNote = notes[position]
 
     override fun getItemId(position: Int): Long = position.toLong()
 
@@ -33,11 +38,15 @@ class NoteListAdapter(private val context: Context) : BaseAdapter() {
         return view
     }
 
-    private fun subtitleOf(note: NoteSummary): String {
+    private fun subtitleOf(note: ListedNote): String {
         val age = DateUtils.getRelativeTimeSpanString(
-            note.modifiedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE,
+            note.summary.modifiedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE,
         )
-        val category = note.path.category
-        return if (category.isEmpty()) age.toString() else context.getString(R.string.category_and_age, category, age)
+        val parts = listOfNotNull(
+            context.getString(R.string.ink_handwritten).takeIf { note.isInk },
+            note.path.category.ifEmpty { null },
+            age.toString(),
+        )
+        return parts.joinToString(" · ")
     }
 }

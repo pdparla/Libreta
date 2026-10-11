@@ -1,12 +1,14 @@
 package com.parla.libreta.data.remote
 
 import com.parla.libreta.core.note.NoteEntry
+import com.parla.libreta.core.note.NoteLockedException
 import com.parla.libreta.core.note.NoteNotFoundException
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.PreconditionFailedException
 import com.parla.libreta.core.note.StoreUnavailableException
 import com.parla.libreta.core.note.Version
 import com.parla.libreta.core.note.WritePrecondition
+import com.parla.libreta.core.note.writeText
 import okhttp3.Credentials
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockWebServer
@@ -109,6 +111,30 @@ class NextcloudWebDavSyncTest {
     }
 
     @Test
+    fun `lists attachments inside attachments folders`() {
+        nextcloud.put("Dibujos/Boceto.md", "![](.attachments.k3/pagina-1.png)")
+        nextcloud.putBytes("Dibujos/.attachments.k3/pagina-1.png", byteArrayOf(1, 2, 3))
+        nextcloud.put("Dibujos/.attachments.k3/libreta.ink.json", "{}")
+
+        assertEquals(
+            listOf("Dibujos/.attachments.k3/libreta.ink.json", "Dibujos/.attachments.k3/pagina-1.png", "Dibujos/Boceto.md"),
+            remote.list().map { it.path.value }.sorted(),
+        )
+    }
+
+    @Test
+    fun `attachments travel as bytes with their media type`() {
+        val png = byteArrayOf(0x89.toByte(), 0, -1, 10)
+
+        remote.write(NotePath("Dibujos/.attachments.k3/pagina-1.png"), png, WritePrecondition.MustNotExist)
+
+        assertTrue(png.contentEquals(nextcloud.bytesOf("Dibujos/.attachments.k3/pagina-1.png")))
+        val put = requests().last()
+        assertEquals("image/png", put.getHeader("Content-Type"))
+        assertTrue(png.contentEquals(remote.read(NotePath("Dibujos/.attachments.k3/pagina-1.png")).bytes))
+    }
+
+    @Test
     fun `a missing notes folder is an error, never an empty list`() {
         nextcloud.notesFolderExists = false
 
@@ -146,7 +172,7 @@ class NextcloudWebDavSyncTest {
 
         val note = remote.read(NotePath("Recetas/Pan integral.md"))
 
-        assertEquals("harina\nagua", note.content)
+        assertEquals("harina\nagua", note.text)
         assertEquals(Version(nextcloud.etagOf("Recetas/Pan integral.md")!!), note.version)
         assertEquals(nextcloud.basePath + "Recetas/Pan%20integral.md", server.takeRequest().path)
     }
@@ -160,7 +186,7 @@ class NextcloudWebDavSyncTest {
 
     @Test
     fun `creating sends If-None-Match and returns the new ETag`() {
-        val version = remote.write(NotePath("Ideas.md"), "ideas ñ", WritePrecondition.MustNotExist)
+        val version = remote.writeText(NotePath("Ideas.md"), "ideas ñ", WritePrecondition.MustNotExist)
 
         assertEquals("ideas ñ", nextcloud.contentOf("Ideas.md"))
         assertEquals(Version(nextcloud.etagOf("Ideas.md")!!), version)
@@ -173,7 +199,7 @@ class NextcloudWebDavSyncTest {
     fun `creating over an existing note is rejected by the server`() {
         nextcloud.put("Ideas.md", "theirs")
 
-        assertThrows<PreconditionFailedException> { remote.write(NotePath("Ideas.md"), "mine", WritePrecondition.MustNotExist) }
+        assertThrows<PreconditionFailedException> { remote.writeText(NotePath("Ideas.md"), "mine", WritePrecondition.MustNotExist) }
         assertEquals("theirs", nextcloud.contentOf("Ideas.md"))
     }
 
@@ -182,10 +208,21 @@ class NextcloudWebDavSyncTest {
         nextcloud.put("Ideas.md", "v1")
         val etag = nextcloud.etagOf("Ideas.md")!!
 
-        remote.write(NotePath("Ideas.md"), "v2", WritePrecondition.MustMatch(Version(etag)))
+        remote.writeText(NotePath("Ideas.md"), "v2", WritePrecondition.MustMatch(Version(etag)))
 
         assertEquals("v2", nextcloud.contentOf("Ideas.md"))
         assertEquals(etag, server.takeRequest().getHeader("If-Match"))
+    }
+
+    @Test
+    fun `a note locked by an editor on the web is reported as locked, not as an unavailable server`() {
+        nextcloud.put("Ideas.md", "v1")
+        val etag = Version(nextcloud.etagOf("Ideas.md")!!)
+        nextcloud.locked += "Ideas.md"
+
+        assertThrows<NoteLockedException> { remote.writeText(NotePath("Ideas.md"), "v2", WritePrecondition.MustMatch(etag)) }
+        assertThrows<NoteLockedException> { remote.delete(NotePath("Ideas.md"), WritePrecondition.MustMatch(etag)) }
+        assertEquals("v1", nextcloud.contentOf("Ideas.md"))
     }
 
     @Test
@@ -195,14 +232,14 @@ class NextcloudWebDavSyncTest {
         nextcloud.put("Ideas.md", "v2 from the phone")
 
         assertThrows<PreconditionFailedException> {
-            remote.write(NotePath("Ideas.md"), "v2 from the tablet", WritePrecondition.MustMatch(Version(stale)))
+            remote.writeText(NotePath("Ideas.md"), "v2 from the tablet", WritePrecondition.MustMatch(Version(stale)))
         }
         assertEquals("v2 from the phone", nextcloud.contentOf("Ideas.md"))
     }
 
     @Test
     fun `writing into a new category creates every missing folder level`() {
-        remote.write(NotePath("Trabajo/Proyectos/Plan.md"), "plan", WritePrecondition.MustNotExist)
+        remote.writeText(NotePath("Trabajo/Proyectos/Plan.md"), "plan", WritePrecondition.MustNotExist)
 
         assertTrue(nextcloud.hasFolder("Trabajo") && nextcloud.hasFolder("Trabajo/Proyectos"))
         assertEquals(listOf("MKCOL", "MKCOL", "PUT"), requests().map { it.method })
@@ -214,7 +251,7 @@ class NextcloudWebDavSyncTest {
         remote.list()
         requests()
 
-        remote.write(NotePath("Recetas/Flan.md"), "flan", WritePrecondition.MustNotExist)
+        remote.writeText(NotePath("Recetas/Flan.md"), "flan", WritePrecondition.MustNotExist)
 
         assertEquals(listOf("PUT"), requests().map { it.method })
     }
@@ -225,7 +262,7 @@ class NextcloudWebDavSyncTest {
         remote.list()
         nextcloud.removeFolder("Recetas")
 
-        remote.write(NotePath("Recetas/Flan.md"), "flan", WritePrecondition.MustNotExist)
+        remote.writeText(NotePath("Recetas/Flan.md"), "flan", WritePrecondition.MustNotExist)
 
         assertEquals("flan", nextcloud.contentOf("Recetas/Flan.md"))
     }
@@ -234,7 +271,7 @@ class NextcloudWebDavSyncTest {
     fun `falls back to PROPFIND when the server sends no ETag on PUT`() {
         nextcloud.sendEtagOnWrite = false
 
-        val version = remote.write(NotePath("Ideas.md"), "ideas", WritePrecondition.MustNotExist)
+        val version = remote.writeText(NotePath("Ideas.md"), "ideas", WritePrecondition.MustNotExist)
 
         assertEquals(Version(nextcloud.etagOf("Ideas.md")!!), version)
     }

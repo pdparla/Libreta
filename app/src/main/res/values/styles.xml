@@ -3,6 +3,42 @@
     <!-- Holo: the newest system theme on API 19 (Material needs API 21). -->
     <style name="AppTheme" parent="@android:style/Theme.Holo.Light.DarkActionBar" />
 
+    <style name="InkToolbar">
+        <item name="android:background">#FFF2F2F2</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+    </style>
+
+    <style name="InkTool">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_marginStart">2dp</item>
+        <item name="android:layout_marginEnd">2dp</item>
+        <item name="android:background">@drawable/tool_background</item>
+        <item name="android:scaleType">center</item>
+    </style>
+
+    <style name="InkSwatch">
+        <item name="android:layout_width">32dp</item>
+        <item name="android:layout_height">32dp</item>
+        <item name="android:layout_marginStart">8dp</item>
+        <item name="android:layout_marginEnd">4dp</item>
+    </style>
+
+    <style name="InkWidth">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_marginStart">2dp</item>
+        <item name="android:layout_marginEnd">2dp</item>
+        <item name="android:background">@drawable/tool_background</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
+    </style>
+
     <style name="SettingsLabel">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>

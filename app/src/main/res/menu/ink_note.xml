@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_rename"
+        android:showAsAction="never"
+        android:title="@string/action_rename" />
+    <item
+        android:id="@+id/action_category"
+        android:showAsAction="never"
+        android:title="@string/action_category" />
+    <item
+        android:id="@+id/action_paper"
+        android:showAsAction="never"
+        android:title="@string/action_paper" />
+    <item
+        android:id="@+id/action_edit_text"
+        android:showAsAction="never"
+        android:title="@string/action_edit_text" />
+    <item
+        android:id="@+id/action_delete"
+        android:icon="@android:drawable/ic_menu_delete"
+        android:showAsAction="always"
+        android:title="@string/action_delete" />
+</menu>

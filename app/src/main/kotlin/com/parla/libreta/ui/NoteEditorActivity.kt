@@ -5,7 +5,6 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
 import android.view.WindowManager
@@ -118,37 +117,8 @@ class NoteEditorActivity : Activity() {
         showTitle()
     }
 
-    /** Existing categories, plus "no category" and "new category…". The move happens on the next save. */
-    private fun chooseCategory() {
-        // A directory walk without reading any note: fast enough for the main thread.
-        val categories = container.notes.summaries().map { it.path.category }.filter { it.isNotEmpty() }.distinct().sorted()
-        val labels = listOf(getString(R.string.category_none)) + categories + getString(R.string.category_new)
-        AlertDialog.Builder(this)
-            .setTitle(R.string.action_category)
-            .setItems(labels.toTypedArray()) { _, which ->
-                when (which) {
-                    0 -> moveTo("")
-                    labels.lastIndex -> askNewCategory()
-                    else -> moveTo(categories[which - 1])
-                }
-            }
-            .show()
-    }
-
-    private fun askNewCategory() {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            hint = getString(R.string.category_hint)
-            setText(draft.category)
-            setSelection(text.length)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.category_new)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ -> moveTo(input.text.toString()) }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
+    /** The move to the chosen category happens on the next save. */
+    private fun chooseCategory() = CategoryPicker.show(this, draft.category, ::moveTo)
 
     private fun moveTo(category: String) {
         draft = draft.moveTo(category)

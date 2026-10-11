@@ -190,6 +190,45 @@ class NoteServiceTest {
         assertEquals("Trabajo", next.category)
     }
 
+    // Attachments
+
+    private val withImage = "Pan\n![Página 1](.attachments.k3/pagina-1.png)\n[libreta-ink]: .attachments.k3/libreta.ink.json"
+
+    @Test
+    fun `moving to another category takes the attachments along`() {
+        local.put("Recetas/Pan.md", withImage)
+        local.putBytes("Recetas/.attachments.k3/pagina-1.png", byteArrayOf(1, 2, 3))
+        local.put("Recetas/.attachments.k3/libreta.ink.json", "{}")
+
+        saved(service.save(service.open(NotePath("Recetas/Pan.md")).moveTo("Panadería")))
+
+        assertEquals(
+            setOf("Panadería/Pan.md", "Panadería/.attachments.k3/pagina-1.png", "Panadería/.attachments.k3/libreta.ink.json"),
+            local.snapshot().keys,
+        )
+    }
+
+    @Test
+    fun `renaming within the category leaves the attachments where they are`() {
+        local.put("Recetas/Pan.md", withImage)
+        local.putBytes("Recetas/.attachments.k3/pagina-1.png", byteArrayOf(1, 2, 3))
+
+        saved(service.save(service.open(NotePath("Recetas/Pan.md")).edit(withImage.replaceFirst("Pan", "Pan casero"))))
+
+        assertEquals(setOf("Recetas/Pan casero.md", "Recetas/.attachments.k3/pagina-1.png"), local.snapshot().keys)
+    }
+
+    @Test
+    fun `deleting a note deletes its attachments only`() {
+        local.put("Pan.md", withImage)
+        local.putBytes(".attachments.k3/pagina-1.png", byteArrayOf(1))
+        local.putBytes(".attachments.zz/otra.png", byteArrayOf(2))
+
+        service.delete(NotePath("Pan.md"))
+
+        assertEquals(setOf(".attachments.zz/otra.png"), local.snapshot().keys)
+    }
+
     @Test
     fun `delete removes the note and tolerates a missing one`() {
         local.put("Ideas.md", "Ideas")

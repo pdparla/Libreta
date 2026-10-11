@@ -6,6 +6,11 @@
         android:showAsAction="always"
         android:title="@string/action_new_note" />
     <item
+        android:id="@+id/action_new_ink"
+        android:icon="@drawable/ic_new_ink"
+        android:showAsAction="always"
+        android:title="@string/action_new_ink" />
+    <item
         android:id="@+id/action_sync"
         android:icon="@android:drawable/ic_popup_sync"
         android:showAsAction="always"

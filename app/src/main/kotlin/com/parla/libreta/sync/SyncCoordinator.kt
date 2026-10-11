@@ -9,6 +9,7 @@ import com.parla.libreta.core.sync.SyncEngine
 import com.parla.libreta.core.sync.SyncReport
 import com.parla.libreta.core.sync.SyncStrategy
 import com.parla.libreta.data.local.FileSyncStateStore
+import com.parla.libreta.data.remote.HttpStatusException
 import com.parla.libreta.data.remote.ServerConfig
 import com.parla.libreta.data.settings.SettingsStore
 import java.util.concurrent.CopyOnWriteArrayList
@@ -85,10 +86,16 @@ class SyncCoordinator(
         is SyncStatus.Finished -> with(outcome.report) {
             "sync ${millis}ms: up=${uploaded.size} down=${downloaded.size} delLocal=${deletedLocally.size} " +
                 "delRemote=${deletedRemotely.size} conflicts=${conflicts.size} failures=${failures.size}" +
-                (abortedBy?.let { " aborted=${it.javaClass.simpleName}: ${it.cause?.javaClass?.simpleName}" } ?: "")
+                (abortedBy?.let { " aborted=${it.javaClass.simpleName}: ${causeOf(it)}" } ?: "")
         }
         is SyncStatus.Failed -> "sync ${millis}ms failed: ${outcome.error.javaClass.simpleName}"
         else -> "sync: $outcome"
+    }
+
+    /** The cause's type, and for HTTP errors the method and status, which name no note. */
+    private fun causeOf(error: Throwable): String = when (val cause = error.cause) {
+        is HttpStatusException -> "HTTP ${cause.code} on ${cause.method}"
+        else -> cause?.javaClass?.simpleName.toString()
     }
 
     private companion object {

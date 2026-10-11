@@ -16,7 +16,8 @@ import android.widget.TextView
 import android.widget.Toast
 import com.parla.libreta.R
 import com.parla.libreta.container
-import com.parla.libreta.data.local.NoteSummary
+import com.parla.libreta.core.note.NoteStoreException
+import com.parla.libreta.ui.ink.InkNoteActivity
 import com.parla.libreta.sync.SyncService
 import com.parla.libreta.sync.SyncStatus
 
@@ -29,7 +30,7 @@ class NoteListActivity : Activity() {
     private lateinit var categoryAdapter: ArrayAdapter<String>
     private var filters: List<CategoryFilter> = listOf(CategoryFilter.All)
     private var filter: CategoryFilter = CategoryFilter.All
-    private var allNotes: List<NoteSummary> = emptyList()
+    private var allNotes: List<ListedNote> = emptyList()
     private val syncListener: (SyncStatus) -> Unit = ::onSyncStatus
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +45,7 @@ class NoteListActivity : Activity() {
         list.adapter = adapter
         list.emptyView = findViewById(R.id.empty)
         list.setOnItemClickListener { _, _, position, _ ->
-            startActivity(NoteEditorActivity.intent(this, adapter.getItem(position).path))
+            open(adapter.getItem(position))
         }
         list.setOnItemLongClickListener { _, _, position, _ ->
             confirmDelete(adapter.getItem(position))
@@ -101,6 +102,10 @@ class NoteListActivity : Activity() {
             startActivity(NoteEditorActivity.intentForNew(this, filter.categoryForNewNotes))
             true
         }
+        R.id.action_new_ink -> {
+            startActivity(InkNoteActivity.intentForNew(this, filter.categoryForNewNotes))
+            true
+        }
         R.id.action_sync -> {
             SyncService.request(this)
             true
@@ -113,7 +118,7 @@ class NoteListActivity : Activity() {
     }
 
     private fun reload() {
-        container.background.execute({ container.notes.summaries().sortedByDescending { it.modifiedAt } }) { result ->
+        container.background.execute({ listNotes() }) { result ->
             if (isDestroyed) return@execute
             result
                 .onSuccess { notes ->
@@ -144,7 +149,7 @@ class NoteListActivity : Activity() {
     }
 
     private fun applyFilter() {
-        adapter.submit(allNotes.filter(filter::matches))
+        adapter.submit(allNotes.filter { filter.matches(it.summary) })
     }
 
     private fun onSyncStatus(status: SyncStatus) {
@@ -165,7 +170,24 @@ class NoteListActivity : Activity() {
         statusView.visibility = if (text == null) View.GONE else View.VISIBLE
     }
 
-    private fun confirmDelete(note: NoteSummary) {
+    /** Every note, newest first, marking the handwritten ones (their Markdown is a few hundred bytes to read). */
+    private fun listNotes(): List<ListedNote> =
+        container.notes.summaries().sortedByDescending { it.modifiedAt }.map { summary ->
+            val isInk = try {
+                container.inkNotes.isInkNote(summary.path, container.notes.read(summary.path).text, container.notes::exists)
+            } catch (e: NoteStoreException) {
+                false
+            }
+            ListedNote(summary, isInk)
+        }
+
+    private fun open(note: ListedNote) {
+        startActivity(
+            if (note.isInk) InkNoteActivity.intent(this, note.path) else NoteEditorActivity.intent(this, note.path),
+        )
+    }
+
+    private fun confirmDelete(note: ListedNote) {
         AlertDialog.Builder(this)
             .setMessage(getString(R.string.delete_confirm, note.path.baseName))
             .setPositiveButton(R.string.action_delete) { _, _ ->
