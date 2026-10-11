@@ -1,0 +1,22 @@
+# Dictation for Libreta. Runs in the server's rootless Docker; set up with setup.sh (docs/07-ia.md, part 2).
+name: libreta-stt
+services:
+  stt:
+    build: .
+    image: libreta-stt
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    environment:
+      STT_MODEL: ${STT_MODEL:-large-v3-turbo}
+      STT_THREADS: ${STT_THREADS:-12}
+      STT_LANGUAGE: es
+    volumes:
+      - ./tls:/tls:ro
+      - ./token:/run/secrets/stt-token:ro
+      - models:/cache/huggingface
+volumes:
+  # Whisper models (large-v3-turbo is 1.6 GB), kept across rebuilds.
+  models:
+    name: libreta-stt-hf
+    external: true

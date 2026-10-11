@@ -15,6 +15,8 @@ import com.parla.libreta.data.ai.ChatGptAuth
 import com.parla.libreta.data.ai.ChatGptSessionStore
 import com.parla.libreta.data.ai.ResponsesClient
 import com.parla.libreta.data.local.FileNoteRepository
+import com.parla.libreta.data.stt.SttClient
+import com.parla.libreta.data.stt.SttSettingsStore
 import com.parla.libreta.data.local.FileSyncStateStore
 import com.parla.libreta.data.remote.NextcloudClientFactory
 import com.parla.libreta.data.remote.Tls
@@ -89,6 +91,11 @@ class AppContainer(context: Context) {
     val ai: AiAssistant by lazy {
         AiAssistant(ResponsesClient(openAiHttp, chatGpt))
     }
+
+    /** Dictation (docs/07-ia.md, part 2): the service's address, token and certificate, from scripts/stt-pair.sh. */
+    val sttSettings = SttSettingsStore(File(context.filesDir, "stt.json"))
+    val stt = SttClient(sttSettings, provider = { Conscrypt.newProvider() })
+    val sttBackground = BackgroundRunner(Executors.newSingleThreadExecutor())
 
     val sync = SyncCoordinator(
         notes = notes,

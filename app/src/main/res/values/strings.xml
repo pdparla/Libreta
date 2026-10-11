@@ -90,7 +90,19 @@
     <string name="ai_error_failed">la IA no pudo responder (%1$s)</string>
     <string name="ai_error">No se pudo: %1$s</string>
     <string name="ai_import_ok">Sesión de ChatGPT guardada: %1$s</string>
-    <string name="ai_import_failed">No se pudo importar la sesión de ChatGPT.</string>
+    <string name="stt_title">Dictado</string>
+    <string name="action_dictate">Dictar</string>
+    <string name="stt_not_configured">El dictado no está configurado. Desde el PC, con la tablet conectada por USB:\n\nscripts/stt-pair.sh\n\n(ver docs/07-ia.md)</string>
+    <string name="stt_recording">Grabando… %1$s de %2$s\n\nPulsa «Parar» al terminar.</string>
+    <string name="stt_stop">Parar</string>
+    <string name="stt_transcribing">Transcribiendo…</string>
+    <string name="stt_nothing">No se ha entendido nada en la grabación.</string>
+    <string name="stt_failed">No se pudo transcribir: %1$s</string>
+    <string name="stt_error_token">el servicio de dictado no acepta el token; vuelve a emparejar con scripts/stt-pair.sh</string>
+    <string name="stt_no_microphone">No se pudo usar el micrófono.</string>
+    <string name="stt_dictated_title">Texto dictado</string>
+    <string name="stt_import_ok">Dictado configurado: %1$s</string>
+    <string name="import_failed">No se pudo importar lo enviado desde el PC.</string>
 
     <!-- Sync -->
     <string name="sync_not_configured">Sin sincronizar: configura el servidor en Ajustes.</string>
@@ -139,6 +151,12 @@
     <string name="settings_android">Ajustes de Android</string>
     <string name="settings_invalid">La dirección debe empezar por https:// y el usuario no puede estar vacío.</string>
     <string name="settings_incomplete">Faltan datos: dirección https://, usuario y contraseña de aplicación.</string>
+    <string name="settings_stt">Dictado</string>
+    <string name="settings_stt_configured">Servicio: %1$s</string>
+    <string name="settings_stt_test">Probar dictado</string>
+    <string name="settings_stt_testing">Probando…</string>
+    <string name="settings_stt_ok">Conexión correcta con el servicio de dictado. Modelo: %1$s.</string>
+    <string name="settings_stt_failed">Sin conexión con el servicio de dictado: %1$s</string>
     <string name="settings_ai">IA (ChatGPT)</string>
     <string name="settings_ai_signed_in">Sesión iniciada como %1$s. Conversar: %2$s (razonamiento %3$s). Convertir a texto: %4$s (razonamiento %5$s).</string>
     <string name="settings_ai_signed_out">Sin sesión. Para usar la IA, inicia sesión con ChatGPT desde el PC con la tablet conectada por USB: scripts/chatgpt-login.sh (ver docs/07-ia.md).</string>

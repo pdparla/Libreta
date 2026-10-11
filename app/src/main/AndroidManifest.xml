@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Dictation (docs/07-ia.md, part 2). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".LibretaApp"
@@ -66,9 +68,9 @@
             android:windowSoftInputMode="adjustResize|stateHidden"
             tools:ignore="DiscouragedApi,LockedOrientationActivity" />
 
-        <!-- Started by scripts/chatgpt-login.sh with am start, hence exported; it only reads what adb pushed. -->
+        <!-- Started by scripts/chatgpt-login.sh and stt-pair.sh with am start, hence exported; it only reads what adb pushed. -->
         <activity
-            android:name=".ui.ai.ChatGptImportActivity"
+            android:name=".ui.AdbImportActivity"
             android:excludeFromRecents="true"
             android:exported="true"
             android:noHistory="true"

@@ -31,6 +31,7 @@ import com.parla.libreta.ui.CategoryPicker
 import com.parla.libreta.ui.NoteEditorActivity
 import com.parla.libreta.ui.ai.AiChatActivity
 import com.parla.libreta.ui.ai.AiMessages
+import com.parla.libreta.ui.dictation.Dictation
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -143,6 +144,7 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; inkView.selection = null; afterEdit() }
         findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); inkView.selection = null; afterEdit() }
         findViewById<View>(R.id.ink_convert).setOnClickListener { convertSelection() }
+        findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
         findViewById<View>(R.id.ink_chat).setOnClickListener { chatAboutSelection() }
 
         colorView = findViewById(R.id.ink_color)
@@ -256,14 +258,14 @@ class InkNoteActivity : Activity() {
             if (handle.isCancelled) return@execute
             result
                 .onSuccess { text ->
-                    if (text.isBlank()) Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show() else showRecognized(text)
+                    if (text.isBlank()) Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show() else showRecognized(text, R.string.ai_convert_title)
                 }
                 .onFailure { Toast.makeText(this, AiMessages.failure(this, it), Toast.LENGTH_LONG).show() }
         }
     }
 
-    /** The recognised text, editable before it goes into the note. */
-    private fun showRecognized(text: String) {
+    /** Recognised or dictated text, editable before it goes into the note. */
+    private fun showRecognized(text: String, title: Int) {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             gravity = Gravity.TOP or Gravity.START
@@ -271,12 +273,12 @@ class InkNoteActivity : Activity() {
             setText(text)
         }
         AlertDialog.Builder(this)
-            .setTitle(R.string.ai_convert_title)
+            .setTitle(title)
             .setView(input)
             .setPositiveButton(R.string.ai_add_to_note) { _, _ -> addToNote(input.text.toString()) }
             .setNeutralButton(R.string.ai_copy) { _, _ ->
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.ai_convert_title), input.text.toString()))
+                clipboard.setPrimaryClip(ClipData.newPlainText(getString(title), input.text.toString()))
                 Toast.makeText(this, R.string.ai_copied, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(android.R.string.cancel, null)

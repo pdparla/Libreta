@@ -21,6 +21,7 @@ import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.core.note.SaveResult
 import com.parla.libreta.core.note.Version
+import com.parla.libreta.ui.dictation.Dictation
 import io.noties.markwon.editor.MarkwonEditorTextWatcher
 import java.io.File
 
@@ -93,6 +94,10 @@ class NoteEditorActivity : Activity() {
             finish()
             true
         }
+        R.id.action_dictate -> {
+            Dictation.start(this, ::insertDictated)
+            true
+        }
         R.id.action_toggle_mode -> {
             if (editing) save()
             editing = !editing
@@ -151,6 +156,8 @@ class NoteEditorActivity : Activity() {
         val keyboard = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         if (editing) {
             editor.requestFocus()
+            // Coming from the formatted view nobody chose a place: continue at the end, not before the title.
+            if (!editor.hasSelection() && editor.selectionStart <= 0) editor.setSelection(editor.length())
             keyboard.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT)
         } else {
             keyboard.hideSoftInputFromWindow(editor.windowToken, 0)
@@ -159,6 +166,29 @@ class NoteEditorActivity : Activity() {
             Markdown.forNote(this, folder).setMarkdown(preview, editor.text.toString())
         }
         invalidateOptionsMenu()
+    }
+
+    /**
+     * Puts dictated text at the cursor: at the end of the note it starts a new paragraph, inside a line it is
+     * separated from the text before by a space.
+     */
+    private fun insertDictated(text: String) {
+        if (!editing) {
+            editing = true
+            showMode()
+        }
+        val content = editor.text
+        val start = minOf(editor.selectionStart, editor.selectionEnd).takeIf { it >= 0 } ?: content.length
+        val end = maxOf(editor.selectionStart, editor.selectionEnd).takeIf { it >= 0 } ?: content.length
+        val before = content.subSequence(0, start)
+        val separator = when {
+            before.isEmpty() || before.endsWith("\n\n") -> ""
+            end < content.length -> if (before.last().isWhitespace()) "" else " "
+            before.endsWith("\n") -> "\n"
+            else -> "\n\n"
+        }
+        content.replace(start, end, separator + text)
+        editor.setSelection(start + separator.length + text.length)
     }
 
     /** The move to the chosen category happens on the next save. */

@@ -46,6 +46,12 @@
             android:contentDescription="@string/ink_redo"
             android:src="@drawable/ic_ink_redo" />
 
+        <ImageButton
+            android:id="@+id/ink_dictate"
+            style="@style/InkTool"
+            android:contentDescription="@string/action_dictate"
+            android:src="@drawable/ic_mic" />
+
         <View
             android:layout_width="0dp"
             android:layout_height="match_parent"

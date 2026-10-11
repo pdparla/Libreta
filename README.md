@@ -12,7 +12,7 @@ El diagnóstico de la tablet y del servidor está en [`docs/00-diagnostico.md`](
 | Módulo | Tipo | Contenido |
 |---|---|---|
 | `:core` | Kotlin/JVM, sin Android | Dominio (`NotePath`, `NoteRepository`, `NoteService`) y motor de sincronización. Se prueba en la JVM. |
-| `:app` | Aplicación Android (minSdk 19) | Raíz de composición (`AppContainer`), adaptadores (`data.local`: ficheros `.md` y estado de sincronización; `data.remote`: WebDAV y TLS; `data.ai`: sesión de ChatGPT y Responses API; `data.settings`), orquestación de la sincronización (`sync`) y UI con Views clásicas (`ui`). |
+| `:app` | Aplicación Android (minSdk 19) | Raíz de composición (`AppContainer`), adaptadores (`data.local`: ficheros `.md` y estado de sincronización; `data.remote`: WebDAV y TLS; `data.ai`: sesión de ChatGPT y Responses API; `data.stt`: grabación WAV y servicio de dictado; `data.settings`), orquestación de la sincronización (`sync`) y UI con Views clásicas (`ui`). |
 
 Los adaptadores van en `:app` y no en módulos JVM aparte: son Java puro, así que sus tests corren en la JVM
 (`testDebugUnitTest`), y al estar en `:app` Android lint comprueba que no usen APIs posteriores a API 19.
@@ -114,6 +114,10 @@ son `gpt-6-luna` para convertir y `gpt-6.1-sol` para conversar, con razonamiento
 «Sign in with ChatGPT» para apps de código abierto; la tablet habla directamente con `api.openai.com`. La sesión
 se inicia en el navegador del PC con `scripts/chatgpt-login.sh`, que la pasa a la tablet por adb. Diseño, tokens,
 TLS y pruebas: [`docs/07-ia.md`](docs/07-ia.md).
+
+**Dictado:** un micrófono en el editor, en la nota a mano y en el chat graba hasta 5 minutos y lo transcribe
+faster-whisper (`large-v3-turbo`) en el servidor, en un contenedor (`server/stt`, desplegado en
+`/srv/docker/libreta/stt`) con HTTPS y token propios. `scripts/stt-pair.sh` empareja la tablet.
 
 ### Libreta como pantalla de inicio
 

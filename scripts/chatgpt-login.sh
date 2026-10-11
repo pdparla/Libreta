@@ -14,7 +14,7 @@ JAVA=${JAVA:-java}
 ADB=${ADB:-adb}
 HERE=$(cd "$(dirname "$0")" && pwd)
 REMOTE=/data/local/tmp/libreta-chatgpt.json
-TAG=LibretaAI
+TAG=LibretaImport
 
 # $2 as the path that binary $1 understands: Windows programs need Windows paths, from Git Bash or from WSL.
 native() {
@@ -43,10 +43,10 @@ chmod 600 "$SESSION"
 "$ADB" push "$(native "$ADB" "$SESSION")" "$REMOTE" > /dev/null 2>&1 || { echo "No se pudo copiar la sesión a la tablet." >&2; exit 1; }
 "$ADB" shell chmod 644 "$REMOTE" < /dev/null
 "$ADB" logcat -c < /dev/null
-"$ADB" shell am start -n com.parla.libreta/.ui.ai.ChatGptImportActivity < /dev/null > /dev/null
+"$ADB" shell am start -n com.parla.libreta/.ui.AdbImportActivity < /dev/null > /dev/null
 for _ in $(seq 1 20); do
-  answer=$("$ADB" logcat -d -s "$TAG:*" < /dev/null | tr -d '\r' | grep -E "session (imported|import failed)" | tail -1 || true)
-  if [[ "$answer" == *"session imported"* ]]; then
+  answer=$("$ADB" logcat -d -s "$TAG:*" < /dev/null | tr -d '\r' | grep -E "chatgpt session (imported|import failed)" | tail -1 || true)
+  if [[ "$answer" == *"chatgpt session imported"* ]]; then
     echo "Sesión guardada en la tablet."
     exit 0
   elif [[ -n "$answer" ]]; then

@@ -71,6 +71,31 @@ class SettingsActivity : Activity() {
         }
         findViewById<Button>(R.id.settings_ai_sign_out).setOnClickListener { confirmSignOut() }
         showAiSession(null)
+        findViewById<Button>(R.id.settings_stt_test).setOnClickListener { testDictation() }
+        showDictation(null)
+    }
+
+    /** Where dictation goes, after [message] if there is one (the outcome of a test). */
+    private fun showDictation(message: String?) {
+        val settings = container.sttSettings.load()
+        val state = if (settings != null) getString(R.string.settings_stt_configured, settings.url) else getString(R.string.stt_not_configured)
+        findViewById<TextView>(R.id.settings_stt_status).text = listOfNotNull(message, state).joinToString("\n\n")
+        findViewById<Button>(R.id.settings_stt_test).isEnabled = settings != null
+    }
+
+    private fun testDictation() {
+        val button = findViewById<Button>(R.id.settings_stt_test)
+        button.isEnabled = false
+        findViewById<TextView>(R.id.settings_stt_status).setText(R.string.settings_stt_testing)
+        container.sttBackground.execute({ container.stt.health() }) { result ->
+            if (isDestroyed) return@execute
+            showDictation(
+                result.fold(
+                    { getString(R.string.settings_stt_ok, it) },
+                    { getString(R.string.settings_stt_failed, SyncMessages.describe(this, it)) },
+                ),
+            )
+        }
     }
 
     /** The session state, after [message] if there is one (the outcome of signing out). */

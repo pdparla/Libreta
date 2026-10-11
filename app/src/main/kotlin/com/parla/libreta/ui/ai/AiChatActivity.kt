@@ -29,6 +29,7 @@ import com.parla.libreta.data.ai.AiAssistant
 import com.parla.libreta.data.ai.AiConversation
 import com.parla.libreta.data.ai.TurnHandle
 import com.parla.libreta.ui.Markdown
+import com.parla.libreta.ui.dictation.Dictation
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -75,6 +76,14 @@ class AiChatActivity : Activity() {
         if (image != null) imageView.setImageBitmap(BitmapFactory.decodeByteArray(image, 0, image.size)) else imageView.visibility = View.GONE
 
         send.setOnClickListener { if (turn != null) turn?.cancel() else send() }
+        findViewById<View>(R.id.ai_dictate).setOnClickListener {
+            // Into the field, to check before sending.
+            Dictation.start(this) { text ->
+                val current = input.text.toString().trimEnd()
+                input.setText(if (current.isEmpty()) text else "$current $text")
+                input.setSelection(input.text.length)
+            }
+        }
     }
 
     override fun onDestroy() {
