@@ -24,7 +24,7 @@ conversación; el servidor no tiene GPU.
 |---|---|---|---|
 | 8 | [Editar lo seleccionado](#fase-8-editar-lo-seleccionado) — **hecha**, ver [`08-seleccion.md`](08-seleccion.md) | S–M | — |
 | 9 | [Zoom en el lienzo](#fase-9-zoom-en-el-lienzo) — **hecha**, ver [`09-zoom.md`](09-zoom.md) | M | — |
-| 10 | [Vertical y horizontal](#fase-10-vertical-y-horizontal) | S–M | 9 (desplazarse por la página) |
+| 10 | [Vertical y horizontal](#fase-10-vertical-y-horizontal) — **hecha**, ver [`10-orientacion.md`](10-orientacion.md) | S–M | 9 (desplazarse por la página) |
 | 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) | M | — |
 | 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) | M | 11 |
 | 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) | M | 8 (selección), 11 (transcripción) |
@@ -102,6 +102,9 @@ ampliada y a 1× se ve proporcionado; la pluma, el borrador y la selección acie
 páginas siguen siendo legibles en Nextcloud; probado con el lápiz en la tablet.
 
 ## Fase 10: vertical y horizontal
+
+**Hecha** (2026-10-12): [`docs/10-orientacion.md`](10-orientacion.md). Lo de abajo es el plan original; la barra
+se quedó en dos filas (ver el documento).
 
 **Cómo está hoy** (comprobado en la tablet el 2026-10-11, forzando la horizontal): la lista, el editor de texto y
 los ajustes giran bien. **La nota a mano y el chat con la IA están fijados en vertical** (`screenOrientation="portrait"`

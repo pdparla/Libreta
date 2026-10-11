@@ -239,6 +239,16 @@ class InkEditorTest {
         assertEquals(0, editor.page.strokes.size)
         assertFalse(editor.canUndo)
     }
+    @Test
+    fun `a page of another size can be added, and saved with it`() {
+        val editor = InkEditor(InkDocument.blank(600, 851, Paper.GRID))
+
+        editor.addPage(width = 851, height = 600)
+
+        assertEquals(1, editor.pageIndex)
+        assertEquals(InkPage(851, 600, Paper.GRID), editor.page)
+        assertEquals(editor.document, InkJson.decode(InkJson.encode(editor.document)))
+    }
 }
 
 class InkJsonTest {

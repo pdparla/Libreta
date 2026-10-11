@@ -7,6 +7,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -145,7 +146,7 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_redo).setOnClickListener { editor?.redo(); inkView.clearSelection(); afterEdit() }
         findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; afterPageChange() }
         findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; afterPageChange() }
-        findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); afterPageChange() }
+        findViewById<View>(R.id.ink_add_page).setOnClickListener { addPage() }
         findViewById<View>(R.id.ink_zoom_in).setOnClickListener { inkView.zoomStep(up = true) }
         findViewById<View>(R.id.ink_zoom_out).setOnClickListener { inkView.zoomStep(up = false) }
         findViewById<View>(R.id.ink_zoom_level).setOnClickListener { inkView.resetZoom() }
@@ -191,6 +192,30 @@ class InkNoteActivity : Activity() {
         if (tool != InkView.Tool.SELECT) inkView.clearSelection()
         inkView.tool = tool
         updateControls()
+    }
+
+    /**
+     * A page like the current one; but when the tablet is held the other way round from it, the choice between an
+     * upright and a landscape page (docs/10-orientacion.md).
+     */
+    private fun addPage() {
+        val editor = editor ?: return
+        val page = editor.page
+        val screenLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (screenLandscape == (page.width > page.height)) {
+            editor.addPage()
+            afterPageChange()
+            return
+        }
+        val short = minOf(page.width, page.height)
+        val long = maxOf(page.width, page.height)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ink_add_page)
+            .setItems(arrayOf(getString(R.string.ink_page_upright), getString(R.string.ink_page_landscape))) { _, which ->
+                if (which == 0) editor.addPage(width = short, height = long) else editor.addPage(width = long, height = short)
+                afterPageChange()
+            }
+            .show()
     }
 
     /** Another page: no selection, the same zoom at the new page's top-left corner. */

@@ -86,4 +86,22 @@ class InkViewportTest {
         assertEquals(middleX, turned.toPageX(512f), 0.5f)
         assertEquals(middleY, turned.toPageY(250f), 0.5f)
     }
+
+    @Test
+    fun `an upright page in a landscape view fits the width and scrolls`() {
+        val v = InkViewport(600, 851, 1024, 450)
+
+        assertEquals(1024f / 600f, v.scale, 0.0001f)
+        assertEquals(0f, v.originX, 0f)
+        assertEquals(0f, v.originY, 0f)
+        v.panBy(0f, -100000f)
+        assertEquals(450f, v.toViewY(851f), 0.01f)
+    }
+
+    @Test
+    fun `a landscape page in a landscape view fits whole`() {
+        val v = InkViewport(851, 600, 1024, 450)
+
+        assertEquals(450f / 600f, v.scale, 0.0001f)
+    }
 }

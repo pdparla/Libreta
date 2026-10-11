@@ -16,8 +16,13 @@ class InkViewport(val pageWidth: Int, val pageHeight: Int, val viewWidth: Int, v
         require(pageWidth > 0 && pageHeight > 0 && viewWidth > 0 && viewHeight > 0) { "Empty page or view" }
     }
 
-    /** View pixels per page unit at 1×: the whole page fits. */
-    val fitScale: Float = min(viewWidth / pageWidth.toFloat(), viewHeight / pageHeight.toFloat())
+    /**
+     * View pixels per page unit at 1×: the whole page fits, except an upright page in a landscape view, which fits
+     * the width and is scrolled (docs/10-orientacion.md); whole, it would be too small to write on.
+     */
+    val fitScale: Float =
+        if (viewWidth > viewHeight && pageHeight > pageWidth) viewWidth / pageWidth.toFloat()
+        else min(viewWidth / pageWidth.toFloat(), viewHeight / pageHeight.toFloat())
 
     var zoom = 1f
         private set
@@ -70,7 +75,7 @@ class InkViewport(val pageWidth: Int, val pageHeight: Int, val viewWidth: Int, v
         clamp()
     }
 
-    /** The same zoom and the same page point at the centre, in a view of another size (a rotation, Fase 10). */
+    /** The same zoom and the same page point at the centre, in a view of another size (a rotation). */
     fun resized(newViewWidth: Int, newViewHeight: Int): InkViewport {
         val centreX = toPageX(viewWidth / 2f)
         val centreY = toPageY(viewHeight / 2f)

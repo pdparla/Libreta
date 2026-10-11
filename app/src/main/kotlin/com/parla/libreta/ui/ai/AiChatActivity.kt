@@ -38,8 +38,8 @@ import java.util.Locale
 
 /**
  * A conversation with the AI about a selection of a handwritten page (docs/07-ia.md). It lives in memory only: the
- * screen is portrait-only and handles its own configuration changes, like the handwritten note, so it is not
- * recreated. "Guardar como nota" keeps it as a note with the selection.
+ * screen handles its own configuration changes, like the handwritten note, so turning the tablet does not recreate
+ * it (docs/10-orientacion.md). "Guardar como nota" keeps it as a note with the selection.
  */
 class AiChatActivity : Activity() {
 

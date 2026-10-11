@@ -121,9 +121,12 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         pageIndex = start.pageIndex
     }
 
-    /** Adds a page after the current one, with the same size and paper, and moves to it. */
-    fun addPage() = change(newPageIndex = pageIndex + 1) { pages ->
-        pages.add(pageIndex + 1, InkPage(page.width, page.height, page.paper))
+    /**
+     * Adds a page after the current one, with the same paper, and moves to it. Same size as the current one unless
+     * told otherwise: an upright note can get a landscape page (docs/10-orientacion.md).
+     */
+    fun addPage(width: Int = page.width, height: Int = page.height) = change(newPageIndex = pageIndex + 1) { pages ->
+        pages.add(pageIndex + 1, InkPage(width, height, page.paper))
     }
 
     fun setPaper(paper: Paper) {

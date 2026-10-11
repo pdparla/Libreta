@@ -150,7 +150,7 @@ data class InkPage(val width: Int, val height: Int, val paper: Paper, val stroke
     val isEmpty: Boolean get() = strokes.isEmpty()
 }
 
-/** A handwritten note: one or more pages, all the same size. */
+/** A handwritten note: one or more pages, each with its own size (upright or landscape). */
 data class InkDocument(val pages: List<InkPage>) {
 
     init {

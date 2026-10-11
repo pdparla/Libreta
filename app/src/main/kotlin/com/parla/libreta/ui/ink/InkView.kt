@@ -229,6 +229,8 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         super.onSizeChanged(w, h, oldw, oldh)
         val density = resources.displayMetrics.density
         onSizeKnown((w / density).toInt(), (h / density).toInt())
+        // Turning the tablet mid-gesture: drop what was under way, as Android would with ACTION_CANCEL.
+        if (pinching) endPinch() else if (activePointer != NO_POINTER) cancel()
         if (w > 0 && h > 0) viewport = viewport?.resized(w, h)
         refresh()
     }

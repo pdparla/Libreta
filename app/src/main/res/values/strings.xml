@@ -39,6 +39,8 @@
     <string name="ink_next">Página siguiente</string>
     <string name="ink_add_page">Añadir página</string>
     <string name="ink_page">%1$d/%2$d</string>
+    <string name="ink_page_upright">Vertical</string>
+    <string name="ink_page_landscape">Horizontal</string>
     <string name="ink_color">Color</string>
     <string name="ink_width_thin">Fino</string>
     <string name="ink_width_medium">Medio</string>

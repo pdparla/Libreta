@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Dictation (docs/07-ia.md, part 2). -->
@@ -37,14 +36,12 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Portrait only: a page has the size of the writing area, and this is a 7" notebook held upright. -->
+        <!-- Turns with the tablet without being recreated, so the note, undo and zoom stay (docs/10-orientacion.md). -->
         <activity
             android:name=".ui.ink.InkNoteActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="false"
-            android:parentActivityName=".ui.NoteListActivity"
-            android:screenOrientation="portrait"
-            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+            android:parentActivityName=".ui.NoteListActivity" />
 
         <activity
             android:name=".ui.NoteEditorActivity"
@@ -59,14 +56,12 @@
             android:parentActivityName=".ui.NoteListActivity"
             android:windowSoftInputMode="adjustResize|stateHidden" />
 
-        <!-- Conversation about a selection of a handwritten page; portrait like the note, so it is never recreated. -->
+        <!-- Conversation about a selection of a handwritten page; never recreated, so turning keeps the conversation. -->
         <activity
             android:name=".ui.ai.AiChatActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="false"
-            android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize|stateHidden"
-            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+            android:windowSoftInputMode="adjustResize|stateHidden" />
 
         <!-- Started by scripts/chatgpt-login.sh and stt-pair.sh with am start, hence exported; it only reads what adb pushed. -->
         <activity
