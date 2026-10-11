@@ -20,6 +20,9 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
         require(points.isNotEmpty()) { "A stroke has at least one point" }
     }
 
+    /** The rectangle around the stroke, thickness included; computed once, since strokes never change. */
+    val bounds: InkRect by lazy { InkRect.around(listOf(this))!! }
+
     /**
      * The stroke scaled by [scale] around ([pivotX], [pivotY]) and then moved by ([dx], [dy]); its thickness scales
      * too. Timestamps are kept: moving ink does not change when it was written.

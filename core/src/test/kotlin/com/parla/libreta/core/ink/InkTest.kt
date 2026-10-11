@@ -224,6 +224,21 @@ class InkEditorTest {
         editor.undo()
         assertEquals(0, editor.page.strokes.size)
     }
+    @Test
+    fun `cancelling a gesture undoes it without an undo step`() {
+        val editor = InkEditor(InkDocument.blank(600, 900))
+        editor.addStroke(stroke(10f, 10f, 100f, 10f))
+        val before = editor.document
+
+        editor.beginGesture()
+        editor.eraseStrokesAt(50f, 10f, 5f)
+        editor.cancelGesture()
+
+        assertEquals(before, editor.document)
+        editor.undo()
+        assertEquals(0, editor.page.strokes.size)
+        assertFalse(editor.canUndo)
+    }
 }
 
 class InkJsonTest {

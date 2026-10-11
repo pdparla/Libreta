@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.util.Log
+import com.parla.libreta.BuildConfig
 import com.parla.libreta.core.ink.InkPage
 import com.parla.libreta.core.ink.InkPoint
 import com.parla.libreta.core.ink.InkRect
@@ -13,6 +15,7 @@ import com.parla.libreta.core.ink.Paper
 import com.parla.libreta.core.ink.Stroke
 import java.io.ByteArrayOutputStream
 import kotlin.math.ceil
+import kotlin.math.max
 
 /** Draws pages: the paper, then the strokes smoothed with quadratic curves through the midpoints of the samples. */
 object InkRenderer : PageRenderer {
@@ -41,6 +44,9 @@ object InkRenderer : PageRenderer {
 
     fun drawPaper(canvas: Canvas, page: InkPage, scale: Float) {
         canvas.drawColor(Color.WHITE)
+        // The ruling scales with the page: a 1-pixel line vanishes when a 2× page image is shrunk to the screen.
+        linePaint.strokeWidth = max(1f, scale)
+        marginPaint.strokeWidth = max(1f, scale)
         val width = page.width * scale
         val height = page.height * scale
         when (page.paper) {
@@ -106,12 +112,18 @@ object InkRenderer : PageRenderer {
         return path
     }
 
-    /** The page as a PNG at 1 pixel per unit, for Nextcloud Notes. */
+    /**
+     * The page as a PNG at [PAGE_IMAGE_SCALE] pixels per unit, for Nextcloud Notes: at 1 pixel per unit, writing done
+     * zoomed in (docs/09-zoom.md) would be unreadable. RGB 565 because a page has no transparency, and it halves the
+     * memory the bitmap takes while saving.
+     */
     override fun render(page: InkPage): ByteArray {
-        val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(page.width * PAGE_IMAGE_SCALE, page.height * PAGE_IMAGE_SCALE, Bitmap.Config.RGB_565)
         try {
-            draw(Canvas(bitmap), page, scale = 1f)
-            return png(bitmap)
+            draw(Canvas(bitmap), page, scale = PAGE_IMAGE_SCALE.toFloat())
+            return png(bitmap).also {
+                if (BuildConfig.DEBUG) Log.d("LibretaInk", "page image ${bitmap.width}x${bitmap.height}: ${it.size} bytes")
+            }
         } finally {
             bitmap.recycle()
         }
@@ -145,6 +157,7 @@ object InkRenderer : PageRenderer {
         out.toByteArray()
     }
 
+    private const val PAGE_IMAGE_SCALE = 2
     private const val SELECTION_SCALE = 2f
     private const val SELECTION_MAX_SIDE = 1600
 }

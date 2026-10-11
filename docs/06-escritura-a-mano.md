@@ -53,8 +53,8 @@ Notas/
 
 - **Carpeta `.attachments.<id>`:** es la convención de Nextcloud Notes para las imágenes pegadas, así que Notes
   muestra las páginas sin hacer nada más. El `<id>` son 10 caracteres aleatorios en base 36.
-- **Imágenes PNG** a 1 px por unidad de página (1 dp de la tablet), con el papel incluido. Solo se vuelven a
-  renderizar las páginas que cambian.
+- **Imágenes PNG** a 2 px por unidad de página (1 dp de la tablet) desde la Fase 9 (antes 1 px; ver
+  [`09-zoom.md`](09-zoom.md)), con el papel incluido. Solo se vuelven a renderizar las páginas que cambian.
 - **Trazos** (`libreta.ink.json`): cada trazo guarda su color, grosor, hora de inicio y puntos `x, y, t` (t en ms
   desde el inicio del trazo). Las coordenadas se redondean a 0,1. El orden y la velocidad de los trazos sirven
   para el reconocimiento de escritura de la Fase 7.

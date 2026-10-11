@@ -27,6 +27,8 @@ data class InkRect(val left: Float, val top: Float, val right: Float, val bottom
 
     fun contains(x: Float, y: Float): Boolean = x in left..right && y in top..bottom
 
+    fun intersects(other: InkRect): Boolean = left <= other.right && other.left <= right && top <= other.bottom && other.top <= bottom
+
     /** The rectangle scaled by [scale] around its top-left corner and then moved by ([dx], [dy]). */
     fun transformed(dx: Float, dy: Float, scale: Float = 1f): InkRect =
         InkRect(left + dx, top + dy, left + width * scale + dx, top + height * scale + dy)

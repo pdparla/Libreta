@@ -23,7 +23,7 @@ conversación; el servidor no tiene GPU.
 | Fase | Qué | Esfuerzo | Depende de |
 |---|---|---|---|
 | 8 | [Editar lo seleccionado](#fase-8-editar-lo-seleccionado) — **hecha**, ver [`08-seleccion.md`](08-seleccion.md) | S–M | — |
-| 9 | [Zoom en el lienzo](#fase-9-zoom-en-el-lienzo) | M | — |
+| 9 | [Zoom en el lienzo](#fase-9-zoom-en-el-lienzo) — **hecha**, ver [`09-zoom.md`](09-zoom.md) | M | — |
 | 10 | [Vertical y horizontal](#fase-10-vertical-y-horizontal) | S–M | 9 (desplazarse por la página) |
 | 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) | M | — |
 | 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) | M | 11 |
@@ -64,6 +64,8 @@ Lo básico de cualquier libreta, y hoy la mayor carencia: con el recuadro solo s
 tests de `InkEditor` en `:core`; probado con el lápiz en la tablet.
 
 ## Fase 9: zoom en el lienzo
+
+**Hecha** (2026-10-12): [`docs/09-zoom.md`](09-zoom.md). Lo de abajo es el plan original.
 
 Hoy la página está fija a la escala de la pantalla: cuando se acaba el sitio hay que crear otra página, y no se
 puede ampliar una zona para escribir más pequeño, completar un hueco o retocar un detalle.

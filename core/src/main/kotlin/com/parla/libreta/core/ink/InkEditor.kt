@@ -110,6 +110,17 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         if (updated != page.strokes) change { pages -> pages[pageIndex] = page.copy(strokes = updated) }
     }
 
+    /**
+     * Undoes whatever happened since [beginGesture] and leaves no undo step: a touch that turned out to be the
+     * start of a two-finger zoom, not an erasure.
+     */
+    fun cancelGesture() {
+        val start = gestureStart ?: return
+        gestureStart = null
+        document = start.document
+        pageIndex = start.pageIndex
+    }
+
     /** Adds a page after the current one, with the same size and paper, and moves to it. */
     fun addPage() = change(newPageIndex = pageIndex + 1) { pages ->
         pages.add(pageIndex + 1, InkPage(page.width, page.height, page.paper))

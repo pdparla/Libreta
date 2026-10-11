@@ -1,7 +1,11 @@
 package com.parla.libreta.ui
 
 import android.content.Context
+import android.content.res.Resources
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.text.Editable
 import android.text.Spanned
 import android.text.style.RelativeSizeSpan
@@ -18,9 +22,11 @@ import io.noties.markwon.editor.handler.StrongEmphasisEditHandler
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.image.ImagesPlugin
+import io.noties.markwon.image.MediaDecoder
 import io.noties.markwon.image.destination.ImageDestinationProcessorRelativeToAbsolute
 import io.noties.markwon.image.file.FileSchemeHandler
 import java.io.File
+import java.io.InputStream
 
 /**
  * Markdown shown formatted, with Markwon: CommonMark plus GitHub's tables and strikethrough, the Markdown that
@@ -43,7 +49,12 @@ object Markdown {
         Markwon.builder(context)
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TablePlugin.create(context))
-            .usePlugin(ImagesPlugin.create { plugin -> plugin.addSchemeHandler(FileSchemeHandler.create()) })
+            .usePlugin(
+                ImagesPlugin.create { plugin ->
+                    plugin.addSchemeHandler(FileSchemeHandler.create())
+                    plugin.defaultMediaDecoder(FitWidthDecoder(context.resources))
+                },
+            )
             .usePlugin(object : AbstractMarkwonPlugin() {
                 override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
                     builder.imageDestinationProcessor(ImageDestinationProcessorRelativeToAbsolute.create("file://${folder.absolutePath}/"))
@@ -85,6 +96,26 @@ object Markdown {
         }
 
         override fun markdownSpanType(): Class<HeadingSpan> = HeadingSpan::class.java
+    }
+
+    /**
+     * Decodes images no wider than the screen, halving them as often as needed (`inSampleSize`). A page of a
+     * handwritten note is 1200×1800 pixels (docs/09-zoom.md): about 8 MB decoded whole, with 64 MB for the app.
+     */
+    private class FitWidthDecoder(private val resources: Resources) : MediaDecoder() {
+
+        override fun decode(contentType: String?, inputStream: InputStream): Drawable {
+            val bytes = inputStream.readBytes()
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= resources.displayMetrics.widthPixels) sample *= 2
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+                ?: throw IllegalStateException("Not an image")
+            return BitmapDrawable(resources, bitmap)
+        }
+
+        override fun supportedTypes(): Collection<String> = emptySet()
     }
 
     private const val HEADING_SIZE = 1.25f

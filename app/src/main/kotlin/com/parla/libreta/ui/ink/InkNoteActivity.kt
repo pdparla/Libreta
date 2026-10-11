@@ -77,6 +77,7 @@ class InkNoteActivity : Activity() {
         inkView.onTouchStart = { handler.removeCallbacks(autosave) }
         inkView.onTouchEnd = ::scheduleAutosave
         inkView.onSelectionChange = ::updateControls
+        inkView.onZoomChange = { showZoom() }
         setUpToolbar()
 
         val path = (savedInstanceState?.getString(STATE_PATH) ?: intent.getStringExtra(EXTRA_PATH))?.let(NotePath::parseOrNull)
@@ -142,9 +143,13 @@ class InkNoteActivity : Activity() {
         // Undo and redo can change which strokes exist, and a selection belongs to the page it was marked on.
         findViewById<View>(R.id.ink_undo).setOnClickListener { editor?.undo(); inkView.clearSelection(); afterEdit() }
         findViewById<View>(R.id.ink_redo).setOnClickListener { editor?.redo(); inkView.clearSelection(); afterEdit() }
-        findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; inkView.clearSelection(); afterEdit() }
-        findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; inkView.clearSelection(); afterEdit() }
-        findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); inkView.clearSelection(); afterEdit() }
+        findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; afterPageChange() }
+        findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; afterPageChange() }
+        findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); afterPageChange() }
+        findViewById<View>(R.id.ink_zoom_in).setOnClickListener { inkView.zoomStep(up = true) }
+        findViewById<View>(R.id.ink_zoom_out).setOnClickListener { inkView.zoomStep(up = false) }
+        findViewById<View>(R.id.ink_zoom_level).setOnClickListener { inkView.resetZoom() }
+        showZoom()
         setUpSelectionTools()
         findViewById<View>(R.id.ink_convert).setOnClickListener { convertSelection() }
         findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
@@ -186,6 +191,20 @@ class InkNoteActivity : Activity() {
         if (tool != InkView.Tool.SELECT) inkView.clearSelection()
         inkView.tool = tool
         updateControls()
+    }
+
+    /** Another page: no selection, the same zoom at the new page's top-left corner. */
+    private fun afterPageChange() {
+        inkView.clearSelection()
+        inkView.showPageStart()
+        updateControls()
+        scheduleAutosave()
+    }
+
+    private fun showZoom() {
+        val zoom = inkView.zoom
+        val label = if (zoom % 1f == 0f) zoom.toInt().toString() else String.format(Locale.getDefault(), "%.1f", zoom)
+        findViewById<TextView>(R.id.ink_zoom_level).text = getString(R.string.ink_zoom_level, label)
     }
 
     private fun afterEdit() {
