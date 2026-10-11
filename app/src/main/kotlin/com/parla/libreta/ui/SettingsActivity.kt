@@ -73,6 +73,26 @@ class SettingsActivity : Activity() {
         showAiSession(null)
         findViewById<Button>(R.id.settings_stt_test).setOnClickListener { testDictation() }
         showDictation(null)
+        setUpTranscription()
+    }
+
+    /** Reading handwriting for search (docs/11-busqueda.md): on or off, and how many pages are still to be read. */
+    private fun setUpTranscription() {
+        val checkBox = findViewById<CheckBox>(R.id.settings_transcribe)
+        val status = findViewById<TextView>(R.id.settings_transcribe_status)
+        checkBox.isChecked = container.inkTranscriber.isEnabled
+        checkBox.setOnCheckedChangeListener { _, enabled ->
+            container.inkTranscriber.isEnabled = enabled
+            if (enabled) container.inkTranscriber.request()
+        }
+        status.setText(R.string.settings_transcribe_counting)
+        container.background.execute({ container.inkTranscriber.countPending() }) { result ->
+            if (isDestroyed) return@execute
+            status.text = result.fold(
+                { pending -> resources.getQuantityString(R.plurals.settings_transcribe_pending, pending, pending) },
+                { "" },
+            )
+        }
     }
 
     /** Where dictation goes, after [message] if there is one (the outcome of a test). */

@@ -57,6 +57,10 @@
     <string name="action_edit">Editar</string>
     <string name="action_view">Ver</string>
     <string name="ink_draw_first">Escribe o dibuja algo primero.</string>
+    <string name="action_search">Buscar</string>
+    <string name="search_hint">Buscar en las notas</string>
+    <string name="search_page">pág. %1$d</string>
+    <string name="search_nothing">Ninguna nota contiene «%1$s».</string>
     <string name="ink_select">Seleccionar</string>
     <string name="ink_select_hint">Marca un recuadro; luego arrástralo o tira de su esquina</string>
     <string name="ink_convert">Convertir a texto</string>
@@ -171,6 +175,12 @@
     <string name="settings_stt_testing">Probando…</string>
     <string name="settings_stt_ok">Conexión correcta con el servicio de dictado. Modelo: %1$s.</string>
     <string name="settings_stt_failed">Sin conexión con el servicio de dictado: %1$s</string>
+    <string name="settings_transcribe">Transcribir lo escrito a mano para buscarlo</string>
+    <string name="settings_transcribe_counting">Contando páginas pendientes…</string>
+    <plurals name="settings_transcribe_pending">
+        <item quantity="one">Una página pendiente de transcribir.</item>
+        <item quantity="other">%d páginas pendientes de transcribir.</item>
+    </plurals>
     <string name="settings_ai">IA (ChatGPT)</string>
     <string name="settings_ai_signed_in">Sesión iniciada como %1$s. Conversar: %2$s (razonamiento %3$s). Convertir a texto: %4$s (razonamiento %5$s).</string>
     <string name="settings_ai_signed_out">Sin sesión. Para usar la IA, inicia sesión con ChatGPT desde el PC con la tablet conectada por USB: scripts/chatgpt-login.sh (ver docs/07-ia.md).</string>

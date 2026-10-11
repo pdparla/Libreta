@@ -77,6 +77,12 @@ object InkNoteFormat {
         return update(combined, folder, pageCount)
     }
 
+    /** What the user typed in a handwritten note's Markdown: without the page images and the strokes reference, of any folder. */
+    fun userText(markdown: String): String {
+        val anyPageImage = Regex("""^!\[[^\]]*]\(\.attachments\.[^/)]+/pagina-\d+\.png\)\s*$""")
+        return markdown.lines().filterNot { anyPageImage.matches(it) || INK_REFERENCE.matches(it) }.joinToString("\n").trim()
+    }
+
     /** The lines that belong to the user: everything but the page images and the strokes reference, trailing blanks dropped. */
     private fun userLines(markdown: String, folder: String): List<String> {
         val pageImage = Regex("""^!\[[^\]]*]\(${Regex.escape(folder)}/pagina-\d+\.png\)\s*$""")

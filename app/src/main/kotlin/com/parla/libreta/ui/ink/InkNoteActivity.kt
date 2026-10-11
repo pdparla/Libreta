@@ -91,7 +91,10 @@ class InkNoteActivity : Activity() {
                 finish()
                 return
             }
-            show(InkEditor(note!!.document))
+            show(InkEditor(note!!.document).apply {
+                // Opened from a search match on another page (docs/11-busqueda.md).
+                if (savedInstanceState == null) goToPage(intent.getIntExtra(EXTRA_PAGE, 0))
+            })
         } else {
             category = intent.getStringExtra(EXTRA_CATEGORY).orEmpty()
             // New note: the page takes the size of the writing area once it is laid out.
@@ -105,6 +108,8 @@ class InkNoteActivity : Activity() {
         handler.removeCallbacks(autosave)
         save()
         saveToolPreferences()
+        // Read what changed in the background, for search; never while writing (docs/11-busqueda.md).
+        container.inkTranscriber.request()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -525,6 +530,7 @@ class InkNoteActivity : Activity() {
     companion object {
         private const val EXTRA_PATH = "path"
         private const val EXTRA_CATEGORY = "category"
+        private const val EXTRA_PAGE = "page"
         private const val STATE_PATH = "ink.path"
 
         /**
@@ -541,8 +547,9 @@ class InkNoteActivity : Activity() {
         /** Contacts larger than this are a palm. Calibrated with the AmberVec stylus (see docs/06). */
         private const val PALM_TOUCH_MAJOR = 0f
 
-        fun intent(context: Context, path: NotePath): Intent =
-            Intent(context, InkNoteActivity::class.java).putExtra(EXTRA_PATH, path.value)
+        /** Opens the handwritten note at [path], at page [page] (0-based). */
+        fun intent(context: Context, path: NotePath, page: Int = 0): Intent =
+            Intent(context, InkNoteActivity::class.java).putExtra(EXTRA_PATH, path.value).putExtra(EXTRA_PAGE, page)
 
         fun intentForNew(context: Context, category: String): Intent =
             Intent(context, InkNoteActivity::class.java).putExtra(EXTRA_CATEGORY, category)

@@ -109,6 +109,13 @@ pantalla. En Nextcloud cada nota es un `.md` con una imagen por página, más lo
 Los adjuntos acompañan a su nota al cambiarla de categoría o borrarla. Formato, detalles y calibración del
 lápiz: [`docs/06-escritura-a-mano.md`](docs/06-escritura-a-mano.md).
 
+### Búsqueda
+
+La lupa de la lista busca en el título y el texto de todas las notas y en lo escrito a mano, sin distinguir
+mayúsculas ni acentos; el resultado de lo escrito a mano abre la nota en su página. Lo escrito a mano se transcribe
+solo, en segundo plano y página a página, con el plan de ChatGPT, y la transcripción se guarda y sincroniza con la
+nota ([`docs/11-busqueda.md`](docs/11-busqueda.md)).
+
 ### IA
 
 En una nota a mano, la herramienta **Seleccionar** marca un recuadro alrededor de los trazos para moverlos,

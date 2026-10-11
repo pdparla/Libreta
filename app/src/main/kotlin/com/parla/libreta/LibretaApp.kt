@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import com.parla.libreta.core.ai.ConversationNotes
 import com.parla.libreta.core.ink.InkNoteService
+import com.parla.libreta.core.ink.InkTranscriptService
 import com.parla.libreta.core.note.ConflictNamer
 import com.parla.libreta.core.note.NoteService
 import com.parla.libreta.core.note.SystemToday
@@ -25,6 +26,7 @@ import com.parla.libreta.sync.SyncCoordinator
 import com.parla.libreta.sync.SyncService
 import com.parla.libreta.ui.BackgroundRunner
 import com.parla.libreta.ui.ink.InkRenderer
+import com.parla.libreta.ui.ink.InkTranscriber
 import okhttp3.OkHttpClient
 import org.conscrypt.Conscrypt
 import java.io.File
@@ -91,6 +93,17 @@ class AppContainer(context: Context) {
     val ai: AiAssistant by lazy {
         AiAssistant(ResponsesClient(openAiHttp, chatGpt))
     }
+
+    /** What the handwriting says, page by page, for search (docs/11-busqueda.md). */
+    val transcripts = InkTranscriptService(notes)
+    val inkTranscriber = InkTranscriber(
+        notes = notes,
+        inkNotes = inkNotes,
+        transcripts = transcripts,
+        ai = { ai },
+        isSignedIn = { chatGptSessions.load() != null },
+        preferences = context.getSharedPreferences("search", Context.MODE_PRIVATE),
+    )
 
     /** Dictation (docs/07-ia.md, part 2): the service's address, token and certificate, from scripts/stt-pair.sh. */
     val sttSettings = SttSettingsStore(File(context.filesDir, "stt.json"))

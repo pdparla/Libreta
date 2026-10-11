@@ -25,7 +25,7 @@ conversación; el servidor no tiene GPU.
 | 8 | [Editar lo seleccionado](#fase-8-editar-lo-seleccionado) — **hecha**, ver [`08-seleccion.md`](08-seleccion.md) | S–M | — |
 | 9 | [Zoom en el lienzo](#fase-9-zoom-en-el-lienzo) — **hecha**, ver [`09-zoom.md`](09-zoom.md) | M | — |
 | 10 | [Vertical y horizontal](#fase-10-vertical-y-horizontal) — **hecha**, ver [`10-orientacion.md`](10-orientacion.md) | S–M | 9 (desplazarse por la página) |
-| 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) | M | — |
+| 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) — **hecha**, ver [`11-busqueda.md`](11-busqueda.md) | M | — |
 | 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) | M | 11 |
 | 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) | M | 8 (selección), 11 (transcripción) |
 | 14 | [Pasar a limpio una nota entera](#fase-14-pasar-a-limpio-una-nota-entera) | S | — |
@@ -138,6 +138,8 @@ puede leer y escribir en una página vertical desplazándose; se puede crear una
 perder la conversación; probado girando la tablet.
 
 ## Fase 11: buscar en lo escrito a mano
+
+**Hecha** (2026-10-12): [`docs/11-busqueda.md`](11-busqueda.md). Lo de abajo es el plan original.
 
 Lo que más se nota a diario: encontrar una nota por lo que dice, también si está escrita a mano.
 

@@ -12,11 +12,16 @@ import android.view.View
 import android.view.Window
 import android.widget.ArrayAdapter
 import android.widget.ListView
+import android.widget.SearchView
 import android.widget.TextView
 import android.widget.Toast
 import com.parla.libreta.R
 import com.parla.libreta.container
+import com.parla.libreta.core.ink.InkNoteFormat
+import com.parla.libreta.core.note.NoteSearch
 import com.parla.libreta.core.note.NoteStoreException
+import com.parla.libreta.core.note.SearchHit
+import com.parla.libreta.core.note.SearchableNote
 import com.parla.libreta.ui.ink.InkNoteActivity
 import com.parla.libreta.sync.SyncService
 import com.parla.libreta.sync.SyncStatus
@@ -32,6 +37,8 @@ class NoteListActivity : Activity() {
     private var filter: CategoryFilter = CategoryFilter.All
     private var allNotes: List<ListedNote> = emptyList()
     private val syncListener: (SyncStatus) -> Unit = ::onSyncStatus
+    private val transcriptionListener: (Int) -> Unit = { read -> if (read > 0) reload() }
+    private var query = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,13 +85,17 @@ class NoteListActivity : Activity() {
     override fun onResume() {
         super.onResume()
         container.sync.addListener(syncListener)
+        container.inkTranscriber.addListener(transcriptionListener)
         showSyncStatus(container.sync.status)
         reload()
+        // Read whatever handwriting changed, so that search finds it (docs/11-busqueda.md).
+        container.inkTranscriber.request()
     }
 
     override fun onPause() {
         super.onPause()
         container.sync.removeListener(syncListener)
+        container.inkTranscriber.removeListener(transcriptionListener)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -94,6 +105,30 @@ class NoteListActivity : Activity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.note_list, menu)
+        val searchItem = menu.findItem(R.id.action_search)
+        val searchView = searchItem.actionView as SearchView
+        searchView.queryHint = getString(R.string.search_hint)
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextChange(newText: String): Boolean {
+                query = newText
+                applyFilter()
+                return true
+            }
+
+            override fun onQueryTextSubmit(text: String): Boolean {
+                searchView.clearFocus()
+                return true
+            }
+        })
+        searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
+            override fun onMenuItemActionExpand(item: MenuItem) = true
+
+            override fun onMenuItemActionCollapse(item: MenuItem): Boolean {
+                query = ""
+                applyFilter()
+                return true
+            }
+        })
         return true
     }
 
@@ -148,8 +183,15 @@ class NoteListActivity : Activity() {
         is CategoryFilter.Only -> filter.category.ifEmpty { getString(R.string.category_none) }
     }
 
+    /** The notes of the chosen category; while searching, only those that match, each with where. */
     private fun applyFilter() {
-        adapter.submit(allNotes.filter { filter.matches(it.summary) })
+        val shown = allNotes.filter { filter.matches(it.summary) }
+        findViewById<TextView>(R.id.empty).text =
+            if (query.isBlank()) getString(R.string.empty_list) else getString(R.string.search_nothing, query.trim())
+        if (query.isBlank()) return adapter.submit(shown)
+        val byPath = shown.associateBy { it.path }
+        val hits = NoteSearch.search(shown.map { it.searchable }, query)
+        adapter.submit(hits.mapNotNull { byPath[it.path] }, hits.mapNotNull { hit -> byPath[hit.path]?.let { it to hit } }.toMap())
     }
 
     private fun onSyncStatus(status: SyncStatus) {
@@ -170,20 +212,32 @@ class NoteListActivity : Activity() {
         statusView.visibility = if (text == null) View.GONE else View.VISIBLE
     }
 
-    /** Every note, newest first, marking the handwritten ones (their Markdown is a few hundred bytes to read). */
+    /**
+     * Every note, newest first, marking the handwritten ones, with what search can find it by: the title, the text
+     * and, for handwriting, what each page says (a note's Markdown and transcript are a few KB to read).
+     */
     private fun listNotes(): List<ListedNote> =
         container.notes.summaries().sortedByDescending { it.modifiedAt }.map { summary ->
-            val isInk = try {
-                container.inkNotes.isInkNote(summary.path, container.notes.read(summary.path).text, container.notes::exists)
+            val path = summary.path
+            val markdown = try {
+                container.notes.read(path).text
             } catch (e: NoteStoreException) {
-                false
+                ""
             }
-            ListedNote(summary, isInk)
+            val isInk = container.inkNotes.isInkNote(path, markdown, container.notes::exists)
+            val searchable = if (isInk) {
+                SearchableNote(path, path.baseName, InkNoteFormat.userText(markdown), container.transcripts.readFor(path, markdown).map { it.text })
+            } else {
+                SearchableNote(path, path.baseName, markdown)
+            }
+            ListedNote(summary, isInk, searchable)
         }
 
     private fun open(note: ListedNote) {
+        // A match in the handwriting opens the note at its page.
+        val page = adapter.hitOf(note)?.takeIf { it.where == SearchHit.Where.PAGE }?.page ?: 0
         startActivity(
-            if (note.isInk) InkNoteActivity.intent(this, note.path) else NoteEditorActivity.intent(this, note.path),
+            if (note.isInk) InkNoteActivity.intent(this, note.path, page) else NoteEditorActivity.intent(this, note.path),
         )
     }
 
