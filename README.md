@@ -5,7 +5,8 @@ conexión y sincroniza con la carpeta de notas de Nextcloud por WebDAV, así que
 app Notes de Nextcloud. Además de notas de texto tiene notas a mano, para escribir o dibujar con el dedo o con un
 lápiz, y sobre lo escrito a mano puede pasar a texto o conversar con la IA usando la suscripción de ChatGPT.
 
-El diagnóstico de la tablet y del servidor está en [`docs/00-diagnostico.md`](docs/00-diagnostico.md).
+El diagnóstico de la tablet y del servidor está en [`docs/00-diagnostico.md`](docs/00-diagnostico.md). Lo que viene
+después, por fases: [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Módulos
 
