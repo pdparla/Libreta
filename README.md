@@ -109,7 +109,9 @@ lápiz: [`docs/06-escritura-a-mano.md`](docs/06-escritura-a-mano.md).
 
 ### IA
 
-En una nota a mano, la herramienta **Seleccionar** marca un recuadro y ofrece **Convertir a texto** (revisar y
+En una nota a mano, la herramienta **Seleccionar** marca un recuadro alrededor de los trazos para moverlos,
+cambiarles el tamaño, el color o el grosor, copiarlos, pegarlos o borrarlos
+([`docs/08-seleccion.md`](docs/08-seleccion.md)), y ofrece **Convertir a texto** (revisar y
 añadir a la nota) y **Conversar con IA** (chat sobre el recorte, que se puede guardar como nota). Los modelos
 son `gpt-6-luna` para convertir y `gpt-6.1-sol` para conversar, con razonamiento medio, pagados con la suscripción de ChatGPT del usuario mediante el flujo oficial
 «Sign in with ChatGPT» para apps de código abierto; la tablet habla directamente con `api.openai.com`. La sesión

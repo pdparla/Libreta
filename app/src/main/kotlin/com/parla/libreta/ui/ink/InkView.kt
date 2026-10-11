@@ -27,7 +27,10 @@ import kotlin.math.min
  * (see [maxTouchMajor]) draws, and every other one (the palm, a resting finger) is ignored. Finished strokes live
  * in a cached bitmap together with the paper; only the stroke being drawn is redrawn on every frame.
  *
- * With [Tool.SELECT], dragging marks a rectangle ([selection]) instead of drawing, for the AI actions.
+ * With [Tool.SELECT], dragging marks a rectangle ([selection]) instead of drawing. It takes the strokes with ink
+ * inside ([selectedStrokes]) and snaps around them; then dragging inside it moves them and dragging its corner
+ * handle resizes them. While they move they are drawn on their own, transformed by the canvas, over a cache
+ * without them; the change goes into the document, as one undo step, when the finger lifts.
  */
 class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
@@ -49,15 +52,19 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     /** Eraser radius, in page units. */
     var eraserRadius = 10f
 
-    /** The rectangle marked with [Tool.SELECT] on the current page, in page units; null when there is none. */
+    /**
+     * The rectangle marked with [Tool.SELECT] on the current page, in page units: around [selectedStrokes] when it
+     * holds ink, as drawn otherwise; null when there is none.
+     */
     var selection: InkRect? = null
-        set(value) {
-            field = value
-            invalidate()
-        }
+        private set
 
-    /** Called when a drag with [Tool.SELECT] ends, with the new selection (null if it was too small). */
-    var onSelectionChange: (InkRect?) -> Unit = {}
+    /** Indexes into the current page's strokes of the ink the selection holds; empty when it holds none. */
+    var selectedStrokes: List<Int> = emptyList()
+        private set
+
+    /** Called when the selection changes through touch: marked, moved, resized or dropped. */
+    var onSelectionChange: () -> Unit = {}
 
     /** Contacts larger than this (touch major, in pixels) are a palm, not the stylus. 0 accepts every contact. */
     var maxTouchMajor = 0f
@@ -94,8 +101,18 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         color = 0xff5f6368.toInt()
         strokeWidth = resources.displayMetrics.density
     }
-    private var selectFromX = 0f
-    private var selectFromY = 0f
+    private enum class Drag { NONE, MARK, MOVE, RESIZE }
+
+    private var drag = Drag.NONE
+    private var dragFromX = 0f
+    private var dragFromY = 0f
+    private var dragDx = 0f
+    private var dragDy = 0f
+    private var dragScale = 1f
+    private var dragPaths: List<Pair<Path, Paint>> = emptyList()
+    private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xff1a73e8.toInt() }
+    private val handleSize = 14 * resources.displayMetrics.density
+    private val handleReach = 32 * resources.displayMetrics.density
     private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = 0xff1a73e8.toInt()
@@ -105,8 +122,26 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     }
     private val selectionFill = Paint().apply { color = 0x181a73e8 }
 
+    fun clearSelection() {
+        selection = null
+        selectedStrokes = emptyList()
+        invalidate()
+    }
+
+    /** Selects the strokes at [indexes] of the current page, with the rectangle around them. */
+    fun selectStrokes(indexes: List<Int>) {
+        val page = editor?.page ?: return
+        val valid = indexes.filter { it in page.strokes.indices }
+        selectedStrokes = valid
+        selection = InkRect.around(valid.map { page.strokes[it] })
+        invalidate()
+    }
+
     /** Redraws everything: after undo, redo, erasing, a page change or a new document. */
-    fun refresh() {
+    fun refresh() = refresh(hidden = emptySet())
+
+    /** Redraws the page into the cache, leaving out the strokes at [hidden] (the ones being moved). */
+    private fun refresh(hidden: Set<Int>) {
         val page = editor?.page ?: return
         if (width == 0 || height == 0) return
         scale = min(width / page.width.toFloat(), height / page.height.toFloat())
@@ -121,7 +156,8 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         canvas.save()
         canvas.translate(offsetX, 0f)
         canvas.clipRect(0f, 0f, page.width * scale, page.height * scale)
-        InkRenderer.draw(canvas, page, scale)
+        InkRenderer.drawPaper(canvas, page, scale)
+        page.strokes.forEachIndexed { i, stroke -> if (i !in hidden) InkRenderer.drawStroke(canvas, stroke, scale) }
         canvas.restore()
         invalidate()
     }
@@ -142,17 +178,32 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     override fun onDraw(canvas: Canvas) {
         cache?.let { canvas.drawBitmap(it, 0f, 0f, null) }
         if (!eraserX.isNaN()) canvas.drawCircle(eraserX, eraserY, eraserRadius * scale, eraserPaint)
-        selection?.let { area ->
-            val left = offsetX + area.left * scale
-            val right = offsetX + area.right * scale
-            canvas.drawRect(left, area.top * scale, right, area.bottom * scale, selectionFill)
-            canvas.drawRect(left, area.top * scale, right, area.bottom * scale, selectionPaint)
-        }
+        selection?.let { area -> drawSelection(canvas, area) }
         val path = livePath ?: return
         canvas.save()
         canvas.translate(offsetX, 0f)
         canvas.drawPath(path, livePaint!!)
         canvas.restore()
+    }
+
+    private fun drawSelection(canvas: Canvas, area: InkRect) {
+        val transforming = drag == Drag.MOVE || drag == Drag.RESIZE
+        if (transforming && dragPaths.isNotEmpty()) {
+            canvas.save()
+            canvas.translate(offsetX + dragDx * scale, dragDy * scale)
+            canvas.scale(dragScale, dragScale, area.left * scale, area.top * scale)
+            dragPaths.forEach { (path, paint) -> canvas.drawPath(path, paint) }
+            canvas.restore()
+        }
+        val shown = if (transforming) area.transformed(dragDx, dragDy, dragScale) else area
+        val left = offsetX + shown.left * scale
+        val right = offsetX + shown.right * scale
+        canvas.drawRect(left, shown.top * scale, right, shown.bottom * scale, selectionFill)
+        canvas.drawRect(left, shown.top * scale, right, shown.bottom * scale, selectionPaint)
+        if (selectedStrokes.isNotEmpty()) {
+            val half = handleSize / 2
+            canvas.drawRect(right - half, shown.bottom * scale - half, right + half, shown.bottom * scale + half, handlePaint)
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -204,12 +255,32 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                 lastErasedX = Float.NaN
                 eraseAlong(editor, event, index)
             }
-            Tool.SELECT -> {
-                selectFromX = (event.getX(index) - offsetX) / scale
-                selectFromY = event.getY(index) / scale
-                selection = null
-            }
+            Tool.SELECT -> beginSelect(editor, event.getX(index), event.getY(index))
         }
+    }
+
+    /** On the handle: resize. Inside the selection: move. Anywhere else: mark a new rectangle. */
+    private fun beginSelect(editor: InkEditor, viewX: Float, viewY: Float) {
+        dragFromX = (viewX - offsetX) / scale
+        dragFromY = viewY / scale
+        dragDx = 0f
+        dragDy = 0f
+        dragScale = 1f
+        val area = selection
+        val margin = handleReach / 2 / scale
+        drag = when {
+            area == null || selectedStrokes.isEmpty() -> Drag.MARK
+            hypot(viewX - (offsetX + area.right * scale), viewY - area.bottom * scale) <= handleReach -> Drag.RESIZE
+            InkRect(area.left - margin, area.top - margin, area.right + margin, area.bottom + margin).contains(dragFromX, dragFromY) -> Drag.MOVE
+            else -> Drag.MARK
+        }
+        if (drag == Drag.MARK) {
+            clearSelection()
+            return
+        }
+        val page = editor.page
+        dragPaths = selectedStrokes.map { InkRenderer.strokePath(page.strokes[it], scale) }
+        refresh(hidden = selectedStrokes.toSet())
     }
 
     private fun move(editor: InkEditor, event: MotionEvent, index: Int) {
@@ -228,10 +299,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
             eraserX = Float.NaN
             onChange()
         }
-        if (tool == Tool.SELECT) {
-            if (selection?.isUsable != true) selection = null
-            onSelectionChange(selection)
-        }
+        if (tool == Tool.SELECT) endSelect(editor)
         if (tool == Tool.PEN && points.isNotEmpty()) {
             val stroke = Stroke(penColor, penWidth, startedAt, ArrayList(points))
             editor.addStroke(stroke)
@@ -251,8 +319,10 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private fun cancel() {
         activePointer = NO_POINTER
         if (tool == Tool.SELECT) {
-            selection = null
-            onSelectionChange(null)
+            // A move or resize that was interrupted is dropped; a rectangle being marked too.
+            if (drag == Drag.MOVE || drag == Drag.RESIZE) finishTransform() else clearSelection()
+            drag = Drag.NONE
+            onSelectionChange()
         }
         editor?.endGesture()
         eraserX = Float.NaN
@@ -274,7 +344,58 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     }
 
     private fun select(editor: InkEditor, event: MotionEvent, index: Int) {
-        selection = InkRect.between(selectFromX, selectFromY, (event.getX(index) - offsetX) / scale, event.getY(index) / scale, editor.page)
+        val x = (event.getX(index) - offsetX) / scale
+        val y = event.getY(index) / scale
+        val page = editor.page
+        val area = selection
+        when (drag) {
+            Drag.MARK -> selection = InkRect.between(dragFromX, dragFromY, x, y, page)
+            Drag.MOVE -> area?.moveWithin(x - dragFromX, y - dragFromY, page)?.let { (dx, dy) ->
+                dragDx = dx
+                dragDy = dy
+            }
+            Drag.RESIZE -> if (area != null && area.width > 0f && area.height > 0f) {
+                // Proportional, around the top-left corner: the handle follows whichever side was pulled further.
+                val wanted = max((x - area.left) / area.width, (y - area.top) / area.height)
+                dragScale = area.scaleWithin(wanted, page)
+            }
+            Drag.NONE -> return
+        }
+        invalidate()
+    }
+
+    /** The finger lifted: keep the marked rectangle, or put the moved or resized strokes into the document. */
+    private fun endSelect(editor: InkEditor) {
+        val area = selection
+        when (drag) {
+            Drag.MARK -> {
+                val page = editor.page
+                val strokes = area?.takeIf { it.isUsable }?.selectedStrokes(page).orEmpty()
+                when {
+                    strokes.isNotEmpty() -> selectStrokes(strokes)
+                    area?.isUsable == true -> selectedStrokes = emptyList()
+                    else -> clearSelection()
+                }
+            }
+            Drag.MOVE, Drag.RESIZE -> if (area != null) {
+                editor.transformStrokes(selectedStrokes, dragDx, dragDy, dragScale, area.left, area.top)
+                finishTransform()
+                selectStrokes(selectedStrokes)
+                onChange()
+            }
+            Drag.NONE -> Unit
+        }
+        drag = Drag.NONE
+        onSelectionChange()
+    }
+
+    private fun finishTransform() {
+        drag = Drag.NONE
+        dragPaths = emptyList()
+        dragDx = 0f
+        dragDy = 0f
+        dragScale = 1f
+        refresh()
     }
 
     /** Erases at every sample of the event, then redraws the page once. */

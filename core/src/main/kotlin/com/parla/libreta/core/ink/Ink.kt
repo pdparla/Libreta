@@ -20,6 +20,22 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
         require(points.isNotEmpty()) { "A stroke has at least one point" }
     }
 
+    /**
+     * The stroke scaled by [scale] around ([pivotX], [pivotY]) and then moved by ([dx], [dy]); its thickness scales
+     * too. Timestamps are kept: moving ink does not change when it was written.
+     */
+    fun transformed(dx: Float, dy: Float, scale: Float = 1f, pivotX: Float = 0f, pivotY: Float = 0f): Stroke =
+        copy(
+            width = width * scale,
+            points = points.map { InkPoint(pivotX + (it.x - pivotX) * scale + dx, pivotY + (it.y - pivotY) * scale + dy, it.t) },
+        )
+
+    /** Whether some point of the stroke, or its thickness around it, falls inside [area]. */
+    fun touches(area: InkRect): Boolean {
+        val reach = width / 2
+        return points.any { it.x >= area.left - reach && it.x <= area.right + reach && it.y >= area.top - reach && it.y <= area.bottom + reach }
+    }
+
     /** Whether the pen passed within [radius] of ([x], [y]), counting the stroke's own thickness. */
     fun isHitBy(x: Float, y: Float, radius: Float): Boolean {
         val reach = radius + width / 2

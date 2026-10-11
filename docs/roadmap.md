@@ -22,7 +22,7 @@ conversación; el servidor no tiene GPU.
 
 | Fase | Qué | Esfuerzo | Depende de |
 |---|---|---|---|
-| 8 | [Editar lo seleccionado](#fase-8-editar-lo-seleccionado) | S–M | — |
+| 8 | [Editar lo seleccionado](#fase-8-editar-lo-seleccionado) — **hecha**, ver [`08-seleccion.md`](08-seleccion.md) | S–M | — |
 | 9 | [Zoom en el lienzo](#fase-9-zoom-en-el-lienzo) | M | — |
 | 10 | [Vertical y horizontal](#fase-10-vertical-y-horizontal) | S–M | 9 (desplazarse por la página) |
 | 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) | M | — |
@@ -34,6 +34,8 @@ conversación; el servidor no tiene GPU.
 ---
 
 ## Fase 8: editar lo seleccionado
+
+**Hecha** (2026-10-12): [`docs/08-seleccion.md`](08-seleccion.md). Lo de abajo es el plan original.
 
 Lo básico de cualquier libreta, y hoy la mayor carencia: con el recuadro solo se puede convertir o conversar.
 

@@ -183,6 +183,47 @@ class InkEditorTest {
 
         assertEquals(3, small.page.strokes.size)
     }
+    @Test
+    fun `moving, scaling, restyling, deleting and pasting strokes are one undo step each`() {
+        val editor = InkEditor(InkDocument.blank(600, 900))
+        editor.addStroke(stroke(10f, 10f, 20f, 20f))
+        editor.addStroke(stroke(100f, 100f, 110f, 100f))
+        editor.addStroke(stroke(300f, 300f))
+        val original = editor.document
+
+        editor.transformStrokes(listOf(0, 2), dx = 5f, dy = 10f, scale = 2f, pivotX = 10f, pivotY = 10f)
+        assertEquals(listOf(InkPoint(15f, 20f, 0), InkPoint(35f, 40f, 16)), editor.page.strokes[0].points)
+        assertEquals(6f, editor.page.strokes[0].width, 0f)
+        assertEquals(1_760_197_500_000, editor.page.strokes[0].startedAt)
+        assertEquals(original.pages[0].strokes[1], editor.page.strokes[1])
+        editor.undo()
+        assertEquals(original, editor.document)
+
+        editor.restyleStrokes(listOf(1), color = 0xffff0000.toInt(), width = 6f)
+        assertEquals(0xffff0000.toInt(), editor.page.strokes[1].color)
+        assertEquals(6f, editor.page.strokes[1].width, 0f)
+        editor.undo()
+
+        editor.deleteStrokes(listOf(0, 2))
+        assertEquals(listOf(original.pages[0].strokes[1]), editor.page.strokes)
+        editor.undo()
+        assertEquals(original, editor.document)
+
+        val pasted = editor.insertStrokes(listOf(stroke(1f, 1f), stroke(2f, 2f)))
+        assertEquals(listOf(3, 4), pasted)
+        editor.undo()
+        assertEquals(original, editor.document)
+    }
+
+    @Test
+    fun `a change that changes nothing adds no undo step`() {
+        val editor = InkEditor(InkDocument.blank(600, 900))
+        editor.addStroke(stroke(10f, 10f, 20f, 20f))
+        editor.transformStrokes(listOf(0), 0f, 0f)
+        editor.restyleStrokes(listOf(0), width = 3f)
+        editor.undo()
+        assertEquals(0, editor.page.strokes.size)
+    }
 }
 
 class InkJsonTest {

@@ -180,6 +180,47 @@
                 android:textAppearance="?android:attr/textAppearanceSmall"
                 android:textColor="?android:attr/textColorSecondary" />
 
+            <!-- On the selected strokes; hidden when the selection holds no ink -->
+            <LinearLayout
+                android:id="@+id/ink_selection_edit"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <View
+                    android:id="@+id/ink_selection_color"
+                    style="@style/InkSwatch"
+                    android:contentDescription="@string/ink_selection_color" />
+
+                <ImageButton
+                    android:id="@+id/ink_selection_width"
+                    style="@style/InkTool"
+                    android:contentDescription="@string/ink_selection_width"
+                    android:src="@drawable/ic_ink_width" />
+
+                <ImageButton
+                    android:id="@+id/ink_selection_copy"
+                    style="@style/InkTool"
+                    android:contentDescription="@string/ink_selection_copy"
+                    android:src="@drawable/ic_ink_copy" />
+
+                <ImageButton
+                    android:id="@+id/ink_selection_delete"
+                    style="@style/InkTool"
+                    android:contentDescription="@string/ink_selection_delete"
+                    android:src="@drawable/ic_ink_delete" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/ink_paste"
+                style="@style/InkTool"
+                android:contentDescription="@string/ink_paste"
+                android:src="@drawable/ic_ink_paste"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/ink_convert"
                 style="@style/InkWidth"

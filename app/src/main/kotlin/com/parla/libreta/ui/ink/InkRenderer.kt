@@ -80,6 +80,15 @@ object InkRenderer : PageRenderer {
         }
     }
 
+    /** [stroke] as a path and its paint at [scale], to draw it many times (while it is being moved) without rebuilding it. */
+    fun strokePath(stroke: Stroke, scale: Float): Pair<Path, Paint> {
+        val paint = strokePaint(stroke.color, stroke.width * scale)
+        if (stroke.points.size > 1) return pathOf(stroke.points, scale) to paint
+        paint.style = Paint.Style.FILL
+        val p = stroke.points[0]
+        return Path().apply { addCircle(p.x * scale, p.y * scale, stroke.width * scale / 2, Path.Direction.CW) } to paint
+    }
+
     /** A smooth path through [points]: straight to the first midpoint, then quadratic curves between midpoints. */
     fun pathOf(points: List<InkPoint>, scale: Float): Path {
         val path = Path()

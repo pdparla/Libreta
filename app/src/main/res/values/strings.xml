@@ -56,10 +56,16 @@
     <string name="action_view">Ver</string>
     <string name="ink_draw_first">Escribe o dibuja algo primero.</string>
     <string name="ink_select">Seleccionar</string>
-    <string name="ink_select_hint">Arrastra para marcar un recuadro</string>
+    <string name="ink_select_hint">Marca un recuadro; luego arrástralo o tira de su esquina</string>
     <string name="ink_convert">Convertir a texto</string>
     <string name="ink_chat">Conversar con IA</string>
     <string name="ink_selection_empty">No hay nada escrito en el recuadro.</string>
+    <string name="ink_selection_color">Color de lo seleccionado</string>
+    <string name="ink_selection_width">Grosor de lo seleccionado</string>
+    <string name="ink_selection_copy">Copiar lo seleccionado</string>
+    <string name="ink_selection_delete">Borrar lo seleccionado</string>
+    <string name="ink_paste">Pegar</string>
+    <string name="ink_copied">Copiado. Pégalo en esta u otra página con «Pegar».</string>
 
     <!-- AI (docs/07-ia.md) -->
     <string name="ai_converting">Reconociendo la escritura…</string>

@@ -75,6 +75,41 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         if (start.document !== document) push(start)
     }
 
+    /**
+     * Scales the strokes at [indexes] of the current page by [scale] around ([pivotX], [pivotY]) and moves them by
+     * ([dx], [dy]), in one undo step. The strokes keep their place in the page's order.
+     */
+    fun transformStrokes(indexes: Collection<Int>, dx: Float, dy: Float, scale: Float = 1f, pivotX: Float = 0f, pivotY: Float = 0f) {
+        if (indexes.isEmpty() || (dx == 0f && dy == 0f && scale == 1f)) return
+        replaceStrokes(indexes) { it.transformed(dx, dy, scale, pivotX, pivotY) }
+    }
+
+    /** Gives the strokes at [indexes] a new [color] and/or [width], in one undo step. */
+    fun restyleStrokes(indexes: Collection<Int>, color: Int? = null, width: Float? = null) {
+        replaceStrokes(indexes) { it.copy(color = color ?: it.color, width = width ?: it.width) }
+    }
+
+    /** Removes the strokes at [indexes] of the current page, in one undo step. */
+    fun deleteStrokes(indexes: Collection<Int>) {
+        if (indexes.isEmpty()) return
+        val doomed = indexes.toSet()
+        change { pages -> pages[pageIndex] = page.copy(strokes = page.strokes.filterIndexed { i, _ -> i !in doomed }) }
+    }
+
+    /** Adds [strokes] on top of the current page, in one undo step; returns their indexes there. */
+    fun insertStrokes(strokes: List<Stroke>): List<Int> {
+        if (strokes.isEmpty()) return emptyList()
+        val first = page.strokes.size
+        change { pages -> pages[pageIndex] = page.copy(strokes = page.strokes + strokes) }
+        return (first until first + strokes.size).toList()
+    }
+
+    private inline fun replaceStrokes(indexes: Collection<Int>, update: (Stroke) -> Stroke) {
+        val chosen = indexes.toSet()
+        val updated = page.strokes.mapIndexed { i, stroke -> if (i in chosen) update(stroke) else stroke }
+        if (updated != page.strokes) change { pages -> pages[pageIndex] = page.copy(strokes = updated) }
+    }
+
     /** Adds a page after the current one, with the same size and paper, and moves to it. */
     fun addPage() = change(newPageIndex = pageIndex + 1) { pages ->
         pages.add(pageIndex + 1, InkPage(page.width, page.height, page.paper))

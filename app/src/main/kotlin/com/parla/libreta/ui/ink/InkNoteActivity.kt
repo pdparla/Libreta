@@ -24,6 +24,7 @@ import com.parla.libreta.core.ink.InkDocument
 import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkNote
 import com.parla.libreta.core.ink.Paper
+import com.parla.libreta.core.ink.Stroke
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.data.ai.TurnHandle
@@ -42,8 +43,9 @@ import java.util.Locale
  * Handwritten note: write or draw with the stylus, page by page. Like the text editor, it saves on its own when it
  * stops being visible; a new note is only created once something has been drawn.
  *
- * The select tool marks a rectangle for the AI (docs/07-ia.md): "Convertir a texto" adds the recognised text to the
- * note, "Conversar con IA" opens a conversation about it.
+ * The select tool marks a rectangle around strokes: drag it to move them, pull its corner to resize them, change
+ * their colour or thickness, copy, paste or delete them. The AI works on it too (docs/07-ia.md): "Convertir a
+ * texto" adds the recognised text to the note, "Conversar con IA" opens a conversation about it.
  */
 class InkNoteActivity : Activity() {
 
@@ -74,7 +76,7 @@ class InkNoteActivity : Activity() {
         // Autosave: once the page has been left alone for a moment, not while writing.
         inkView.onTouchStart = { handler.removeCallbacks(autosave) }
         inkView.onTouchEnd = ::scheduleAutosave
-        inkView.onSelectionChange = { updateControls() }
+        inkView.onSelectionChange = ::updateControls
         setUpToolbar()
 
         val path = (savedInstanceState?.getString(STATE_PATH) ?: intent.getStringExtra(EXTRA_PATH))?.let(NotePath::parseOrNull)
@@ -137,12 +139,13 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_pen).setOnClickListener { selectTool(InkView.Tool.PEN) }
         findViewById<View>(R.id.ink_eraser).setOnClickListener { selectTool(InkView.Tool.ERASER) }
         findViewById<View>(R.id.ink_select).setOnClickListener { selectTool(InkView.Tool.SELECT) }
-        findViewById<View>(R.id.ink_undo).setOnClickListener { editor?.undo(); afterEdit() }
-        findViewById<View>(R.id.ink_redo).setOnClickListener { editor?.redo(); afterEdit() }
-        // A selection belongs to the page it was marked on.
-        findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; inkView.selection = null; afterEdit() }
-        findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; inkView.selection = null; afterEdit() }
-        findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); inkView.selection = null; afterEdit() }
+        // Undo and redo can change which strokes exist, and a selection belongs to the page it was marked on.
+        findViewById<View>(R.id.ink_undo).setOnClickListener { editor?.undo(); inkView.clearSelection(); afterEdit() }
+        findViewById<View>(R.id.ink_redo).setOnClickListener { editor?.redo(); inkView.clearSelection(); afterEdit() }
+        findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; inkView.clearSelection(); afterEdit() }
+        findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; inkView.clearSelection(); afterEdit() }
+        findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); inkView.clearSelection(); afterEdit() }
+        setUpSelectionTools()
         findViewById<View>(R.id.ink_convert).setOnClickListener { convertSelection() }
         findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
         findViewById<View>(R.id.ink_chat).setOnClickListener { chatAboutSelection() }
@@ -180,7 +183,7 @@ class InkNoteActivity : Activity() {
     }
 
     private fun selectTool(tool: InkView.Tool) {
-        if (tool != InkView.Tool.SELECT) inkView.selection = null
+        if (tool != InkView.Tool.SELECT) inkView.clearSelection()
         inkView.tool = tool
         updateControls()
     }
@@ -211,9 +214,15 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_eraser_options).visibility = visibleIf(inkView.tool == InkView.Tool.ERASER)
         findViewById<View>(R.id.ink_select_options).visibility = visibleIf(inkView.tool == InkView.Tool.SELECT)
         val selected = inkView.selection != null
-        findViewById<View>(R.id.ink_select_hint).visibility = if (selected) View.INVISIBLE else View.VISIBLE
+        val holdsInk = inkView.selectedStrokes.isNotEmpty()
+        findViewById<View>(R.id.ink_select_hint).visibility = if (holdsInk) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.ink_selection_edit).visibility = visibleIf(holdsInk)
+        findViewById<View>(R.id.ink_paste).visibility = visibleIf(!InkClipboard.isEmpty)
         findViewById<View>(R.id.ink_convert).isEnabled = selected
         findViewById<View>(R.id.ink_chat).isEnabled = selected
+        selectedStrokes().firstOrNull()?.let { first ->
+            findViewById<View>(R.id.ink_selection_color).background = ColorPalette.swatchDrawable(first.color, false, resources.displayMetrics.density)
+        }
         colorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
         widthViews.forEachIndexed { i, view -> view.isSelected = widths[i] == inkView.penWidth }
         findViewById<View>(R.id.ink_erase_area).isSelected = !inkView.eraseWholeStrokes
@@ -222,6 +231,58 @@ class InkNoteActivity : Activity() {
     }
 
     private fun visibleIf(visible: Boolean) = if (visible) View.VISIBLE else View.GONE
+
+    private fun selectedStrokes(): List<Stroke> {
+        val page = editor?.page ?: return emptyList()
+        return inkView.selectedStrokes.mapNotNull { page.strokes.getOrNull(it) }
+    }
+
+    private fun setUpSelectionTools() {
+        val colorView = findViewById<View>(R.id.ink_selection_color)
+        colorView.setOnClickListener {
+            val current = selectedStrokes().firstOrNull()?.color ?: inkView.penColor
+            ColorPalette.show(colorView, current) { color ->
+                editor?.restyleStrokes(inkView.selectedStrokes, color = color)
+                afterSelectionEdit()
+            }
+        }
+        findViewById<View>(R.id.ink_selection_width).setOnClickListener {
+            val labels = listOf(R.string.ink_width_thin, R.string.ink_width_medium, R.string.ink_width_thick).map(::getString)
+            AlertDialog.Builder(this)
+                .setTitle(R.string.ink_selection_width)
+                .setItems(labels.toTypedArray()) { _, which ->
+                    editor?.restyleStrokes(inkView.selectedStrokes, width = widths[which])
+                    afterSelectionEdit()
+                }
+                .show()
+        }
+        findViewById<View>(R.id.ink_selection_copy).setOnClickListener {
+            InkClipboard.copy(selectedStrokes())
+            Toast.makeText(this, R.string.ink_copied, Toast.LENGTH_SHORT).show()
+            updateControls()
+        }
+        findViewById<View>(R.id.ink_selection_delete).setOnClickListener {
+            editor?.deleteStrokes(inkView.selectedStrokes)
+            inkView.clearSelection()
+            afterEdit()
+        }
+        findViewById<View>(R.id.ink_paste).setOnClickListener {
+            val editor = editor ?: return@setOnClickListener
+            // The pasted strokes come selected, ready to be moved where they belong.
+            val pasted = editor.insertStrokes(InkClipboard.placedOn(editor.page))
+            inkView.refresh()
+            inkView.selectStrokes(pasted)
+            afterSelectionEdit()
+        }
+    }
+
+    /** After changing the selected strokes: redraw them, keep them selected (the rectangle may have grown) and save soon. */
+    private fun afterSelectionEdit() {
+        inkView.refresh()
+        inkView.selectStrokes(inkView.selectedStrokes)
+        updateControls()
+        scheduleAutosave()
+    }
 
     /** The selection as an image for the model; null (after saying why) if it holds no ink. */
     private fun selectionImage(): ByteArray? {
