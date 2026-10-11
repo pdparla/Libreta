@@ -9,6 +9,10 @@
         android:showAsAction="never"
         android:title="@string/action_category" />
     <item
+        android:id="@+id/action_index"
+        android:showAsAction="never"
+        android:title="@string/action_index" />
+    <item
         android:id="@+id/action_paper"
         android:showAsAction="never"
         android:title="@string/action_paper" />

@@ -63,8 +63,8 @@
     <string name="search_nothing">Ninguna nota contiene «%1$s».</string>
     <string name="ink_select">Seleccionar</string>
     <string name="ink_select_hint">Marca un recuadro; luego arrástralo o tira de su esquina</string>
-    <string name="ink_convert">Convertir a texto</string>
-    <string name="ink_chat">Conversar con IA</string>
+    <string name="ink_convert">A texto</string>
+    <string name="ink_chat">Chat IA</string>
     <string name="ink_selection_empty">No hay nada escrito en el recuadro.</string>
     <string name="ink_zoom_in">Ampliar</string>
     <string name="ink_zoom_out">Reducir</string>
@@ -72,6 +72,14 @@
     <string name="ink_zoom_in_label">+</string>
     <string name="ink_zoom_out_label">−</string>
     <string name="ink_zoom_level">%1$s×</string>
+    <string name="ink_title">Título</string>
+    <string name="ink_tag">Etiqueta</string>
+    <string name="ink_mark_title">Marcar como título</string>
+    <string name="ink_mark_tag">Marcar como etiqueta</string>
+    <string name="action_index">Índice</string>
+    <string name="ink_index_entry">%1$s · pág. %2$d</string>
+    <string name="ink_index_empty">Esta nota aún no tiene títulos. Márcalos con Seleccionar → Título.</string>
+    <string name="category_tag">#%1$s</string>
     <string name="ink_selection_color">Color de lo seleccionado</string>
     <string name="ink_selection_width">Grosor de lo seleccionado</string>
     <string name="ink_selection_copy">Copiar lo seleccionado</string>

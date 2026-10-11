@@ -263,6 +263,16 @@
                 android:id="@+id/ink_chat"
                 style="@style/InkWidth"
                 android:text="@string/ink_chat" />
+
+            <TextView
+                android:id="@+id/ink_title"
+                style="@style/InkWidth"
+                android:text="@string/ink_title" />
+
+            <TextView
+                android:id="@+id/ink_tag"
+                style="@style/InkWidth"
+                android:text="@string/ink_tag" />
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>

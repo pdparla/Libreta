@@ -249,6 +249,52 @@ class InkEditorTest {
         assertEquals(InkPage(851, 600, Paper.GRID), editor.page)
         assertEquals(editor.document, InkJson.decode(InkJson.encode(editor.document)))
     }
+    @Test
+    fun `a mark follows its strokes, goes when they are erased, and comes back with undo`() {
+        val editor = InkEditor(InkDocument.blank(600, 900))
+        editor.addStroke(stroke(10f, 10f, 50f, 10f).copy(startedAt = 1))
+        editor.addStroke(stroke(10f, 30f, 50f, 30f).copy(startedAt = 2))
+        editor.addStroke(stroke(10f, 300f, 50f, 300f).copy(startedAt = 3))
+
+        editor.addMark(InkMark.Kind.TITLE, "  Viaje  ", listOf(0, 1))
+        assertEquals(listOf(InkMark(InkMark.Kind.TITLE, "Viaje", setOf(1L, 2L))), editor.page.marks)
+
+        editor.transformStrokes(listOf(0, 1), dx = 100f, dy = 0f)
+        assertEquals(108.5f, editor.page.boundsOf(editor.page.marks[0])!!.left, 0.001f)
+
+        editor.deleteStrokes(listOf(0))
+        assertEquals(setOf(2L), editor.page.marks[0].strokes)
+        editor.deleteStrokes(listOf(0))
+        assertEquals(emptyList<InkMark>(), editor.page.marks)
+
+        editor.undo()
+        assertEquals(setOf(2L), editor.page.marks.single().strokes)
+    }
+
+    @Test
+    fun `marking strokes again replaces their mark of the same kind`() {
+        val editor = InkEditor(InkDocument.blank(600, 900))
+        editor.addStroke(stroke(10f, 10f, 50f, 10f).copy(startedAt = 1))
+        editor.addMark(InkMark.Kind.TAG, "viaje", listOf(0))
+        editor.addMark(InkMark.Kind.TAG, "lisboa", listOf(0))
+        editor.addMark(InkMark.Kind.TITLE, "Lisboa", listOf(0))
+
+        assertEquals(listOf("lisboa", "Lisboa"), editor.page.marks.map { it.text })
+        assertEquals("viaje-a-lisboa", InkMark.tagText(" #Viaje a  Lisboa "))
+    }
+
+    @Test
+    fun `the outline lists titles by page and top to bottom, and tags once`() {
+        val page1 = InkPage(600, 900, Paper.LINED, listOf(stroke(10f, 400f).copy(startedAt = 1), stroke(10f, 50f).copy(startedAt = 2)),
+            listOf(InkMark(InkMark.Kind.TITLE, "Abajo", setOf(1L)), InkMark(InkMark.Kind.TITLE, "Arriba", setOf(2L)), InkMark(InkMark.Kind.TAG, "viaje", setOf(1L))))
+        val page2 = InkPage(600, 900, Paper.LINED, listOf(stroke(10f, 10f).copy(startedAt = 3)),
+            listOf(InkMark(InkMark.Kind.TITLE, "Otra", setOf(3L)), InkMark(InkMark.Kind.TAG, "viaje", setOf(3L))))
+
+        val outline = InkOutline.of(InkDocument(listOf(page1, page2)))
+
+        assertEquals(listOf("Arriba" to 1, "Abajo" to 1, "Otra" to 2), outline.titles)
+        assertEquals(listOf("viaje"), outline.tags)
+    }
 }
 
 class InkJsonTest {
@@ -310,6 +356,24 @@ class InkJsonTest {
             }
         }
     }
+    @Test
+    fun `marks round-trip in version 2, and version 1 files still read`() {
+        val page = InkPage(600, 900, Paper.LINED, listOf(stroke(1f, 2f).copy(startedAt = 1760197500000)),
+            listOf(InkMark(InkMark.Kind.TITLE, "Viaje \"a\" Lisboa", setOf(1760197500000))))
+        val document = InkDocument(listOf(page))
+
+        assertEquals(document, InkJson.decode(InkJson.encode(document)))
+        val v1 = """{"format":"libreta-ink","version":1,"pages":[{"width":600,"height":900,"paper":"lined","strokes":[]}]}"""
+        assertEquals(emptyList<InkMark>(), InkJson.decode(v1).pages[0].marks)
+    }
+
+    @Test
+    fun `marking a page does not change its transcription fingerprint`() {
+        val page = InkPage(600, 900, Paper.LINED, listOf(stroke(1f, 2f).copy(startedAt = 5)))
+        val marked = page.copy(marks = listOf(InkMark(InkMark.Kind.TITLE, "T", setOf(5L))))
+
+        assertEquals(InkTranscripts.hashOf(page), InkTranscripts.hashOf(marked))
+    }
 }
 
 class InkNoteFormatTest {
@@ -367,4 +431,31 @@ class InkNoteFormatTest {
         assertEquals(emptyList<String>(), InkNoteFormat.inkFileCandidates("# Normal\n\n[libreta-ink]: ../fuera.json\n"))
         assertEquals(".attachments.k3", InkNoteFormat.folderOf(".attachments.k3/libreta.ink.json"))
     }
+
+    @Test
+    fun `the index and tags go above the pages, are regenerated, and leave the user's text alone`() {
+        val outline = InkOutline(listOf("Viaje" to 1, "Gastos" to 2), listOf("viajes", "2026"))
+        val composed = InkNoteFormat.compose("Lisboa", ".attachments.k3", 2, outline)
+
+        assertEquals(
+            "# Lisboa\n\n## Índice\n\n- Viaje (pág. 1)\n- Gastos (pág. 2)\n\nEtiquetas: #viajes #2026\n\n" +
+                "![Página 1](.attachments.k3/pagina-1.png)\n\n![Página 2](.attachments.k3/pagina-2.png)\n\n" +
+                "[libreta-ink]: .attachments.k3/libreta.ink.json\n",
+            composed,
+        )
+        val edited = composed.replace("# Lisboa\n", "# Lisboa\n\nNotas del viaje\n")
+        val fewer = InkNoteFormat.update(edited, ".attachments.k3", 2, InkOutline(listOf("Viaje" to 1), emptyList()))
+        assertEquals(
+            "# Lisboa\n\nNotas del viaje\n\n## Índice\n\n- Viaje (pág. 1)\n\n![Página 1](.attachments.k3/pagina-1.png)\n\n" +
+                "![Página 2](.attachments.k3/pagina-2.png)\n\n[libreta-ink]: .attachments.k3/libreta.ink.json\n",
+            fewer,
+        )
+        assertEquals(fewer, InkNoteFormat.update(fewer, ".attachments.k3", 2, InkOutline(listOf("Viaje" to 1), emptyList())))
+        assertEquals(
+            "# Lisboa\n\nNotas del viaje\n\n![Página 1](.attachments.k3/pagina-1.png)\n\n![Página 2](.attachments.k3/pagina-2.png)\n\n" +
+                "[libreta-ink]: .attachments.k3/libreta.ink.json\n",
+            InkNoteFormat.update(fewer, ".attachments.k3", 2),
+        )
+    }
 }
+

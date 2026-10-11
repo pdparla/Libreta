@@ -103,7 +103,9 @@ guardar.
 Lienzo con pluma (panel de colores, tres grosores), borrador por zona o por trazo entero, deshacer, varias
 páginas y papel pautado, cuadriculado o en blanco. Zoom de 1× a 4× con dos dedos o con los controles sobre la
 página ([`docs/09-zoom.md`](docs/09-zoom.md)). Gira con la tablet; en horizontal, la página vertical se ajusta al
-ancho y se pueden añadir páginas apaisadas ([`docs/10-orientacion.md`](docs/10-orientacion.md)). Se guarda al salir y 3 s después de dejar de tocar la
+ancho y se pueden añadir páginas apaisadas ([`docs/10-orientacion.md`](docs/10-orientacion.md)). Con la selección se
+marcan títulos y etiquetas: la nota gana un índice, la lista se filtra por etiqueta y ambos se ven en Nextcloud
+([`docs/13-indice.md`](docs/13-indice.md)). Se guarda al salir y 3 s después de dejar de tocar la
 pantalla. En Nextcloud cada nota es un `.md` con una imagen por página, más los trazos en
 `.attachments.<id>/libreta.ink.json`, así que Notes muestra las páginas y la tablet puede seguir editándolas.
 Los adjuntos acompañan a su nota al cambiarla de categoría o borrarla. Formato, detalles y calibración del

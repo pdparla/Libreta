@@ -141,13 +141,68 @@ enum class Paper(val code: String) {
     }
 }
 
-data class InkPage(val width: Int, val height: Int, val paper: Paper, val strokes: List<Stroke> = emptyList()) {
+data class InkPage(
+    val width: Int,
+    val height: Int,
+    val paper: Paper,
+    val strokes: List<Stroke> = emptyList(),
+    val marks: List<InkMark> = emptyList(),
+) {
 
     init {
         require(width > 0 && height > 0) { "Page size must be positive" }
     }
 
     val isEmpty: Boolean get() = strokes.isEmpty()
+
+    /** The strokes [mark] is made of that are still on the page. */
+    fun strokesOf(mark: InkMark): List<Stroke> = strokes.filter { it.startedAt in mark.strokes }
+
+    /** The rectangle around [mark]'s strokes: it follows them when they move. Null once they are all gone. */
+    fun boundsOf(mark: InkMark): InkRect? = InkRect.around(strokesOf(mark))
+
+    /** The page with its marks kept to the strokes still on it; a mark with none left is gone (docs/13-indice.md). */
+    fun withLiveMarks(): InkPage {
+        if (marks.isEmpty()) return this
+        val present = strokes.mapTo(HashSet()) { it.startedAt }
+        val live = marks.mapNotNull { mark ->
+            val kept = mark.strokes.filterTo(LinkedHashSet()) { it in present }
+            if (kept.isEmpty()) null else if (kept.size == mark.strokes.size) mark else mark.copy(strokes = kept)
+        }
+        return if (live == marks) this else copy(marks = live)
+    }
+}
+
+/**
+ * Handwriting marked as a title or a tag (docs/13-indice.md): its [text], as read by the AI and checked by the user,
+ * and the strokes it is made of, by their [Stroke.startedAt], which moving or recolouring them does not change.
+ */
+data class InkMark(val kind: Kind, val text: String, val strokes: Set<Long>) {
+    enum class Kind(val code: String) { TITLE("title"), TAG("tag") }
+
+    companion object {
+        /** A tag as stored and shown: lower case, without `#`, words joined by `-`. */
+        fun tagText(raw: String): String =
+            raw.trim().removePrefix("#").lowercase().split(Regex("""\s+""")).filter { it.isNotEmpty() }.joinToString("-")
+    }
+}
+
+/** What a handwritten note's Markdown shows of its marks: the titles with their 1-based page, and the tags. */
+data class InkOutline(val titles: List<Pair<String, Int>>, val tags: List<String>) {
+    companion object {
+        val EMPTY = InkOutline(emptyList(), emptyList())
+
+        /** Titles in page order, top to bottom within a page; tags in order, without repeats. */
+        fun of(document: InkDocument): InkOutline {
+            val titles = document.pages.flatMapIndexed { i, page ->
+                page.marks.filter { it.kind == InkMark.Kind.TITLE }
+                    .sortedBy { page.boundsOf(it)?.top ?: 0f }
+                    .map { it.text to i + 1 }
+            }
+            val tags = document.pages.flatMap { page -> page.marks.filter { it.kind == InkMark.Kind.TAG }.map { it.text } }.distinct()
+            return InkOutline(titles, tags)
+        }
+    }
 }
 
 /** A handwritten note: one or more pages, each with its own size (upright or landscape). */

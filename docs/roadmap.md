@@ -27,7 +27,7 @@ conversación; el servidor no tiene GPU.
 | 10 | [Vertical y horizontal](#fase-10-vertical-y-horizontal) — **hecha**, ver [`10-orientacion.md`](10-orientacion.md) | S–M | 9 (desplazarse por la página) |
 | 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) — **hecha**, ver [`11-busqueda.md`](11-busqueda.md) | M | — |
 | 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) — **hecha**, ver [`12-preguntar.md`](12-preguntar.md) | M | 11 |
-| 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) | M | 8 (selección), 11 (transcripción) |
+| 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) — **hecha**, ver [`13-indice.md`](13-indice.md) | M | 8 (selección), 11 (transcripción) |
 | 14 | [Pasar a limpio una nota entera](#fase-14-pasar-a-limpio-una-nota-entera) | S | — |
 | — | [Sin prioridad](#sin-prioridad) | | |
 
@@ -198,6 +198,8 @@ septiembre?», «haz una lista con todo lo pendiente de esta semana».
 pide confirmación; tests del bucle con MockWebServer.
 
 ## Fase 13: títulos, etiquetas e índice
+
+**Hecha** (2026-10-12): [`docs/13-indice.md`](13-indice.md). Lo de abajo es el plan original.
 
 Organizar las notas a mano sin teclado, como en Supernote: marcar con el recuadro qué es un título y qué es una
 etiqueta.

@@ -25,8 +25,11 @@ object InkTranscripts {
     const val FORMAT = "libreta-text"
     const val VERSION = 1
 
-    /** A fingerprint of everything that can change what a page says: its strokes, size and paper. */
-    fun hashOf(page: InkPage): String = ContentHash.of(InkJson.encode(InkDocument(listOf(page)))).value
+    /**
+     * A fingerprint of everything that can change what a page says: its strokes, size and paper, not its marks:
+     * marking a title must not read the page again (docs/13-indice.md).
+     */
+    fun hashOf(page: InkPage): String = ContentHash.of(InkJson.encode(InkDocument(listOf(page.copy(marks = emptyList()))))).value
 
     /** Indexes of the pages of [document] whose text is missing or was read from a different page. */
     fun pending(document: InkDocument, transcripts: List<PageTranscript>): List<Int> =

@@ -19,6 +19,7 @@ import com.parla.libreta.R
 import com.parla.libreta.container
 import com.parla.libreta.core.note.NoteSearch
 import com.parla.libreta.core.note.NoteStoreException
+import com.parla.libreta.core.note.NoteTags
 import com.parla.libreta.core.note.SearchHit
 import com.parla.libreta.ui.ai.AiChatActivity
 import com.parla.libreta.ui.ink.InkNoteActivity
@@ -171,7 +172,8 @@ class NoteListActivity : Activity() {
     /** "All notes", "No category", then every category present, keeping the current choice if it still exists. */
     private fun showCategories() {
         val categories = allNotes.map { it.path.category }.filter { it.isNotEmpty() }.distinct().sorted()
-        filters = listOf(CategoryFilter.All, CategoryFilter.Only("")) + categories.map { CategoryFilter.Only(it) }
+        val tags = allNotes.flatMap { it.tags }.distinct().sorted()
+        filters = listOf(CategoryFilter.All, CategoryFilter.Only("")) + categories.map { CategoryFilter.Only(it) } + tags.map { CategoryFilter.Tag(it) }
         if (filter !in filters) filter = CategoryFilter.All
 
         categoryAdapter.setNotifyOnChange(false)
@@ -184,11 +186,12 @@ class NoteListActivity : Activity() {
     private fun labelOf(filter: CategoryFilter): String = when (filter) {
         CategoryFilter.All -> getString(R.string.category_all)
         is CategoryFilter.Only -> filter.category.ifEmpty { getString(R.string.category_none) }
+        is CategoryFilter.Tag -> getString(R.string.category_tag, filter.tag)
     }
 
     /** The notes of the chosen category; while searching, only those that match, each with where. */
     private fun applyFilter() {
-        val shown = allNotes.filter { filter.matches(it.summary) }
+        val shown = allNotes.filter { filter.matches(it) }
         findViewById<TextView>(R.id.empty).text =
             if (query.isBlank()) getString(R.string.empty_list) else getString(R.string.search_nothing, query.trim())
         if (query.isBlank()) return adapter.submit(shown)
@@ -228,7 +231,7 @@ class NoteListActivity : Activity() {
                 ""
             }
             val entry = container.notebookIndex.entry(path, markdown)
-            ListedNote(summary, entry.isInk, entry.searchable)
+            ListedNote(summary, entry.isInk, entry.searchable, NoteTags.of(markdown))
         }
 
     private fun open(note: ListedNote) {

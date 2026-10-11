@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import com.parla.libreta.BuildConfig
 import com.parla.libreta.core.ink.InkEditor
+import com.parla.libreta.core.ink.InkMark
 import com.parla.libreta.core.ink.InkPoint
 import com.parla.libreta.core.ink.InkRect
 import com.parla.libreta.core.ink.InkViewport
@@ -153,6 +154,8 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         pathEffect = DashPathEffect(floatArrayOf(dash, dash), 0f)
     }
     private val selectionFill = Paint().apply { color = 0x181a73e8 }
+    private val titlePaint = Paint().apply { color = 0x40FFC107 }
+    private val tagPaint = Paint().apply { color = 0x3334A853 }
 
     fun clearSelection() {
         selection = null
@@ -214,6 +217,14 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         canvas.translate(viewport.originX, viewport.originY)
         canvas.clipRect(0f, 0f, page.width * scale, page.height * scale)
         InkRenderer.drawPaper(canvas, page, scale)
+        // Titles and tags (docs/13-indice.md) behind their ink, so the page shows what is marked.
+        page.marks.forEach { mark ->
+            page.boundsOf(mark)?.let { r ->
+                val pad = MARK_PADDING
+                canvas.drawRect((r.left - pad) * scale, (r.top - pad) * scale, (r.right + pad) * scale, (r.bottom + pad) * scale,
+                    if (mark.kind == InkMark.Kind.TITLE) titlePaint else tagPaint)
+            }
+        }
         val visible = viewport.visible()
         page.strokes.forEachIndexed { i, stroke ->
             if (i !in hidden && stroke.bounds.intersects(visible)) InkRenderer.drawStroke(canvas, stroke, scale)
@@ -619,5 +630,8 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         /** A second finger within this time, or before the first has moved [FRESH_TRAVEL_DP], starts a pinch. */
         const val FRESH_MILLIS = 150L
         const val FRESH_TRAVEL_DP = 8f
+
+        /** Space around a mark's ink, in page units. */
+        const val MARK_PADDING = 4f
     }
 }

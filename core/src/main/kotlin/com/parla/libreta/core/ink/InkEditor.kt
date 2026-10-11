@@ -89,6 +89,19 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         replaceStrokes(indexes) { it.copy(color = color ?: it.color, width = width ?: it.width) }
     }
 
+    /**
+     * Marks the strokes at [indexes] of the current page as a title or a tag with [text], in one undo step. Strokes
+     * already in a mark of the same kind leave it, so that marking again replaces.
+     */
+    fun addMark(kind: InkMark.Kind, text: String, indexes: Collection<Int>) {
+        val ids = indexes.mapNotNull { page.strokes.getOrNull(it)?.startedAt }.toCollection(LinkedHashSet())
+        if (ids.isEmpty() || text.isBlank()) return
+        change { pages ->
+            val others = page.marks.map { if (it.kind == kind) it.copy(strokes = it.strokes - ids) else it }.filter { it.strokes.isNotEmpty() }
+            pages[pageIndex] = page.copy(marks = others + InkMark(kind, text.trim(), ids))
+        }
+    }
+
     /** Removes the strokes at [indexes] of the current page, in one undo step. */
     fun deleteStrokes(indexes: Collection<Int>) {
         if (indexes.isEmpty()) return
@@ -160,7 +173,8 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         if (gestureStart == null) push(Snapshot(document, pageIndex))
         val pages = document.pages.toMutableList()
         edit(pages)
-        document = InkDocument(pages)
+        // Marks whose strokes were erased go with them (docs/13-indice.md).
+        document = InkDocument(pages.map { it.withLiveMarks() })
         pageIndex = newPageIndex
     }
 

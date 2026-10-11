@@ -130,11 +130,15 @@ object InkRenderer : PageRenderer {
     }
 
     /**
-     * The ink inside [area] of [page] as a PNG for the model: strokes only, on white, without the paper's lines,
-     * which add nothing and can be mistaken for writing. [SELECTION_SCALE] pixels per unit, or fewer to keep the
-     * longer side within [SELECTION_MAX_SIDE].
+     * The ink inside [selected] of [page], with a margin, as a PNG for the model: strokes only, on white, without the
+     * paper's lines, which add nothing and can be mistaken for writing. [SELECTION_SCALE] pixels per unit, or fewer
+     * to keep the longer side within [SELECTION_MAX_SIDE].
      */
-    fun renderSelection(page: InkPage, area: InkRect): ByteArray {
+    fun renderSelection(page: InkPage, selected: InkRect): ByteArray {
+        // A white margin around the ink: a selection snapped to its strokes (Fase 8) leaves letters touching the
+        // edges, and the model then reads nothing.
+        val margin = max(SELECTION_MARGIN, max(selected.width, selected.height) * 0.1f)
+        val area = InkRect(selected.left - margin, selected.top - margin, selected.right + margin, selected.bottom + margin)
         val scale = area.renderScale(SELECTION_SCALE, SELECTION_MAX_SIDE)
         val bitmap = Bitmap.createBitmap(
             ceil(area.width * scale).toInt().coerceAtLeast(1),
@@ -159,5 +163,6 @@ object InkRenderer : PageRenderer {
 
     private const val PAGE_IMAGE_SCALE = 2
     private const val SELECTION_SCALE = 2f
+    private const val SELECTION_MARGIN = 16f
     private const val SELECTION_MAX_SIDE = 1600
 }

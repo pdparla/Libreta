@@ -36,7 +36,7 @@ class InkNoteService(
         val folder = NotePath.ATTACHMENTS_FOLDER_PREFIX + newFolderId()
         val path = NoteNaming.uniquePath(title, category, isTaken = { notes.readOrNull(it) != null })
         writeAttachments(path, folder, document, previous = null)
-        notes.writeText(path, InkNoteFormat.compose(title.trim(), folder, document.pages.size), WritePrecondition.MustNotExist)
+        notes.writeText(path, InkNoteFormat.compose(title.trim(), folder, document.pages.size, InkOutline.of(document)), WritePrecondition.MustNotExist)
         return InkNote(path, document, folder)
     }
 
@@ -62,13 +62,13 @@ class InkNoteService(
      */
     fun save(note: InkNote, document: InkDocument): InkNote {
         writeAttachments(note.path, note.folder, document, previous = note.document)
-        updateMarkdown(note) { InkNoteFormat.update(it, note.folder, document.pages.size) }
+        updateMarkdown(note) { InkNoteFormat.update(it, note.folder, document.pages.size, InkOutline.of(document)) }
         return note.copy(document = document)
     }
 
     /** Adds [text] (e.g. recognised from the handwriting) to the note's Markdown, above the page images. */
     fun addText(note: InkNote, text: String) {
-        updateMarkdown(note) { InkNoteFormat.withText(it, note.folder, note.document.pages.size, text) }
+        updateMarkdown(note) { InkNoteFormat.withText(it, note.folder, note.document.pages.size, text, InkOutline.of(note.document)) }
     }
 
     /** Rewrites the note's Markdown with [edit], merging again if it changes between the read and the write. */
@@ -113,7 +113,9 @@ class InkNoteService(
         notes.writeText(inFolder(InkNoteFormat.INK_FILE), InkJson.encode(document))
         document.pages.forEachIndexed { i, page ->
             val image = inFolder(InkNoteFormat.pageImageName(i))
-            val unchanged = previous?.pages?.getOrNull(i) == page && notes.readOrNull(image) != null
+            // Marks are not drawn, so marking a title does not render the page again.
+            val unchanged = previous?.pages?.getOrNull(i)?.copy(marks = emptyList()) == page.copy(marks = emptyList()) &&
+                notes.readOrNull(image) != null
             if (!unchanged) notes.write(image, renderer.render(page))
         }
         // Pages that no longer exist.

@@ -13,7 +13,7 @@ import com.parla.libreta.core.note.SearchableNote
 import com.parla.libreta.data.local.NoteSummary
 
 /** A note as the list shows it, with what search can find it by (docs/11-busqueda.md). */
-data class ListedNote(val summary: NoteSummary, val isInk: Boolean, val searchable: SearchableNote) {
+data class ListedNote(val summary: NoteSummary, val isInk: Boolean, val searchable: SearchableNote, val tags: List<String> = emptyList()) {
     val path get() = summary.path
 }
 

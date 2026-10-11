@@ -4,8 +4,9 @@ package com.parla.libreta.core.ink
  * Stores an [InkDocument] as JSON (`libreta.ink.json`):
  *
  * ```json
- * {"format":"libreta-ink","version":1,"pages":[{"width":600,"height":900,"paper":"lined","strokes":[
- *   {"color":"#ff202124","width":3.5,"start":1760197500000,"points":[12.5,40,0, 13,41.5,16, ...]}]}]}
+ * {"format":"libreta-ink","version":2,"pages":[{"width":600,"height":900,"paper":"lined","strokes":[
+ *   {"color":"#ff202124","width":3.5,"start":1760197500000,"points":[12.5,40,0, 13,41.5,16, ...]}],
+ *   "marks":[{"kind":"title","text":"Viaje","strokes":[1760197500000]}]}]}
  * ```
  *
  * Points are a flat array of `x, y, t` triples to keep files small; coordinates are rounded to 0.1 units. A
@@ -15,7 +16,7 @@ package com.parla.libreta.core.ink
 object InkJson {
 
     const val FORMAT = "libreta-ink"
-    const val VERSION = 1
+    const val VERSION = 2
 
     fun encode(document: InkDocument): String = buildString {
         append("""{"format":"$FORMAT","version":$VERSION,"pages":[""")
@@ -31,7 +32,17 @@ object InkJson {
                 }
                 append("]}")
             }
-            append("]}")
+            append("]")
+            if (page.marks.isNotEmpty()) {
+                append(",\"marks\":[")
+                page.marks.forEachIndexed { m, mark ->
+                    if (m > 0) append(',')
+                    append("{\"kind\":\"").append(mark.kind.code).append("\",\"text\":").append(jsonString(mark.text))
+                    append(",\"strokes\":[").append(mark.strokes.joinToString(",")).append("]}")
+                }
+                append("]")
+            }
+            append("}")
         }
         append("]}")
     }
@@ -49,9 +60,18 @@ object InkJson {
                 height = number(page, "height").toInt(),
                 paper = Paper.ofCode(page["paper"] as? String ?: ""),
                 strokes = (page["strokes"] as? List<*> ?: emptyList<Any>()).map(::decodeStroke),
+                marks = (page["marks"] as? List<*>).orEmpty().mapNotNull(::decodeMark),
             )
         }
         return InkDocument(pages)
+    }
+
+    /** A mark (version 2); an unknown kind is skipped rather than failing the whole note. */
+    private fun decodeMark(json: Any?): InkMark? {
+        val mark = json as? Map<*, *> ?: invalid("mark is not an object")
+        val kind = InkMark.Kind.values().firstOrNull { it.code == mark["kind"] } ?: return null
+        val strokes = (mark["strokes"] as? List<*>).orEmpty().mapNotNull { (it as? Double)?.toLong() }.toCollection(LinkedHashSet())
+        return InkMark(kind, mark["text"] as? String ?: "", strokes)
     }
 
     private fun decodeStroke(json: Any?): Stroke {

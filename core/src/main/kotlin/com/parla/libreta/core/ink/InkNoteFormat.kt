@@ -47,17 +47,24 @@ object InkNoteFormat {
         inkFile.substringBeforeLast('/', "").takeIf { NotePath.isAttachmentsFolder(it) }
 
     /** Markdown for a new note titled [title] with [pageCount] pages in [folder]. */
-    fun compose(title: String, folder: String, pageCount: Int): String =
-        update("# $title\n", folder, pageCount)
+    fun compose(title: String, folder: String, pageCount: Int, outline: InkOutline = InkOutline.EMPTY): String =
+        update("# $title\n", folder, pageCount, outline)
 
     /**
-     * [markdown] with its managed lines replaced: the user's lines stay in place, then one image per page and the
-     * strokes reference at the end.
+     * [markdown] with its managed lines replaced: the user's lines stay in place, then the index and the tags of
+     * [outline] if any (docs/13-indice.md), one image per page and the strokes reference at the end.
      */
-    fun update(markdown: String, folder: String, pageCount: Int): String {
+    fun update(markdown: String, folder: String, pageCount: Int, outline: InkOutline = InkOutline.EMPTY): String {
         val userLines = userLines(markdown, folder)
         return buildString {
             userLines.forEach { append(it).append('\n') }
+            if (outline.titles.isNotEmpty()) {
+                append('\n').append(INDEX_HEADING).append('\n').append('\n')
+                outline.titles.forEach { (title, page) -> append("- ").append(title).append(" (pág. ").append(page).append(")\n") }
+            }
+            if (outline.tags.isNotEmpty()) {
+                append('\n').append(TAGS_PREFIX).append(outline.tags.joinToString(" ") { "#$it" }).append('\n')
+            }
             for (i in 0 until pageCount) {
                 append('\n').append("![Página ${i + 1}]($folder/${pageImageName(i)})").append('\n')
             }
@@ -69,12 +76,12 @@ object InkNoteFormat {
      * [markdown] with [text] added after the user's lines, above the page images, separated by a blank line; for
      * text recognised from the handwriting.
      */
-    fun withText(markdown: String, folder: String, pageCount: Int, text: String): String {
+    fun withText(markdown: String, folder: String, pageCount: Int, text: String, outline: InkOutline = InkOutline.EMPTY): String {
         val added = text.trim()
-        if (added.isEmpty()) return update(markdown, folder, pageCount)
+        if (added.isEmpty()) return update(markdown, folder, pageCount, outline)
         val userText = userLines(markdown, folder).joinToString("\n")
         val combined = if (userText.isBlank()) added else "$userText\n\n$added"
-        return update(combined, folder, pageCount)
+        return update(combined, folder, pageCount, outline)
     }
 
     /** What the user typed in a handwritten note's Markdown: without the page images and the strokes reference, of any folder. */
@@ -83,11 +90,29 @@ object InkNoteFormat {
         return markdown.lines().filterNot { anyPageImage.matches(it) || INK_REFERENCE.matches(it) }.joinToString("\n").trim()
     }
 
-    /** The lines that belong to the user: everything but the page images and the strokes reference, trailing blanks dropped. */
+    /**
+     * The lines that belong to the user: everything but the page images, the strokes reference, the index block and
+     * the tags line, trailing blanks dropped.
+     */
     private fun userLines(markdown: String, folder: String): List<String> {
         val pageImage = Regex("""^!\[[^\]]*]\(${Regex.escape(folder)}/pagina-\d+\.png\)\s*$""")
-        return markdown.lines()
-            .filterNot { pageImage.matches(it) || INK_REFERENCE.matches(it) }
-            .dropLastWhile { it.isBlank() }
+        val kept = ArrayList<String>()
+        var inIndex = false
+        for (line in markdown.lines()) {
+            when {
+                line == INDEX_HEADING -> inIndex = true
+                inIndex && (line.isBlank() || INDEX_ITEM.matches(line)) -> Unit
+                else -> {
+                    inIndex = false
+                    if (!pageImage.matches(line) && !INK_REFERENCE.matches(line) && !TAGS_LINE.matches(line)) kept += line
+                }
+            }
+        }
+        return kept.dropLastWhile { it.isBlank() }
     }
+
+    private const val INDEX_HEADING = "## Índice"
+    private const val TAGS_PREFIX = "Etiquetas: "
+    private val INDEX_ITEM = Regex("""^- .* \(pág\. \d+\)$""")
+    private val TAGS_LINE = Regex("""^Etiquetas: #\S+( #\S+)*\s*$""")
 }

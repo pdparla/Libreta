@@ -23,6 +23,7 @@ import com.parla.libreta.R
 import com.parla.libreta.container
 import com.parla.libreta.core.ink.InkDocument
 import com.parla.libreta.core.ink.InkEditor
+import com.parla.libreta.core.ink.InkMark
 import com.parla.libreta.core.ink.InkNote
 import com.parla.libreta.core.ink.Paper
 import com.parla.libreta.core.ink.Stroke
@@ -129,6 +130,7 @@ class InkNoteActivity : Activity() {
             R.id.action_rename -> askTitle()
             R.id.action_category -> CategoryPicker.show(this, note?.path?.category ?: category, ::moveTo)
             R.id.action_paper -> choosePaper()
+            R.id.action_index -> showIndex()
             R.id.action_edit_text -> editText()
             R.id.action_delete -> confirmDelete()
             else -> return super.onOptionsItemSelected(item)
@@ -158,6 +160,8 @@ class InkNoteActivity : Activity() {
         showZoom()
         setUpSelectionTools()
         findViewById<View>(R.id.ink_convert).setOnClickListener { convertSelection() }
+        findViewById<View>(R.id.ink_title).setOnClickListener { markSelection(InkMark.Kind.TITLE) }
+        findViewById<View>(R.id.ink_tag).setOnClickListener { markSelection(InkMark.Kind.TAG) }
         findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
         findViewById<View>(R.id.ink_chat).setOnClickListener { chatAboutSelection() }
 
@@ -269,6 +273,8 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_paste).visibility = visibleIf(!InkClipboard.isEmpty)
         findViewById<View>(R.id.ink_convert).isEnabled = selected
         findViewById<View>(R.id.ink_chat).isEnabled = selected
+        findViewById<View>(R.id.ink_title).isEnabled = holdsInk
+        findViewById<View>(R.id.ink_tag).isEnabled = holdsInk
         selectedStrokes().firstOrNull()?.let { first ->
             findViewById<View>(R.id.ink_selection_color).background = ColorPalette.swatchDrawable(first.color, false, resources.displayMetrics.density)
         }
@@ -350,7 +356,58 @@ class InkNoteActivity : Activity() {
         return signedIn
     }
 
-    private fun convertSelection() {
+    private fun convertSelection() = readSelection { text ->
+        if (text.isBlank()) Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show() else showRecognized(text, R.string.ai_convert_title)
+    }
+
+    /**
+     * Marks the selected strokes as a title or a tag (docs/13-indice.md): the AI reads them, the user checks the
+     * text, and the mark goes into the page as one undo step.
+     */
+    private fun markSelection(kind: InkMark.Kind) = readSelection { read ->
+        val firstLine = read.lineSequence().map { it.trim().trimStart('#', '-', '*', ' ') }.firstOrNull { it.isNotEmpty() }.orEmpty()
+        val proposed = if (kind == InkMark.Kind.TAG) InkMark.tagText(firstLine) else firstLine
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setSingleLine()
+            setText(proposed)
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (kind == InkMark.Kind.TITLE) R.string.ink_mark_title else R.string.ink_mark_tag)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val text = input.text.toString().let { if (kind == InkMark.Kind.TAG) InkMark.tagText(it) else it.trim() }
+                if (text.isNotEmpty()) {
+                    editor?.addMark(kind, text, inkView.selectedStrokes)
+                    afterSelectionEdit()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** The titles of the note, page by page; picking one goes to its page. */
+    private fun showIndex() {
+        val editor = editor ?: return
+        val entries = editor.document.pages.flatMapIndexed { i, page ->
+            page.marks.filter { it.kind == InkMark.Kind.TITLE }.sortedBy { page.boundsOf(it)?.top ?: 0f }.map { it.text to i }
+        }
+        if (entries.isEmpty()) {
+            Toast.makeText(this, R.string.ink_index_empty, Toast.LENGTH_LONG).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.action_index)
+            .setItems(entries.map { (title, page) -> getString(R.string.ink_index_entry, title, page + 1) }.toTypedArray()) { _, which ->
+                editor.goToPage(entries[which].second)
+                afterPageChange()
+            }
+            .show()
+    }
+
+    /** Has the AI read the selected handwriting, then hands the text to [onText]; a cancellable wait meanwhile. */
+    private fun readSelection(onText: (String) -> Unit) {
         if (!signedIn()) return
         val image = selectionImage() ?: return
         val handle = TurnHandle()
@@ -367,9 +424,7 @@ class InkNoteActivity : Activity() {
             progress.dismiss()
             if (handle.isCancelled) return@execute
             result
-                .onSuccess { text ->
-                    if (text.isBlank()) Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show() else showRecognized(text, R.string.ai_convert_title)
-                }
+                .onSuccess(onText)
                 .onFailure { Toast.makeText(this, AiMessages.failure(this, it), Toast.LENGTH_LONG).show() }
         }
     }
