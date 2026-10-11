@@ -18,8 +18,12 @@ object InkJson {
     const val FORMAT = "libreta-ink"
     const val VERSION = 2
 
+    /** Without marks a document is written exactly as before marks existed, so its fingerprints do not change. */
+    private const val VERSION_WITHOUT_MARKS = 1
+
     fun encode(document: InkDocument): String = buildString {
-        append("""{"format":"$FORMAT","version":$VERSION,"pages":[""")
+        val version = if (document.pages.any { it.marks.isNotEmpty() }) VERSION else VERSION_WITHOUT_MARKS
+        append("""{"format":"$FORMAT","version":$version,"pages":[""")
         document.pages.forEachIndexed { p, page ->
             if (p > 0) append(',')
             append("""{"width":${page.width},"height":${page.height},"paper":"${page.paper.code}","strokes":[""")

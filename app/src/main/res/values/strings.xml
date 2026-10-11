@@ -77,6 +77,12 @@
     <string name="ink_mark_title">Marcar como título</string>
     <string name="ink_mark_tag">Marcar como etiqueta</string>
     <string name="action_index">Índice</string>
+    <string name="action_clean_copy">Pasar a limpio</string>
+    <string name="ink_clean_reading">Leyendo la página %1$d de %2$d…</string>
+    <string name="ink_clean_ordering">Ordenando el texto…</string>
+    <string name="ink_clean_title">%1$s (a limpio)</string>
+    <string name="ink_clean_footer">_Pasada a limpio de la nota a mano «%1$s» el %2$s._</string>
+    <string name="ink_clean_nothing">No hay nada escrito en esta nota.</string>
     <string name="ink_index_entry">%1$s · pág. %2$d</string>
     <string name="ink_index_empty">Esta nota aún no tiene títulos. Márcalos con Seleccionar → Título.</string>
     <string name="category_tag">#%1$s</string>

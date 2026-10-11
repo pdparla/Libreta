@@ -68,6 +68,20 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
+     * One clean Markdown text from the transcripts of several handwritten [pages], in order (docs/14-pasar-a-limpio.md):
+     * joined without repeats or sentences cut between pages, structured, and with nothing that is not written.
+     * [titles], marked by the user (docs/13-indice.md), guide the structure.
+     */
+    fun cleanCopy(pages: List<String>, titles: List<String>, handle: TurnHandle): String {
+        val request = buildString {
+            if (titles.isNotEmpty()) append("Títulos marcados por el usuario: ").append(titles.joinToString("; ")).append("\n\n")
+            pages.forEachIndexed { i, text -> append("Página ").append(i + 1).append(":\n").append(text.trim()).append("\n\n") }
+        }
+        val input = JSONArray().put(userMessage(JSONArray().put(inputText(request))))
+        return responses.respond(CHAT_MODEL, CLEAN_INSTRUCTIONS, input, handle).text.trim().let(::withoutCodeFence)
+    }
+
+    /**
      * Sends [text] in [conversation] and adds the answer, streaming its pieces to [onText]. When the model asks for
      * [tools], they run (each announced to [onToolCall]) and their results go back to it, round after round, until it
      * answers. If anything fails, the message and all it added are taken back out so it can be sent again.
@@ -143,6 +157,14 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "un enlace Markdown cuyo destino es nota: más su ruta exacta entre < >, por ejemplo " +
                 "[Compra](<nota:Casa/Compra.md>); si lo citado está en una página escrita a mano, añade #página, por " +
                 "ejemplo [Compra](<nota:Casa/Compra.md#2>)."
+
+        private const val CLEAN_INSTRUCTIONS =
+            "Recibes, en orden, lo transcrito de las páginas de una nota escrita a mano. Únelo en una sola nota en " +
+                "Markdown, limpia y bien estructurada: títulos de sección con ##, listas y tablas donde el original las " +
+                "tenga. No repitas nada, no cortes frases entre páginas, corrige solo errores evidentes de lectura y no " +
+                "añadas nada que no esté escrito. Conserva todo el texto de todas las páginas, también los títulos que " +
+                "marcó el usuario, que van como títulos de sección. No añadas un título general para toda la nota: lo " +
+                "pone la app. Escribe las fórmulas en LaTeX entre $. Devuelve solo el Markdown, sin comentarios."
 
         /** Rounds of tool calls in one answer before giving up: a model that never answers must not loop forever. */
         private const val MAX_TOOL_ROUNDS = 8

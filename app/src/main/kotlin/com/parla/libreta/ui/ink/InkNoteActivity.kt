@@ -24,6 +24,9 @@ import com.parla.libreta.container
 import com.parla.libreta.core.ink.InkDocument
 import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkMark
+import com.parla.libreta.core.ink.InkOutline
+import com.parla.libreta.core.ink.InkRect
+import com.parla.libreta.core.ink.InkTranscripts
 import com.parla.libreta.core.ink.InkNote
 import com.parla.libreta.core.ink.Paper
 import com.parla.libreta.core.ink.Stroke
@@ -131,6 +134,7 @@ class InkNoteActivity : Activity() {
             R.id.action_category -> CategoryPicker.show(this, note?.path?.category ?: category, ::moveTo)
             R.id.action_paper -> choosePaper()
             R.id.action_index -> showIndex()
+            R.id.action_clean_copy -> cleanCopy()
             R.id.action_edit_text -> editText()
             R.id.action_delete -> confirmDelete()
             else -> return super.onOptionsItemSelected(item)
@@ -385,6 +389,64 @@ class InkNoteActivity : Activity() {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    /**
+     * A new text note with everything written here, in clean Markdown (docs/14-pasar-a-limpio.md). Pages already read
+     * for search are not sent again; the rest are read now, and kept for search too. Cancelling creates nothing.
+     */
+    private fun cleanCopy() {
+        if (!signedIn()) return
+        save()
+        val current = note ?: return Toast.makeText(this, R.string.ink_draw_first, Toast.LENGTH_SHORT).show()
+        val title = current.path.baseName
+        val handle = TurnHandle()
+        @Suppress("DEPRECATION") // ProgressDialog is the progress dialog API 19 has.
+        val progress = ProgressDialog(this).apply {
+            setMessage(getString(R.string.ink_clean_ordering))
+            setCancelable(true)
+            setCanceledOnTouchOutside(false)
+            setOnCancelListener { handle.cancel() }
+            show()
+        }
+        val tell = { text: String -> handler.post { if (progress.isShowing) progress.setMessage(text) } }
+        val date = SimpleDateFormat("yyyy-MM-dd HH.mm", Locale.ROOT).format(Date())
+        container.aiBackground.execute({
+            val pages = current.document.pages
+            val stored = container.transcripts.read(current)
+            val texts = pages.mapIndexed { i, page ->
+                val hash = InkTranscripts.hashOf(page)
+                when {
+                    page.isEmpty -> ""
+                    stored.getOrNull(i)?.hash == hash -> stored[i].text
+                    else -> {
+                        tell(getString(R.string.ink_clean_reading, i + 1, pages.size))
+                        val image = InkRenderer.renderSelection(page, InkRect(0f, 0f, page.width.toFloat(), page.height.toFloat()))
+                        container.ai.convertToText(image, handle).also { container.transcripts.save(current, i, hash, it) }
+                    }
+                }
+            }.filter { it.isNotBlank() }
+            if (texts.isEmpty()) return@execute null
+            val body = if (texts.size == 1) {
+                texts.single()
+            } else {
+                tell(getString(R.string.ink_clean_ordering))
+                container.ai.cleanCopy(texts, InkOutline.of(current.document).titles.map { it.first }, handle)
+            }
+            if (handle.isCancelled) return@execute null
+            val content = "# ${getString(R.string.ink_clean_title, title)}\n\n$body\n\n${getString(R.string.ink_clean_footer, title, date)}\n"
+            container.noteService.create(content, current.path.category).path
+        }) { result ->
+            if (isDestroyed) return@execute
+            progress.dismiss()
+            if (handle.isCancelled) return@execute
+            result
+                .onSuccess { path ->
+                    if (path == null) Toast.makeText(this, R.string.ink_clean_nothing, Toast.LENGTH_LONG).show()
+                    else startActivity(NoteEditorActivity.intent(this, path))
+                }
+                .onFailure { Toast.makeText(this, AiMessages.failure(this, it), Toast.LENGTH_LONG).show() }
+        }
     }
 
     /** The titles of the note, page by page; picking one goes to its page. */

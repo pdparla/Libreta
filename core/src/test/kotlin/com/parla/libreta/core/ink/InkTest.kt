@@ -368,6 +368,18 @@ class InkJsonTest {
     }
 
     @Test
+    fun `a document without marks is written as version 1, so fingerprints from before marks still match`() {
+        val page = InkPage(600, 900, Paper.LINED, listOf(stroke(1f, 2f)))
+
+        assertTrue(InkJson.encode(InkDocument(listOf(page))).startsWith("""{"format":"libreta-ink","version":1,"""))
+        assertEquals(
+            com.parla.libreta.core.note.ContentHash.of("""{"format":"libreta-ink","version":1,"pages":[""" +
+                """{"width":600,"height":900,"paper":"lined","strokes":[{"color":"#ff202124","width":3,"start":1760197500000,"points":[1,2,0]}]}]}""").value,
+            InkTranscripts.hashOf(page),
+        )
+    }
+
+    @Test
     fun `marking a page does not change its transcription fingerprint`() {
         val page = InkPage(600, 900, Paper.LINED, listOf(stroke(1f, 2f).copy(startedAt = 5)))
         val marked = page.copy(marks = listOf(InkMark(InkMark.Kind.TITLE, "T", setOf(5L))))

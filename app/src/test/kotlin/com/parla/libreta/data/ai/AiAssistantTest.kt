@@ -180,5 +180,18 @@ class AiAssistantTest {
         server.takeRequest()
         assertEquals(1, JSONObject(server.takeRequest().body.readUtf8()).getJSONArray("input").length())
     }
+
+    @Test
+    fun `a clean copy sends every page in order, with the marked titles, and returns plain Markdown`() {
+        server.enqueue(answer("```markdown\n## Viaje\n\n- Lisboa\n- Oporto\n```"))
+
+        val text = assistant().cleanCopy(listOf("Viaje\n- Lisboa", "- Oporto"), listOf("Viaje"), TurnHandle())
+
+        assertEquals("## Viaje\n\n- Lisboa\n- Oporto", text)
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertEquals(AiAssistant.CHAT_MODEL.name, body.getString("model"))
+        val sent = body.getJSONArray("input").getJSONObject(0).getJSONArray("content").getJSONObject(0).getString("text")
+        assertEquals("Títulos marcados por el usuario: Viaje\n\nPágina 1:\nViaje\n- Lisboa\n\nPágina 2:\n- Oporto\n\n", sent)
+    }
 }
 

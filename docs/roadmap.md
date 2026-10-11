@@ -28,7 +28,7 @@ conversación; el servidor no tiene GPU.
 | 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) — **hecha**, ver [`11-busqueda.md`](11-busqueda.md) | M | — |
 | 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) — **hecha**, ver [`12-preguntar.md`](12-preguntar.md) | M | 11 |
 | 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) — **hecha**, ver [`13-indice.md`](13-indice.md) | M | 8 (selección), 11 (transcripción) |
-| 14 | [Pasar a limpio una nota entera](#fase-14-pasar-a-limpio-una-nota-entera) | S | — |
+| 14 | [Pasar a limpio una nota entera](#fase-14-pasar-a-limpio-una-nota-entera) — **hecha**, ver [`14-pasar-a-limpio.md`](14-pasar-a-limpio.md) | S | — |
 | — | [Sin prioridad](#sin-prioridad) | | |
 
 ---
@@ -223,13 +223,15 @@ Nextcloud.
 
 ## Fase 14: pasar a limpio una nota entera
 
+**Hecha** (2026-10-12): [`docs/14-pasar-a-limpio.md`](14-pasar-a-limpio.md). Lo de abajo es el plan original.
+
 **Qué hace.** Desde el menú de una nota a mano, «Pasar a limpio» crea una **nota de texto nueva** con todas las
 páginas transcritas y estructuradas: títulos, listas, tablas, fórmulas. Se ve formateada gracias a Markwon. La nota a
 mano no se toca.
 
 **Diseño inicial.**
 
-- Una petición por página a `gpt-6-luna` (con la página entera, como en «Convertir a texto») y, si hay más de una,
+- Una petición por página a `gpt-6.1-sol` (con la página entera, como en «Convertir a texto») y, si hay más de una,
   otra a `gpt-6.1-sol` que une las páginas sin repetir ni cortar frases a medias. Si la fase 11 ya transcribió las
   páginas, se parte de ese texto.
 - La nota nueva enlaza a la original y queda en la misma categoría.
