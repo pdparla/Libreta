@@ -2,8 +2,8 @@
 
 Lienzo para escribir o dibujar con el dedo o con un lápiz capacitivo (AmberVec). Cada nota se sincroniza con
 Nextcloud como **Markdown, una imagen por página y los trazos**, de modo que Nextcloud Notes muestra las páginas
-y la tablet puede seguir editándolas. Es la base de la Fase 7, que convertirá la escritura y la voz en texto en
-el servidor.
+y la tablet puede seguir editándolas. Es la base de la Fase 7 ([`docs/07-ia.md`](07-ia.md)), que pasa la escritura y
+la voz a texto.
 
 ## Qué hace
 
@@ -127,6 +127,6 @@ Gummy Bears incluye esos métodos y sigue detectando lo que de verdad falla en l
 
 ## Siguiente: Fase 7
 
-Reconocimiento en el servidor, a través de la propia sincronización de Nextcloud. Será un servicio en Docker con
-faster-whisper para el dictado y un modelo de visión en Ollama para pasar la escritura a Markdown. En la tablet
-habrá dos acciones: grabar voz y «Convertir a texto».
+La Fase 7 ([`docs/07-ia.md`](07-ia.md)) cambió el plan: la escritura se pasa a texto y se conversa sobre ella
+desde la propia tablet, con la suscripción de ChatGPT del usuario; el servidor solo se usará para el dictado
+(faster-whisper).

@@ -3,6 +3,7 @@ package com.parla.libreta.ui.ink
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
@@ -12,6 +13,7 @@ import android.view.View
 import com.parla.libreta.BuildConfig
 import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkPoint
+import com.parla.libreta.core.ink.InkRect
 import com.parla.libreta.core.ink.Stroke
 import kotlin.math.ceil
 import kotlin.math.hypot
@@ -24,10 +26,12 @@ import kotlin.math.min
  * The screen is capacitive, so the stylus is just a small contact: the first contact that is not too large
  * (see [maxTouchMajor]) draws, and every other one (the palm, a resting finger) is ignored. Finished strokes live
  * in a cached bitmap together with the paper; only the stroke being drawn is redrawn on every frame.
+ *
+ * With [Tool.SELECT], dragging marks a rectangle ([selection]) instead of drawing, for the AI actions.
  */
 class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
-    enum class Tool { PEN, ERASER }
+    enum class Tool { PEN, ERASER, SELECT }
 
     var editor: InkEditor? = null
         set(value) {
@@ -44,6 +48,16 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     /** Eraser radius, in page units. */
     var eraserRadius = 10f
+
+    /** The rectangle marked with [Tool.SELECT] on the current page, in page units; null when there is none. */
+    var selection: InkRect? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Called when a drag with [Tool.SELECT] ends, with the new selection (null if it was too small). */
+    var onSelectionChange: (InkRect?) -> Unit = {}
 
     /** Contacts larger than this (touch major, in pixels) are a palm, not the stylus. 0 accepts every contact. */
     var maxTouchMajor = 0f
@@ -80,6 +94,16 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         color = 0xff5f6368.toInt()
         strokeWidth = resources.displayMetrics.density
     }
+    private var selectFromX = 0f
+    private var selectFromY = 0f
+    private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = 0xff1a73e8.toInt()
+        strokeWidth = 2 * resources.displayMetrics.density
+        val dash = 6 * resources.displayMetrics.density
+        pathEffect = DashPathEffect(floatArrayOf(dash, dash), 0f)
+    }
+    private val selectionFill = Paint().apply { color = 0x181a73e8 }
 
     /** Redraws everything: after undo, redo, erasing, a page change or a new document. */
     fun refresh() {
@@ -118,6 +142,12 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     override fun onDraw(canvas: Canvas) {
         cache?.let { canvas.drawBitmap(it, 0f, 0f, null) }
         if (!eraserX.isNaN()) canvas.drawCircle(eraserX, eraserY, eraserRadius * scale, eraserPaint)
+        selection?.let { area ->
+            val left = offsetX + area.left * scale
+            val right = offsetX + area.right * scale
+            canvas.drawRect(left, area.top * scale, right, area.bottom * scale, selectionFill)
+            canvas.drawRect(left, area.top * scale, right, area.bottom * scale, selectionPaint)
+        }
         val path = livePath ?: return
         canvas.save()
         canvas.translate(offsetX, 0f)
@@ -174,11 +204,17 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                 lastErasedX = Float.NaN
                 eraseAlong(editor, event, index)
             }
+            Tool.SELECT -> {
+                selectFromX = (event.getX(index) - offsetX) / scale
+                selectFromY = event.getY(index) / scale
+                selection = null
+            }
         }
     }
 
     private fun move(editor: InkEditor, event: MotionEvent, index: Int) {
         if (tool == Tool.ERASER) return eraseAlong(editor, event, index)
+        if (tool == Tool.SELECT) return select(editor, event, index)
         for (h in 0 until event.historySize) {
             addPoint(event.getHistoricalX(index, h), event.getHistoricalY(index, h), event.getHistoricalEventTime(h))
         }
@@ -191,6 +227,10 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
             editor.endGesture()
             eraserX = Float.NaN
             onChange()
+        }
+        if (tool == Tool.SELECT) {
+            if (selection?.isUsable != true) selection = null
+            onSelectionChange(selection)
         }
         if (tool == Tool.PEN && points.isNotEmpty()) {
             val stroke = Stroke(penColor, penWidth, startedAt, ArrayList(points))
@@ -210,6 +250,10 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     private fun cancel() {
         activePointer = NO_POINTER
+        if (tool == Tool.SELECT) {
+            selection = null
+            onSelectionChange(null)
+        }
         editor?.endGesture()
         eraserX = Float.NaN
         points.clear()
@@ -227,6 +271,10 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         points += InkPoint(x, y, (eventTime - downTime).toInt())
         livePath = InkRenderer.pathOf(points, scale)
         invalidate()
+    }
+
+    private fun select(editor: InkEditor, event: MotionEvent, index: Int) {
+        selection = InkRect.between(selectFromX, selectFromY, (event.getX(index) - offsetX) / scale, event.getY(index) / scale, editor.page)
     }
 
     /** Erases at every sample of the event, then redraws the page once. */

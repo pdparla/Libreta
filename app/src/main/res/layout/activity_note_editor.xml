@@ -1,14 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<EditText xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/editor"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@null"
-    android:gravity="top|start"
-    android:hint="@string/editor_hint"
-    android:importantForAutofill="no"
-    android:inputType="textMultiLine|textCapSentences"
-    android:lineSpacingMultiplier="1.15"
-    android:padding="16dp"
-    android:scrollbars="vertical"
-    android:textSize="18sp" />
+<!-- The note formatted (preview) or its Markdown being edited; NoteEditorActivity shows one at a time. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <ScrollView
+        android:id="@+id/preview_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingMultiplier="1.15"
+            android:padding="16dp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textIsSelectable="true"
+            android:textSize="18sp" />
+    </ScrollView>
+
+    <EditText
+        android:id="@+id/editor"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@null"
+        android:gravity="top|start"
+        android:hint="@string/editor_hint"
+        android:importantForAutofill="no"
+        android:inputType="textMultiLine|textCapSentences"
+        android:lineSpacingMultiplier="1.15"
+        android:padding="16dp"
+        android:scrollbars="vertical"
+        android:textSize="18sp" />
+</merge>

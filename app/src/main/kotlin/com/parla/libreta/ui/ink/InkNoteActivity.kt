@@ -2,12 +2,16 @@ package com.parla.libreta.ui.ink
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.ProgressDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -22,8 +26,13 @@ import com.parla.libreta.core.ink.InkNote
 import com.parla.libreta.core.ink.Paper
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteStoreException
+import com.parla.libreta.data.ai.TurnHandle
 import com.parla.libreta.ui.CategoryPicker
 import com.parla.libreta.ui.NoteEditorActivity
+import com.parla.libreta.ui.ai.AiChatActivity
+import com.parla.libreta.ui.ai.AiMessages
+import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -31,6 +40,9 @@ import java.util.Locale
 /**
  * Handwritten note: write or draw with the stylus, page by page. Like the text editor, it saves on its own when it
  * stops being visible; a new note is only created once something has been drawn.
+ *
+ * The select tool marks a rectangle for the AI (docs/07-ia.md): "Convertir a texto" adds the recognised text to the
+ * note, "Conversar con IA" opens a conversation about it.
  */
 class InkNoteActivity : Activity() {
 
@@ -61,6 +73,7 @@ class InkNoteActivity : Activity() {
         // Autosave: once the page has been left alone for a moment, not while writing.
         inkView.onTouchStart = { handler.removeCallbacks(autosave) }
         inkView.onTouchEnd = ::scheduleAutosave
+        inkView.onSelectionChange = { updateControls() }
         setUpToolbar()
 
         val path = (savedInstanceState?.getString(STATE_PATH) ?: intent.getStringExtra(EXTRA_PATH))?.let(NotePath::parseOrNull)
@@ -122,11 +135,15 @@ class InkNoteActivity : Activity() {
     private fun setUpToolbar() {
         findViewById<View>(R.id.ink_pen).setOnClickListener { selectTool(InkView.Tool.PEN) }
         findViewById<View>(R.id.ink_eraser).setOnClickListener { selectTool(InkView.Tool.ERASER) }
+        findViewById<View>(R.id.ink_select).setOnClickListener { selectTool(InkView.Tool.SELECT) }
         findViewById<View>(R.id.ink_undo).setOnClickListener { editor?.undo(); afterEdit() }
         findViewById<View>(R.id.ink_redo).setOnClickListener { editor?.redo(); afterEdit() }
-        findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; afterEdit() }
-        findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; afterEdit() }
-        findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); afterEdit() }
+        // A selection belongs to the page it was marked on.
+        findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; inkView.selection = null; afterEdit() }
+        findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; inkView.selection = null; afterEdit() }
+        findViewById<View>(R.id.ink_add_page).setOnClickListener { editor?.addPage(); inkView.selection = null; afterEdit() }
+        findViewById<View>(R.id.ink_convert).setOnClickListener { convertSelection() }
+        findViewById<View>(R.id.ink_chat).setOnClickListener { chatAboutSelection() }
 
         colorView = findViewById(R.id.ink_color)
         colorView.setOnClickListener {
@@ -161,6 +178,7 @@ class InkNoteActivity : Activity() {
     }
 
     private fun selectTool(tool: InkView.Tool) {
+        if (tool != InkView.Tool.SELECT) inkView.selection = null
         inkView.tool = tool
         updateControls()
     }
@@ -181,19 +199,111 @@ class InkNoteActivity : Activity() {
         val editor = editor
         findViewById<View>(R.id.ink_pen).isSelected = inkView.tool == InkView.Tool.PEN
         findViewById<View>(R.id.ink_eraser).isSelected = inkView.tool == InkView.Tool.ERASER
+        findViewById<View>(R.id.ink_select).isSelected = inkView.tool == InkView.Tool.SELECT
         findViewById<View>(R.id.ink_undo).isEnabled = editor?.canUndo == true
         findViewById<View>(R.id.ink_redo).isEnabled = editor?.canRedo == true
         findViewById<View>(R.id.ink_prev).isEnabled = editor != null && editor.pageIndex > 0
         findViewById<View>(R.id.ink_next).isEnabled = editor != null && editor.pageIndex < editor.pageCount - 1
         pageLabel.text = editor?.let { getString(R.string.ink_page, it.pageIndex + 1, it.pageCount) }.orEmpty()
-        val erasing = inkView.tool == InkView.Tool.ERASER
-        findViewById<View>(R.id.ink_pen_options).visibility = if (erasing) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.ink_eraser_options).visibility = if (erasing) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.ink_pen_options).visibility = visibleIf(inkView.tool == InkView.Tool.PEN)
+        findViewById<View>(R.id.ink_eraser_options).visibility = visibleIf(inkView.tool == InkView.Tool.ERASER)
+        findViewById<View>(R.id.ink_select_options).visibility = visibleIf(inkView.tool == InkView.Tool.SELECT)
+        val selected = inkView.selection != null
+        findViewById<View>(R.id.ink_select_hint).visibility = if (selected) View.INVISIBLE else View.VISIBLE
+        findViewById<View>(R.id.ink_convert).isEnabled = selected
+        findViewById<View>(R.id.ink_chat).isEnabled = selected
         colorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
         widthViews.forEachIndexed { i, view -> view.isSelected = widths[i] == inkView.penWidth }
         findViewById<View>(R.id.ink_erase_area).isSelected = !inkView.eraseWholeStrokes
         findViewById<View>(R.id.ink_erase_strokes).isSelected = inkView.eraseWholeStrokes
         eraserRadiusViews.forEachIndexed { i, view -> view.isSelected = eraserRadii[i] == inkView.eraserRadius }
+    }
+
+    private fun visibleIf(visible: Boolean) = if (visible) View.VISIBLE else View.GONE
+
+    /** The selection as an image for the model; null (after saying why) if it holds no ink. */
+    private fun selectionImage(): ByteArray? {
+        val editor = editor ?: return null
+        val area = inkView.selection ?: return null
+        if (!area.hasInk(editor.page)) {
+            Toast.makeText(this, R.string.ink_selection_empty, Toast.LENGTH_SHORT).show()
+            return null
+        }
+        return InkRenderer.renderSelection(editor.page, area)
+    }
+
+    private fun signedIn(): Boolean {
+        val signedIn = container.chatGptSessions.load() != null
+        if (!signedIn) AiMessages.showSignInNeeded(this)
+        return signedIn
+    }
+
+    private fun convertSelection() {
+        if (!signedIn()) return
+        val image = selectionImage() ?: return
+        val handle = TurnHandle()
+        @Suppress("DEPRECATION") // ProgressDialog is the progress dialog API 19 has.
+        val progress = ProgressDialog(this).apply {
+            setMessage(getString(R.string.ai_converting))
+            setCancelable(true)
+            setCanceledOnTouchOutside(false)
+            setOnCancelListener { handle.cancel() }
+            show()
+        }
+        container.aiBackground.execute({ container.ai.convertToText(image, handle) }) { result ->
+            if (isDestroyed) return@execute
+            progress.dismiss()
+            if (handle.isCancelled) return@execute
+            result
+                .onSuccess { text ->
+                    if (text.isBlank()) Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show() else showRecognized(text)
+                }
+                .onFailure { Toast.makeText(this, AiMessages.failure(this, it), Toast.LENGTH_LONG).show() }
+        }
+    }
+
+    /** The recognised text, editable before it goes into the note. */
+    private fun showRecognized(text: String) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            gravity = Gravity.TOP or Gravity.START
+            minLines = 3
+            setText(text)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ai_convert_title)
+            .setView(input)
+            .setPositiveButton(R.string.ai_add_to_note) { _, _ -> addToNote(input.text.toString()) }
+            .setNeutralButton(R.string.ai_copy) { _, _ ->
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.ai_convert_title), input.text.toString()))
+                Toast.makeText(this, R.string.ai_copied, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun addToNote(text: String) {
+        save()
+        val current = note ?: return
+        runCatchingStore {
+            container.inkNotes.addText(current, text)
+            Toast.makeText(this, R.string.ai_added_to_note, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun chatAboutSelection() {
+        if (!signedIn()) return
+        val image = selectionImage() ?: return
+        save()
+        val file = File(cacheDir, AiChatActivity.SELECTION_FILE)
+        try {
+            file.writeBytes(image)
+        } catch (e: IOException) {
+            Toast.makeText(this, R.string.error_saving, Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(AiChatActivity.intent(this, file, note?.path?.category ?: category))
     }
 
     private fun saveToolPreferences() {
@@ -275,7 +385,7 @@ class InkNoteActivity : Activity() {
     private fun editText() {
         save()
         val current = note ?: return Toast.makeText(this, R.string.ink_draw_first, Toast.LENGTH_SHORT).show()
-        startActivity(NoteEditorActivity.intent(this, current.path))
+        startActivity(NoteEditorActivity.intent(this, current.path, edit = true))
         finish()
     }
 

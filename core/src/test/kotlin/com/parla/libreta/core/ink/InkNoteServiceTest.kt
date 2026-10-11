@@ -111,4 +111,28 @@ class InkNoteServiceTest {
         noteService.delete(moved.path)
         assertEquals(emptySet<String>(), files())
     }
+    @Test
+    fun `addText puts recognised text after the user's text and above the pages`() {
+        val note = service.create("", "Compra", InkDocument.blank(600, 900))
+        local.put("Compra.md", local.contentOf("Compra.md")!!.replace("# Compra\n", "# Compra\n\nEscrito a máquina\n"))
+
+        service.addText(note, "- leche\n- pan\n")
+        service.addText(note, "  Llamar a Ana  ")
+
+        assertEquals(
+            "# Compra\n\nEscrito a máquina\n\n- leche\n- pan\n\nLlamar a Ana\n\n" +
+                "![Página 1](.attachments.k3/pagina-1.png)\n\n[libreta-ink]: .attachments.k3/libreta.ink.json\n",
+            local.contentOf("Compra.md"),
+        )
+    }
+
+    @Test
+    fun `blank recognised text changes nothing`() {
+        val note = service.create("", "Compra", InkDocument.blank(600, 900))
+        val before = local.contentOf("Compra.md")
+
+        service.addText(note, " \n ")
+
+        assertEquals(before, local.contentOf("Compra.md"))
+    }
 }

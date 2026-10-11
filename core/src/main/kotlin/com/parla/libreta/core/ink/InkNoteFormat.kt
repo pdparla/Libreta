@@ -55,10 +55,7 @@ object InkNoteFormat {
      * strokes reference at the end.
      */
     fun update(markdown: String, folder: String, pageCount: Int): String {
-        val pageImage = Regex("""^!\[[^\]]*]\(${Regex.escape(folder)}/pagina-\d+\.png\)\s*$""")
-        val userLines = markdown.lines()
-            .filterNot { pageImage.matches(it) || INK_REFERENCE.matches(it) }
-            .dropLastWhile { it.isBlank() }
+        val userLines = userLines(markdown, folder)
         return buildString {
             userLines.forEach { append(it).append('\n') }
             for (i in 0 until pageCount) {
@@ -66,5 +63,25 @@ object InkNoteFormat {
             }
             append('\n').append("[$REFERENCE_LABEL]: $folder/$INK_FILE").append('\n')
         }
+    }
+
+    /**
+     * [markdown] with [text] added after the user's lines, above the page images, separated by a blank line; for
+     * text recognised from the handwriting.
+     */
+    fun withText(markdown: String, folder: String, pageCount: Int, text: String): String {
+        val added = text.trim()
+        if (added.isEmpty()) return update(markdown, folder, pageCount)
+        val userText = userLines(markdown, folder).joinToString("\n")
+        val combined = if (userText.isBlank()) added else "$userText\n\n$added"
+        return update(combined, folder, pageCount)
+    }
+
+    /** The lines that belong to the user: everything but the page images and the strokes reference, trailing blanks dropped. */
+    private fun userLines(markdown: String, folder: String): List<String> {
+        val pageImage = Regex("""^!\[[^\]]*]\(${Regex.escape(folder)}/pagina-\d+\.png\)\s*$""")
+        return markdown.lines()
+            .filterNot { pageImage.matches(it) || INK_REFERENCE.matches(it) }
+            .dropLastWhile { it.isBlank() }
     }
 }

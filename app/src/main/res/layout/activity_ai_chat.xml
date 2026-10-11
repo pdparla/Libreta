@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <ScrollView
+        android:id="@+id/ai_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- The selection, then one view per message, added as the conversation goes on -->
+        <LinearLayout
+            android:id="@+id/ai_messages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <ImageView
+                android:id="@+id/ai_image"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:adjustViewBounds="true"
+                android:background="#FFDEDEDE"
+                android:contentDescription="@string/ai_selection_image"
+                android:maxHeight="200dp"
+                android:padding="1dp"
+                android:scaleType="fitCenter" />
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        style="@style/InkToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="4dp"
+        android:paddingTop="4dp">
+
+        <EditText
+            android:id="@+id/ai_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="@string/ai_chat_hint"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textCapSentences"
+            android:maxLines="4" />
+
+        <Button
+            android:id="@+id/ai_send"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="96dp"
+            android:text="@string/ai_send" />
+    </LinearLayout>
+</LinearLayout>

@@ -128,5 +128,23 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/settings_android" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:layout_marginTop="32dp"
+            android:text="@string/settings_ai" />
+
+        <TextView
+            android:id="@+id/settings_ai_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceSmall" />
+
+        <Button
+            android:id="@+id/settings_ai_sign_out"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_ai_sign_out" />
     </LinearLayout>
 </ScrollView>

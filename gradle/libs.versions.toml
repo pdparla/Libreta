@@ -8,6 +8,11 @@ okhttp = "3.12.13"
 # 2.6+ requires minSdk 21. Brings TLS 1.2 with AES-GCM/ChaCha20, which KitKat's own provider lacks.
 conscrypt = "2.5.3"
 junit = "4.13.2"
+# Markdown rendered with Android spans, no WebView. 4.6.2 (the last release) has minSdk 16 and its parser,
+# commonmark-java 0.13.0, is Java 7 bytecode; the only other dependency is androidx.annotation (annotations only).
+markwon = "4.6.2"
+# Tests only: Android has its own org.json, and in JVM tests android.jar only has stubs of it.
+orgjson = "20240303"
 
 [libraries]
 # API 19 plus the Java 8 methods D8 backports (Integer.hashCode...), which Kotlin data classes call.
@@ -17,6 +22,12 @@ okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp" }
 okhttp-tls = { module = "com.squareup.okhttp3:okhttp-tls", version.ref = "okhttp" }
 junit = { module = "junit:junit", version.ref = "junit" }
+markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
+markwon-editor = { module = "io.noties.markwon:editor", version.ref = "markwon" }
+markwon-image = { module = "io.noties.markwon:image", version.ref = "markwon" }
+markwon-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }
+markwon-tables = { module = "io.noties.markwon:ext-tables", version.ref = "markwon" }
+org-json = { module = "org.json:json", version.ref = "orgjson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

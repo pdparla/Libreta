@@ -57,6 +57,23 @@
             android:parentActivityName=".ui.NoteListActivity"
             android:windowSoftInputMode="adjustResize|stateHidden" />
 
+        <!-- Conversation about a selection of a handwritten page; portrait like the note, so it is never recreated. -->
+        <activity
+            android:name=".ui.ai.AiChatActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateHidden"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+
+        <!-- Started by scripts/chatgpt-login.sh with am start, hence exported; it only reads what adb pushed. -->
+        <activity
+            android:name=".ui.ai.ChatGptImportActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <service
             android:name=".sync.SyncService"
             android:exported="false" />

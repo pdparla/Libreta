@@ -57,8 +57,14 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.okhttp)
     implementation(libs.conscrypt.android)
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.editor)
+    implementation(libs.markwon.image)
+    implementation(libs.markwon.strikethrough)
+    implementation(libs.markwon.tables)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.okhttp.tls)
+    testImplementation(libs.org.json)
 }

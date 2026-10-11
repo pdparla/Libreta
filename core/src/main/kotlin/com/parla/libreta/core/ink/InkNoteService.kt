@@ -62,13 +62,24 @@ class InkNoteService(
      */
     fun save(note: InkNote, document: InkDocument): InkNote {
         writeAttachments(note.path, note.folder, document, previous = note.document)
+        updateMarkdown(note) { InkNoteFormat.update(it, note.folder, document.pages.size) }
+        return note.copy(document = document)
+    }
+
+    /** Adds [text] (e.g. recognised from the handwriting) to the note's Markdown, above the page images. */
+    fun addText(note: InkNote, text: String) {
+        updateMarkdown(note) { InkNoteFormat.withText(it, note.folder, note.document.pages.size, text) }
+    }
+
+    /** Rewrites the note's Markdown with [edit], merging again if it changes between the read and the write. */
+    private fun updateMarkdown(note: InkNote, edit: (String) -> String) {
         repeat(MERGE_ATTEMPTS) {
             val current = notes.read(note.path)
-            val updated = InkNoteFormat.update(current.text, note.folder, document.pages.size)
-            if (updated == current.text) return note.copy(document = document)
+            val updated = edit(current.text)
+            if (updated == current.text) return
             try {
                 notes.writeText(note.path, updated, WritePrecondition.MustMatch(current.version))
-                return note.copy(document = document)
+                return
             } catch (e: PreconditionFailedException) {
                 // Changed between read and write: read it again and merge once more.
             }

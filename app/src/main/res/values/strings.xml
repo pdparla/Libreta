@@ -52,7 +52,45 @@
     <string name="ink_paper_lined">Pautado</string>
     <string name="ink_paper_grid">Cuadrícula</string>
     <string name="ink_error_open">No se pudo abrir la nota a mano.</string>
+    <string name="action_edit">Editar</string>
+    <string name="action_view">Ver</string>
     <string name="ink_draw_first">Escribe o dibuja algo primero.</string>
+    <string name="ink_select">Seleccionar</string>
+    <string name="ink_select_hint">Arrastra para marcar un recuadro</string>
+    <string name="ink_convert">Convertir a texto</string>
+    <string name="ink_chat">Conversar con IA</string>
+    <string name="ink_selection_empty">No hay nada escrito en el recuadro.</string>
+
+    <!-- AI (docs/07-ia.md) -->
+    <string name="ai_converting">Reconociendo la escritura…</string>
+    <string name="ai_convert_title">Texto reconocido</string>
+    <string name="ai_convert_nothing">No se ha reconocido texto en el recuadro.</string>
+    <string name="ai_add_to_note">Añadir a la nota</string>
+    <string name="ai_added_to_note">Texto añadido a la nota.</string>
+    <string name="ai_copy">Copiar</string>
+    <string name="ai_copied">Copiado.</string>
+    <string name="ai_chat_title">Conversar con IA</string>
+    <string name="ai_chat_hint">Pregunta sobre el recorte…</string>
+    <string name="ai_send">Enviar</string>
+    <string name="ai_stop">Detener</string>
+    <string name="ai_thinking">…</string>
+    <string name="ai_you">Tú</string>
+    <string name="ai_assistant">IA</string>
+    <string name="ai_save_as_note">Guardar como nota</string>
+    <string name="ai_conversation_title">Conversación IA %1$s</string>
+    <string name="ai_saved_as_note">Guardada como «%1$s».</string>
+    <string name="ai_nothing_to_save">Todavía no hay conversación.</string>
+    <string name="ai_selection_image">Recorte de la nota</string>
+    <string name="ai_sign_in_title">Inicia sesión con ChatGPT</string>
+    <string name="ai_sign_in_needed">Inicia sesión con ChatGPT desde el PC con la tablet conectada por USB:\n\nscripts/chatgpt-login.sh\n\n(ver docs/07-ia.md)</string>
+    <string name="ai_error_session_expired">la sesión de ChatGPT ha caducado; vuelve a iniciarla desde el PC con scripts/chatgpt-login.sh</string>
+    <string name="ai_error_usage_limit">has alcanzado el límite de uso de tu plan de ChatGPT</string>
+    <string name="ai_error_usage_unavailable">tu plan de ChatGPT no permite usarlo ahora desde Libreta</string>
+    <string name="ai_error_http">error de OpenAI (HTTP %1$d)</string>
+    <string name="ai_error_failed">la IA no pudo responder (%1$s)</string>
+    <string name="ai_error">No se pudo: %1$s</string>
+    <string name="ai_import_ok">Sesión de ChatGPT guardada: %1$s</string>
+    <string name="ai_import_failed">No se pudo importar la sesión de ChatGPT.</string>
 
     <!-- Sync -->
     <string name="sync_not_configured">Sin sincronizar: configura el servidor en Ajustes.</string>
@@ -101,4 +139,11 @@
     <string name="settings_android">Ajustes de Android</string>
     <string name="settings_invalid">La dirección debe empezar por https:// y el usuario no puede estar vacío.</string>
     <string name="settings_incomplete">Faltan datos: dirección https://, usuario y contraseña de aplicación.</string>
+    <string name="settings_ai">IA (ChatGPT)</string>
+    <string name="settings_ai_signed_in">Sesión iniciada como %1$s. Conversar: %2$s (razonamiento %3$s). Convertir a texto: %4$s (razonamiento %5$s).</string>
+    <string name="settings_ai_signed_out">Sin sesión. Para usar la IA, inicia sesión con ChatGPT desde el PC con la tablet conectada por USB: scripts/chatgpt-login.sh (ver docs/07-ia.md).</string>
+    <string name="settings_ai_sign_out">Cerrar sesión</string>
+    <string name="settings_ai_sign_out_confirm">¿Cerrar la sesión de ChatGPT en esta tableta?</string>
+    <string name="settings_ai_signed_out_revoked">Sesión cerrada y revocada en OpenAI.</string>
+    <string name="settings_ai_signed_out_local">Sesión borrada de la tableta, pero no se pudo confirmar la revocación en OpenAI. Puedes desconectar Libreta desde los ajustes de ChatGPT.</string>
 </resources>

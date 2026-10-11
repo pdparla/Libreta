@@ -7,8 +7,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import com.parla.libreta.R
 import com.parla.libreta.container
@@ -18,10 +21,14 @@ import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.core.note.SaveResult
 import com.parla.libreta.core.note.Version
+import io.noties.markwon.editor.MarkwonEditorTextWatcher
+import java.io.File
 
 /**
- * Plain-text Markdown editor that saves on its own whenever it stops being visible, like Nextcloud Notes. There
- * is no save button.
+ * A text note, like in Nextcloud Notes: it opens formatted (Markdown with its images, see [Markdown.forNote]) and
+ * "Editar" switches to the Markdown, highlighted as it is typed; "Ver" goes back. New notes, and notes opened to
+ * edit their text, start in the editor. It saves on its own whenever it stops being visible or goes back to the
+ * formatted view; there is no save button.
  *
  * Saving happens on the main thread on purpose: a note is a few KB, and a synchronous write in onPause is the
  * only way to be sure the text is on disk before the process can be killed.
@@ -29,20 +36,28 @@ import com.parla.libreta.core.note.Version
 class NoteEditorActivity : Activity() {
 
     private lateinit var editor: EditText
+    private lateinit var preview: TextView
     private lateinit var draft: NoteDraft
     private var deleted = false
+    private var editing = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_note_editor)
         actionBar?.setDisplayHomeAsUpEnabled(true)
         editor = findViewById(R.id.editor)
+        preview = findViewById(R.id.preview)
+        // Before the text is set, so the highlighting covers it from the start.
+        editor.addTextChangedListener(MarkwonEditorTextWatcher.withProcess(Markdown.editor(this)))
 
         val restored = savedInstanceState?.let(::restoreDraft)
         draft = restored ?: openDraft() ?: return
         // After a configuration change the EditText restores its own text, cursor included.
         if (restored == null) editor.setText(draft.content)
+        editing = savedInstanceState?.getBoolean(STATE_EDITING)
+            ?: (draft.origin == null || draft.content.isBlank() || intent.getBooleanExtra(EXTRA_EDIT, false))
         if (draft.origin == null) window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        showMode()
         showTitle()
     }
 
@@ -60,6 +75,7 @@ class NoteEditorActivity : Activity() {
         outState.putString(STATE_ORIGINAL, draft.originalContent)
         outState.putString(STATE_ORIGINAL_CATEGORY, draft.originalCategory)
         outState.putString(STATE_CATEGORY, draft.category)
+        outState.putBoolean(STATE_EDITING, editing)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -67,9 +83,20 @@ class NoteEditorActivity : Activity() {
         return true
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        menu.findItem(R.id.action_toggle_mode).setTitle(if (editing) R.string.action_view else R.string.action_edit)
+        return super.onPrepareOptionsMenu(menu)
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
         android.R.id.home -> {
             finish()
+            true
+        }
+        R.id.action_toggle_mode -> {
+            if (editing) save()
+            editing = !editing
+            showMode()
             true
         }
         R.id.action_category -> {
@@ -117,6 +144,23 @@ class NoteEditorActivity : Activity() {
         showTitle()
     }
 
+    /** Shows the editor, or the note formatted from the editor's text, with or without the keyboard. */
+    private fun showMode() {
+        findViewById<View>(R.id.preview_scroll).visibility = if (editing) View.GONE else View.VISIBLE
+        editor.visibility = if (editing) View.VISIBLE else View.GONE
+        val keyboard = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        if (editing) {
+            editor.requestFocus()
+            keyboard.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT)
+        } else {
+            keyboard.hideSoftInputFromWindow(editor.windowToken, 0)
+            // Images are linked relative to the note's folder, i.e. its category as saved.
+            val folder = File(container.notesDir, draft.origin?.path?.category ?: draft.category)
+            Markdown.forNote(this, folder).setMarkdown(preview, editor.text.toString())
+        }
+        invalidateOptionsMenu()
+    }
+
     /** The move to the chosen category happens on the next save. */
     private fun chooseCategory() = CategoryPicker.show(this, draft.category, ::moveTo)
 
@@ -160,14 +204,17 @@ class NoteEditorActivity : Activity() {
     companion object {
         private const val EXTRA_PATH = "path"
         private const val EXTRA_CATEGORY = "category"
+        private const val EXTRA_EDIT = "edit"
+        private const val STATE_EDITING = "editing"
         private const val STATE_PATH = "draft.path"
         private const val STATE_VERSION = "draft.version"
         private const val STATE_ORIGINAL = "draft.original"
         private const val STATE_ORIGINAL_CATEGORY = "draft.originalCategory"
         private const val STATE_CATEGORY = "draft.category"
 
-        fun intent(context: Context, path: NotePath): Intent =
-            Intent(context, NoteEditorActivity::class.java).putExtra(EXTRA_PATH, path.value)
+        /** Opens the note at [path] formatted, or straight in the editor when [edit]. */
+        fun intent(context: Context, path: NotePath, edit: Boolean = false): Intent =
+            Intent(context, NoteEditorActivity::class.java).putExtra(EXTRA_PATH, path.value).putExtra(EXTRA_EDIT, edit)
 
         fun intentForNew(context: Context, category: String): Intent =
             Intent(context, NoteEditorActivity::class.java).putExtra(EXTRA_CATEGORY, category)

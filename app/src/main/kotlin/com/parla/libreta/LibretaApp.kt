@@ -5,10 +5,15 @@ import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import com.parla.libreta.core.ai.ConversationNotes
 import com.parla.libreta.core.ink.InkNoteService
 import com.parla.libreta.core.note.ConflictNamer
 import com.parla.libreta.core.note.NoteService
 import com.parla.libreta.core.note.SystemToday
+import com.parla.libreta.data.ai.AiAssistant
+import com.parla.libreta.data.ai.ChatGptAuth
+import com.parla.libreta.data.ai.ChatGptSessionStore
+import com.parla.libreta.data.ai.ResponsesClient
 import com.parla.libreta.data.local.FileNoteRepository
 import com.parla.libreta.data.local.FileSyncStateStore
 import com.parla.libreta.data.remote.NextcloudClientFactory
@@ -18,21 +23,34 @@ import com.parla.libreta.sync.SyncCoordinator
 import com.parla.libreta.sync.SyncService
 import com.parla.libreta.ui.BackgroundRunner
 import com.parla.libreta.ui.ink.InkRenderer
+import okhttp3.OkHttpClient
 import org.conscrypt.Conscrypt
 import java.io.File
 import java.security.SecureRandom
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /** Composition root: the object graph, built once per process. */
 class AppContainer(context: Context) {
 
     private val conflictNamer = ConflictNamer(SystemToday)
 
-    val notes = FileNoteRepository(File(context.filesDir, "notes"))
+    /** Notes as files, one subfolder per category, like `Notas/` in Nextcloud. */
+    val notesDir = File(context.filesDir, "notes")
+    val notes = FileNoteRepository(notesDir)
     val noteService = NoteService(notes, conflictNamer)
     val inkNotes = InkNoteService(notes, noteService, InkRenderer, newFolderId = ::randomFolderId)
+    val conversationNotes = ConversationNotes(notes, newFolderId = ::randomFolderId)
     val settings = SettingsStore(context)
     val background = BackgroundRunner(Executors.newSingleThreadExecutor())
+
+    /** Model calls take seconds: their own thread, so they never hold up the settings screen's work. */
+    val aiBackground = BackgroundRunner(Executors.newSingleThreadExecutor())
+
+    /** The ChatGPT session file; cheap to read, so the UI can check it on the main thread. */
+    val chatGptSessions = ChatGptSessionStore(File(context.filesDir, "chatgpt-session.json"))
+
+    private val userAgent = "Libreta/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
 
     /**
      * Built on first use, off the main thread: loading Conscrypt's native library and parsing the CA take a
@@ -44,8 +62,32 @@ class AppContainer(context: Context) {
         NextcloudClientFactory(
             socketFactory = Tls.socketFactory(trustManager, Conscrypt.newProvider()),
             trustManager = trustManager,
-            userAgent = "Libreta/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})",
+            userAgent = userAgent,
         )
+    }
+
+    /**
+     * Client for api.openai.com and auth.openai.com, built on first use off the main thread like [clients]. It
+     * trusts only the public roots those hosts chain to (res/raw/openai_roots.pem, see docs/07-ia.md), never the
+     * Nextcloud CA, and checks host names the standard way.
+     */
+    private val openAiHttp: OkHttpClient by lazy {
+        val trustManager = context.resources.openRawResource(R.raw.openai_roots).use(Tls::trustManagerFor)
+        OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            // Between streamed events; reasoning can keep the stream quiet for a while before the answer.
+            .readTimeout(180, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .sslSocketFactory(Tls.socketFactory(trustManager, Conscrypt.newProvider()), trustManager)
+            .connectionSpecs(listOf(Tls.CONNECTION_SPEC))
+            .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
+            .build()
+    }
+
+    val chatGpt: ChatGptAuth by lazy { ChatGptAuth(openAiHttp, chatGptSessions) }
+
+    val ai: AiAssistant by lazy {
+        AiAssistant(ResponsesClient(openAiHttp, chatGpt))
     }
 
     val sync = SyncCoordinator(

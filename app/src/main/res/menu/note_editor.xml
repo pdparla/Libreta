@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- "Editar" in the preview, "Ver" while editing -->
+    <item
+        android:id="@+id/action_toggle_mode"
+        android:showAsAction="always|withText"
+        android:title="@string/action_edit" />
     <item
         android:id="@+id/action_category"
         android:showAsAction="always|withText"

@@ -29,6 +29,12 @@
             android:src="@drawable/ic_ink_eraser" />
 
         <ImageButton
+            android:id="@+id/ink_select"
+            style="@style/InkTool"
+            android:contentDescription="@string/ink_select"
+            android:src="@drawable/ic_ink_select" />
+
+        <ImageButton
             android:id="@+id/ink_undo"
             style="@style/InkTool"
             android:contentDescription="@string/ink_undo"
@@ -72,7 +78,7 @@
             android:src="@drawable/ic_ink_add_page" />
     </LinearLayout>
 
-    <!-- Options of the selected tool: pen colour and width, or eraser mode and size -->
+    <!-- Options of the selected tool: pen colour and width, eraser mode and size, or the AI actions on a selection -->
     <FrameLayout
         style="@style/InkToolbar"
         android:layout_width="match_parent"
@@ -148,6 +154,35 @@
                 android:id="@+id/ink_eraser_large"
                 style="@style/InkWidth"
                 android:text="@string/ink_eraser_large" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/ink_select_options"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/ink_select_hint"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/ink_select_hint"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:textColor="?android:attr/textColorSecondary" />
+
+            <TextView
+                android:id="@+id/ink_convert"
+                style="@style/InkWidth"
+                android:text="@string/ink_convert" />
+
+            <TextView
+                android:id="@+id/ink_chat"
+                style="@style/InkWidth"
+                android:text="@string/ink_chat" />
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>

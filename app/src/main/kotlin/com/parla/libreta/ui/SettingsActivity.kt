@@ -1,6 +1,7 @@
 package com.parla.libreta.ui
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -11,13 +12,15 @@ import android.widget.EditText
 import android.widget.TextView
 import com.parla.libreta.R
 import com.parla.libreta.container
+import com.parla.libreta.data.ai.AiAssistant
 import com.parla.libreta.data.remote.HttpStatusException
 import com.parla.libreta.data.remote.ServerConfig
 import com.parla.libreta.sync.SyncService
 
 /**
  * Server settings. The stored app password is never shown: leaving the field empty keeps it. "Probar conexión"
- * checks TLS, credentials and the notes folder without saving anything.
+ * checks TLS, credentials and the notes folder without saving anything. The AI section shows the ChatGPT session,
+ * which can only be started from the PC (docs/07-ia.md), and closes it.
  */
 class SettingsActivity : Activity() {
 
@@ -66,6 +69,42 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.settings_android).setOnClickListener {
             startActivity(Intent(Settings.ACTION_SETTINGS))
         }
+        findViewById<Button>(R.id.settings_ai_sign_out).setOnClickListener { confirmSignOut() }
+        showAiSession(null)
+    }
+
+    /** The session state, after [message] if there is one (the outcome of signing out). */
+    private fun showAiSession(message: String?) {
+        val session = container.chatGptSessions.load()
+        val state = if (session != null) {
+            getString(
+                R.string.settings_ai_signed_in,
+                session.email,
+                AiAssistant.CHAT_MODEL.name,
+                AiAssistant.CHAT_MODEL.reasoningEffort,
+                AiAssistant.CONVERT_MODEL.name,
+                AiAssistant.CONVERT_MODEL.reasoningEffort,
+            )
+        } else {
+            getString(R.string.settings_ai_signed_out)
+        }
+        findViewById<TextView>(R.id.settings_ai_status).text = listOfNotNull(message, state).joinToString("\n\n")
+        findViewById<Button>(R.id.settings_ai_sign_out).isEnabled = session != null
+    }
+
+    private fun confirmSignOut() {
+        AlertDialog.Builder(this)
+            .setMessage(R.string.settings_ai_sign_out_confirm)
+            .setPositiveButton(R.string.settings_ai_sign_out) { _, _ ->
+                findViewById<Button>(R.id.settings_ai_sign_out).isEnabled = false
+                container.aiBackground.execute({ container.chatGpt.signOut() }) { result ->
+                    if (isDestroyed) return@execute
+                    val revoked = result.getOrDefault(false)
+                    showAiSession(getString(if (revoked) R.string.settings_ai_signed_out_revoked else R.string.settings_ai_signed_out_local))
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean =

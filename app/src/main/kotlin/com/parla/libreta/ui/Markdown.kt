@@ -1,0 +1,91 @@
+package com.parla.libreta.ui
+
+import android.content.Context
+import android.graphics.Typeface
+import android.text.Editable
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
+import io.noties.markwon.AbstractMarkwonPlugin
+import io.noties.markwon.Markwon
+import io.noties.markwon.MarkwonConfiguration
+import io.noties.markwon.core.spans.HeadingSpan
+import io.noties.markwon.editor.AbstractEditHandler
+import io.noties.markwon.editor.MarkwonEditor
+import io.noties.markwon.editor.PersistedSpans
+import io.noties.markwon.editor.handler.EmphasisEditHandler
+import io.noties.markwon.editor.handler.StrongEmphasisEditHandler
+import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
+import io.noties.markwon.ext.tables.TablePlugin
+import io.noties.markwon.image.ImagesPlugin
+import io.noties.markwon.image.destination.ImageDestinationProcessorRelativeToAbsolute
+import io.noties.markwon.image.file.FileSchemeHandler
+import java.io.File
+
+/**
+ * Markdown shown formatted, with Markwon: CommonMark plus GitHub's tables and strikethrough, the Markdown that
+ * Nextcloud Notes writes and that the model answers in.
+ */
+object Markdown {
+
+    /** For the AI's answers: text only. */
+    fun forChat(context: Context): Markwon =
+        Markwon.builder(context)
+            .usePlugin(StrikethroughPlugin.create())
+            .usePlugin(TablePlugin.create(context))
+            .build()
+
+    /**
+     * For a note stored in [folder]: also shows its images, whose links are relative to the note (for example a
+     * handwritten note's `.attachments.k3/pagina-1.png`). Only local files are loaded.
+     */
+    fun forNote(context: Context, folder: File): Markwon =
+        Markwon.builder(context)
+            .usePlugin(StrikethroughPlugin.create())
+            .usePlugin(TablePlugin.create(context))
+            .usePlugin(ImagesPlugin.create { plugin -> plugin.addSchemeHandler(FileSchemeHandler.create()) })
+            .usePlugin(object : AbstractMarkwonPlugin() {
+                override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
+                    builder.imageDestinationProcessor(ImageDestinationProcessorRelativeToAbsolute.create("file://${folder.absolutePath}/"))
+                }
+            })
+            .build()
+
+    /**
+     * Highlighting while the Markdown is typed: the syntax in grey, and bold, italics and headings shown as such.
+     * The text itself does not change.
+     */
+    fun editor(context: Context): MarkwonEditor =
+        MarkwonEditor.builder(forChat(context))
+            .useEditHandler(StrongEmphasisEditHandler())
+            .useEditHandler(EmphasisEditHandler())
+            .useEditHandler(HeadingEditHandler())
+            .build()
+
+    /** A heading's whole line (`# Título`) in bold and larger; Markwon's editor has no handler for headings. */
+    private class HeadingEditHandler : AbstractEditHandler<HeadingSpan>() {
+
+        override fun configurePersistedSpans(builder: PersistedSpans.Builder) {
+            builder.persistSpan(StyleSpan::class.java) { StyleSpan(Typeface.BOLD) }
+            builder.persistSpan(RelativeSizeSpan::class.java) { RelativeSizeSpan(HEADING_SIZE) }
+        }
+
+        override fun handleMarkdownSpan(
+            persistedSpans: PersistedSpans,
+            editable: Editable,
+            input: String,
+            span: HeadingSpan,
+            spanStart: Int,
+            spanTextLength: Int,
+        ) {
+            val start = input.lastIndexOf('\n', spanStart - 1) + 1
+            val end = input.indexOf('\n', spanStart).let { if (it < 0) input.length else it }
+            editable.setSpan(persistedSpans.get(StyleSpan::class.java), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            editable.setSpan(persistedSpans.get(RelativeSizeSpan::class.java), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+
+        override fun markdownSpanType(): Class<HeadingSpan> = HeadingSpan::class.java
+    }
+
+    private const val HEADING_SIZE = 1.25f
+}

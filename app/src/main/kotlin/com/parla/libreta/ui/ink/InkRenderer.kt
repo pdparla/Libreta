@@ -7,10 +7,12 @@ import android.graphics.Paint
 import android.graphics.Path
 import com.parla.libreta.core.ink.InkPage
 import com.parla.libreta.core.ink.InkPoint
+import com.parla.libreta.core.ink.InkRect
 import com.parla.libreta.core.ink.PageRenderer
 import com.parla.libreta.core.ink.Paper
 import com.parla.libreta.core.ink.Stroke
 import java.io.ByteArrayOutputStream
+import kotlin.math.ceil
 
 /** Draws pages: the paper, then the strokes smoothed with quadratic curves through the midpoints of the samples. */
 object InkRenderer : PageRenderer {
@@ -100,12 +102,40 @@ object InkRenderer : PageRenderer {
         val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
         try {
             draw(Canvas(bitmap), page, scale = 1f)
-            return ByteArrayOutputStream().use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                out.toByteArray()
-            }
+            return png(bitmap)
         } finally {
             bitmap.recycle()
         }
     }
+
+    /**
+     * The ink inside [area] of [page] as a PNG for the model: strokes only, on white, without the paper's lines,
+     * which add nothing and can be mistaken for writing. [SELECTION_SCALE] pixels per unit, or fewer to keep the
+     * longer side within [SELECTION_MAX_SIDE].
+     */
+    fun renderSelection(page: InkPage, area: InkRect): ByteArray {
+        val scale = area.renderScale(SELECTION_SCALE, SELECTION_MAX_SIDE)
+        val bitmap = Bitmap.createBitmap(
+            ceil(area.width * scale).toInt().coerceAtLeast(1),
+            ceil(area.height * scale).toInt().coerceAtLeast(1),
+            Bitmap.Config.ARGB_8888,
+        )
+        try {
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.WHITE)
+            canvas.translate(-area.left * scale, -area.top * scale)
+            page.strokes.forEach { drawStroke(canvas, it, scale) }
+            return png(bitmap)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun png(bitmap: Bitmap): ByteArray = ByteArrayOutputStream().use { out ->
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        out.toByteArray()
+    }
+
+    private const val SELECTION_SCALE = 2f
+    private const val SELECTION_MAX_SIDE = 1600
 }
