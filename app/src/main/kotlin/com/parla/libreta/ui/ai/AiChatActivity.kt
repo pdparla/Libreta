@@ -1,6 +1,9 @@
 package com.parla.libreta.ui.ai
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -10,6 +13,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.method.LinkMovementMethod
 import android.text.style.StyleSpan
 import android.view.Menu
 import android.view.MenuItem
@@ -24,22 +28,33 @@ import android.widget.Toast
 import com.parla.libreta.R
 import com.parla.libreta.container
 import com.parla.libreta.core.ai.Speaker
+import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteStoreException
+import com.parla.libreta.core.note.readOrNull
 import com.parla.libreta.data.ai.AiAssistant
 import com.parla.libreta.data.ai.AiConversation
+import com.parla.libreta.data.ai.NotebookTools
 import com.parla.libreta.data.ai.TurnHandle
 import com.parla.libreta.ui.Markdown
+import com.parla.libreta.ui.NoteEditorActivity
+import com.parla.libreta.ui.ink.InkNoteActivity
 import com.parla.libreta.ui.dictation.Dictation
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import org.json.JSONObject
 
 /**
- * A conversation with the AI about a selection of a handwritten page (docs/07-ia.md). It lives in memory only: the
- * screen handles its own configuration changes, like the handwritten note, so turning the tablet does not recreate
- * it (docs/10-orientacion.md). "Guardar como nota" keeps it as a note with the selection.
+ * A conversation with the AI, about a selection of a handwritten page (docs/07-ia.md) or, without one, about the whole
+ * notebook (docs/12-preguntar.md). Either way the AI can use the notebook's tools: a grey line shows each one, the
+ * ones that write ask first, and its citations open the notes. It lives in memory only: the screen handles its own
+ * configuration changes, so turning the tablet does not recreate it (docs/10-orientacion.md). "Guardar como nota"
+ * keeps it as a note, with the selection if there is one.
  */
 class AiChatActivity : Activity() {
 
@@ -51,13 +66,14 @@ class AiChatActivity : Activity() {
     private var category = ""
     private var turn: TurnHandle? = null
     private val mainThread = Handler(Looper.getMainLooper())
-    private val markwon by lazy { Markdown.forChat(this) }
+    private val markwon by lazy { Markdown.forChat(this, ::openCitation) }
+    private lateinit var tools: NotebookTools
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ai_chat)
         actionBar?.setDisplayHomeAsUpEnabled(true)
-        setTitle(R.string.ai_chat_title)
+        setTitle(if (intent.hasExtra(EXTRA_IMAGE)) R.string.ai_chat_title else R.string.ai_notebook_title)
         scroll = findViewById(R.id.ai_scroll)
         messages = findViewById(R.id.ai_messages)
         input = findViewById(R.id.ai_input)
@@ -74,6 +90,15 @@ class AiChatActivity : Activity() {
         conversation = AiConversation(image)
         val imageView = findViewById<ImageView>(R.id.ai_image)
         if (image != null) imageView.setImageBitmap(BitmapFactory.decodeByteArray(image, 0, image.size)) else imageView.visibility = View.GONE
+        if (image == null) input.setHint(R.string.ai_notebook_hint)
+        tools = NotebookTools(
+            notes = container.notes,
+            noteService = container.noteService,
+            inkNotes = container.inkNotes,
+            index = container.notebookIndex,
+            listing = { container.notes.summaries().map { it.path to it.modifiedAt } },
+        )
+        tools.confirm = ::askPermission
 
         send.setOnClickListener { if (turn != null) turn?.cancel() else send() }
         findViewById<View>(R.id.ai_dictate).setOnClickListener {
@@ -108,7 +133,7 @@ class AiChatActivity : Activity() {
     private fun send() {
         if (container.chatGptSessions.load() == null) return AiMessages.showSignInNeeded(this)
         val text = input.text.toString()
-        val shown = text.trim().ifEmpty { if (conversation.messages.isEmpty()) AiAssistant.EXPLAIN_REQUEST else return }
+        val shown = text.trim().ifEmpty { if (conversation.messages.isEmpty() && conversation.image != null) AiAssistant.EXPLAIN_REQUEST else return }
         val question = addMessage(Speaker.USER, shown)
         val answer = addMessage(Speaker.ASSISTANT, getString(R.string.ai_thinking))
         input.setText("")
@@ -117,8 +142,13 @@ class AiChatActivity : Activity() {
         send.setText(R.string.ai_stop)
 
         val received = StringBuilder()
+        val toolLines = ArrayList<View>()
+        val onToolCall = { name: String, arguments: JSONObject ->
+            mainThread.post { toolLines += addToolLine(describeTool(name, arguments), before = answer) }
+            Unit
+        }
         container.aiBackground.execute({
-            container.ai.send(conversation, text, handle) { piece ->
+            container.ai.send(conversation, text, handle, tools, onToolCall) { piece ->
                 mainThread.post {
                     received.append(piece)
                     show(answer, Speaker.ASSISTANT, received.toString())
@@ -134,6 +164,7 @@ class AiChatActivity : Activity() {
                 .onFailure { error ->
                     // The message is out of the conversation again: give it back to send later.
                     messages.removeView(question)
+                    toolLines.forEach(messages::removeView)
                     input.setText(text)
                     if (handle.isCancelled) {
                         messages.removeView(answer)
@@ -149,7 +180,13 @@ class AiChatActivity : Activity() {
     private fun addMessage(speaker: Speaker, text: String): TextView {
         val density = resources.displayMetrics.density
         val view = TextView(this).apply {
-            setTextIsSelectable(true)
+            if (speaker == Speaker.USER) {
+                setTextIsSelectable(true)
+            } else {
+                // Citations are links: tappable instead of selectable, and a long press copies the whole answer.
+                movementMethod = LinkMovementMethod.getInstance()
+                setOnLongClickListener { copy(this.text.toString()); true }
+            }
             textSize = 16f
             val padding = (10 * density).toInt()
             setPadding(padding, padding, padding, padding)
@@ -161,6 +198,84 @@ class AiChatActivity : Activity() {
         show(view, speaker, text)
         scrollToEnd()
         return view
+    }
+
+    /** A grey line saying what the AI is consulting or changing, placed [before] its answer. */
+    private fun addToolLine(text: String, before: View): View {
+        val density = resources.displayMetrics.density
+        val view = TextView(this).apply {
+            this.text = text
+            textSize = 13f
+            setTypeface(typeface, Typeface.ITALIC)
+            setTextColor(TOOL_COLOR)
+            setPadding((10 * density).toInt(), (4 * density).toInt(), 0, 0)
+        }
+        messages.addView(view, messages.indexOfChild(before).coerceAtLeast(0))
+        scrollToEnd()
+        return view
+    }
+
+    private fun describeTool(name: String, arguments: JSONObject): String = when (name) {
+        NotebookTools.SEARCH -> getString(R.string.ai_tool_search, arguments.optString("consulta"))
+        NotebookTools.LIST -> arguments.optString("categoria").let { if (it.isBlank()) getString(R.string.ai_tool_list) else getString(R.string.ai_tool_list_category, it) }
+        NotebookTools.READ -> getString(R.string.ai_tool_read, noteTitle(arguments.optString("nota")))
+        NotebookTools.CREATE -> getString(R.string.ai_tool_create, arguments.optString("titulo"))
+        NotebookTools.APPEND -> getString(R.string.ai_tool_append, noteTitle(arguments.optString("nota")))
+        else -> name
+    }
+
+    private fun noteTitle(raw: String) = raw.removePrefix(Markdown.NOTE_LINK).substringBefore('#').substringAfterLast('/').substringBeforeLast('.')
+
+    /**
+     * Asks before a tool writes, and waits: called on the AI's thread, the dialog lives on the main one. Stopping the
+     * answer or leaving the screen counts as no.
+     */
+    private fun askPermission(name: String, arguments: JSONObject, handle: TurnHandle): Boolean {
+        val answer = CountDownLatch(1)
+        val allowed = AtomicBoolean(false)
+        val question = when (name) {
+            NotebookTools.CREATE -> {
+                val category = arguments.optString("categoria").trim()
+                if (category.isEmpty()) getString(R.string.ai_permission_create, arguments.optString("titulo"))
+                else getString(R.string.ai_permission_create_in, arguments.optString("titulo"), category)
+            }
+            else -> getString(R.string.ai_permission_append, noteTitle(arguments.optString("nota")))
+        }
+        mainThread.post {
+            if (isFinishing || isDestroyed) return@post answer.countDown()
+            AlertDialog.Builder(this)
+                .setTitle(R.string.ai_permission_title)
+                .setMessage(question + "\n\n" + arguments.optString("texto").take(PREVIEW))
+                .setPositiveButton(R.string.ai_permission_allow) { _, _ -> allowed.set(true) }
+                .setNegativeButton(R.string.ai_permission_deny, null)
+                .setOnDismissListener { answer.countDown() }
+                .show()
+        }
+        while (!answer.await(200, TimeUnit.MILLISECONDS)) {
+            if (handle.isCancelled || isFinishing) return false
+        }
+        return allowed.get()
+    }
+
+    /** Opens the note a citation points to (`Casa/Compra.md#2`), at its page if handwritten. */
+    private fun openCitation(target: String) {
+        val path = NotePath.parseOrNull(target.substringBefore('#'))?.takeIf { it.isNote }
+        val markdown = path?.let { container.notes.readOrNull(it)?.text }
+        if (path == null || markdown == null) {
+            Toast.makeText(this, R.string.ai_citation_missing, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val page = (target.substringAfter('#', "").toIntOrNull() ?: 1) - 1
+        startActivity(
+            if (container.notebookIndex.entry(path, markdown).isInk) InkNoteActivity.intent(this, path, page.coerceAtLeast(0))
+            else NoteEditorActivity.intent(this, path),
+        )
+    }
+
+    private fun copy(text: String) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.ai_assistant), text))
+        Toast.makeText(this, R.string.ai_copied, Toast.LENGTH_SHORT).show()
     }
 
     /** Shows [text] in [view] under "Tú" or "IA" in bold; the AI's Markdown is shown formatted. */
@@ -204,6 +319,12 @@ class AiChatActivity : Activity() {
         private const val USER_BACKGROUND = 0xFFE8F0FE.toInt()
         private const val ASSISTANT_BACKGROUND = 0xFFF1F3F4.toInt()
         private const val ERROR_COLOR = 0xFFC5221F.toInt()
+        private const val TOOL_COLOR = 0xFF80868B.toInt()
+        private const val PREVIEW = 400
+
+        /** A conversation about the whole notebook, with no selection (docs/12-preguntar.md). */
+        fun intentForNotebook(context: Context, category: String): Intent =
+            Intent(context, AiChatActivity::class.java).putExtra(EXTRA_CATEGORY, category)
 
         /** A conversation about [image] (PNG); "Guardar como nota" saves it in [category]. */
         fun intent(context: Context, image: File, category: String): Intent =

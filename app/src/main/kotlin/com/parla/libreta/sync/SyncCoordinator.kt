@@ -86,6 +86,10 @@ class SyncCoordinator(
         is SyncStatus.Finished -> with(outcome.report) {
             "sync ${millis}ms: up=${uploaded.size} down=${downloaded.size} delLocal=${deletedLocally.size} " +
                 "delRemote=${deletedRemotely.size} conflicts=${conflicts.size} failures=${failures.size}" +
+                // What failed, by kind of file and cause, never by name.
+                failures.joinToString("", prefix = if (failures.isEmpty()) "" else " [") { f ->
+                    "${f.path.kind}.${f.path.extension} ${f.error.javaClass.simpleName}: ${causeOf(f.error)}; "
+                }.let { if (failures.isEmpty()) it else it.trimEnd(' ', ';') + "]" } +
                 (abortedBy?.let { " aborted=${it.javaClass.simpleName}: ${causeOf(it)}" } ?: "")
         }
         is SyncStatus.Failed -> "sync ${millis}ms failed: ${outcome.error.javaClass.simpleName}"

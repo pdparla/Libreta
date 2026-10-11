@@ -16,7 +16,12 @@ import java.io.IOException
 data class AiModel(val name: String, val reasoningEffort: String)
 
 /** What one model turn produced: its text and the output items to send back in the next turn. */
-class TurnResult(val text: String, val output: JSONArray)
+class TurnResult(val text: String, val output: JSONArray) {
+
+    /** The tools the model asked to call (`function_call` items), in order; empty when it answered. */
+    val calls: List<JSONObject>
+        get() = (0 until output.length()).mapNotNull { output.optJSONObject(it) }.filter { it.optString("type") == "function_call" }
+}
 
 /** Lets the UI stop a turn from another thread. */
 class TurnHandle {
@@ -51,10 +56,17 @@ class ResponsesClient(
 ) {
 
     /**
-     * Runs a turn of [model] with [instructions] over [input], calling [onText] with each piece of text as it arrives (on this
+     * Runs a turn of [model] with [instructions] over [input], offering [tools] if any, calling [onText] with each piece of text as it arrives (on this
      * thread). Blocks until the turn ends. @throws IOException, including the ones in AiErrors.kt
      */
-    fun respond(model: AiModel, instructions: String, input: JSONArray, handle: TurnHandle = TurnHandle(), onText: (String) -> Unit = {}): TurnResult {
+    fun respond(
+        model: AiModel,
+        instructions: String,
+        input: JSONArray,
+        handle: TurnHandle = TurnHandle(),
+        tools: JSONArray? = null,
+        onText: (String) -> Unit = {},
+    ): TurnResult {
         val body = JSONObject()
             .put("model", model.name)
             .put("instructions", instructions)
@@ -63,6 +75,7 @@ class ResponsesClient(
             .put("include", JSONArray().put("reasoning.encrypted_content"))
             .put("store", false)
             .put("stream", true)
+            .also { if (tools != null && tools.length() > 0) it.put("tools", tools) }
             .toString()
         var response = send(body, auth.accessToken(), handle)
         if (response.code() == 401) {

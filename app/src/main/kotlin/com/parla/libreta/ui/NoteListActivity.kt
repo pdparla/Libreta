@@ -17,11 +17,10 @@ import android.widget.TextView
 import android.widget.Toast
 import com.parla.libreta.R
 import com.parla.libreta.container
-import com.parla.libreta.core.ink.InkNoteFormat
 import com.parla.libreta.core.note.NoteSearch
 import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.core.note.SearchHit
-import com.parla.libreta.core.note.SearchableNote
+import com.parla.libreta.ui.ai.AiChatActivity
 import com.parla.libreta.ui.ink.InkNoteActivity
 import com.parla.libreta.sync.SyncService
 import com.parla.libreta.sync.SyncStatus
@@ -133,6 +132,10 @@ class NoteListActivity : Activity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.action_ask -> {
+            startActivity(AiChatActivity.intentForNotebook(this, filter.categoryForNewNotes))
+            true
+        }
         R.id.action_new_note -> {
             startActivity(NoteEditorActivity.intentForNew(this, filter.categoryForNewNotes))
             true
@@ -224,13 +227,8 @@ class NoteListActivity : Activity() {
             } catch (e: NoteStoreException) {
                 ""
             }
-            val isInk = container.inkNotes.isInkNote(path, markdown, container.notes::exists)
-            val searchable = if (isInk) {
-                SearchableNote(path, path.baseName, InkNoteFormat.userText(markdown), container.transcripts.readFor(path, markdown).map { it.text })
-            } else {
-                SearchableNote(path, path.baseName, markdown)
-            }
-            ListedNote(summary, isInk, searchable)
+            val entry = container.notebookIndex.entry(path, markdown)
+            ListedNote(summary, entry.isInk, entry.searchable)
         }
 
     private fun open(note: ListedNote) {

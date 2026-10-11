@@ -10,6 +10,7 @@ import com.parla.libreta.core.ink.InkNoteService
 import com.parla.libreta.core.ink.InkTranscriptService
 import com.parla.libreta.core.note.ConflictNamer
 import com.parla.libreta.core.note.NoteService
+import com.parla.libreta.core.note.NotebookIndex
 import com.parla.libreta.core.note.SystemToday
 import com.parla.libreta.data.ai.AiAssistant
 import com.parla.libreta.data.ai.ChatGptAuth
@@ -96,6 +97,7 @@ class AppContainer(context: Context) {
 
     /** What the handwriting says, page by page, for search (docs/11-busqueda.md). */
     val transcripts = InkTranscriptService(notes)
+    val notebookIndex = NotebookIndex(notes, inkNotes, transcripts, exists = notes::exists)
     val inkTranscriber = InkTranscriber(
         notes = notes,
         inkNotes = inkNotes,

@@ -12,7 +12,7 @@ lista no tenía buscador y lo escrito a mano solo existía como trazos e imágen
   - Tocar un resultado de lo escrito a mano abre la nota en esa página.
   - La búsqueda respeta el filtro de categoría.
 - **Transcripción automática en segundo plano.** Cada página de nota a mano que cambia se transcribe con
-  `gpt-6-luna` (el modelo de «Convertir a texto»), cuando la nota se deja de editar y al abrir la lista. Nunca
+  el modelo de «Convertir a texto» (`gpt-6.1-sol`; al principio `gpt-6-luna`, que se descartó en la Fase 12), cuando la nota se deja de editar y al abrir la lista. Nunca
   mientras se escribe.
 - **Ajustes:** «Transcribir lo escrito a mano para buscarlo» (activado por defecto) y cuántas páginas quedan
   pendientes.

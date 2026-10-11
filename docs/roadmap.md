@@ -9,7 +9,7 @@ Notes) en octubre de 2026 y de cruzarlo con lo que ya tenemos.
 - Notas Markdown en el Nextcloud propio, con adjuntos sincronizados.
 - Trazos con la hora de cada punto (`libreta.ink.json`).
 - Selección con recuadro sobre la página.
-- Un modelo con visión y herramientas (`gpt-6.1-sol`, `gpt-6-luna`) pagado con el plan de ChatGPT, desde la tablet.
+- Un modelo con visión y herramientas (`gpt-6.1-sol`) pagado con el plan de ChatGPT, desde la tablet.
 - Dictado con Whisper en el servidor.
 - Markdown formateado (Markwon).
 - Una tablet dedicada en modo de una sola app.
@@ -26,7 +26,7 @@ conversación; el servidor no tiene GPU.
 | 9 | [Zoom en el lienzo](#fase-9-zoom-en-el-lienzo) — **hecha**, ver [`09-zoom.md`](09-zoom.md) | M | — |
 | 10 | [Vertical y horizontal](#fase-10-vertical-y-horizontal) — **hecha**, ver [`10-orientacion.md`](10-orientacion.md) | S–M | 9 (desplazarse por la página) |
 | 11 | [Buscar en lo escrito a mano](#fase-11-buscar-en-lo-escrito-a-mano) — **hecha**, ver [`11-busqueda.md`](11-busqueda.md) | M | — |
-| 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) | M | 11 |
+| 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) — **hecha**, ver [`12-preguntar.md`](12-preguntar.md) | M | 11 |
 | 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) | M | 8 (selección), 11 (transcripción) |
 | 14 | [Pasar a limpio una nota entera](#fase-14-pasar-a-limpio-una-nota-entera) | S | — |
 | — | [Sin prioridad](#sin-prioridad) | | |
@@ -171,6 +171,8 @@ transcribir). La calidad con letra real, que falta medir (ver [`07-ia.md`](07-ia
 una página solo vuelve a transcribir esa página; la transcripción viaja a Nextcloud.
 
 ## Fase 12: pregúntale a tu libreta
+
+**Hecha** (2026-10-12): [`docs/12-preguntar.md`](12-preguntar.md). Lo de abajo es el plan original.
 
 El chat deja de limitarse a un recorte y puede trabajar con todas las notas: «¿qué apunté sobre el presupuesto en
 septiembre?», «haz una lista con todo lo pendiente de esta semana».

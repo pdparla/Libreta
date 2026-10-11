@@ -4,12 +4,15 @@ import com.parla.libreta.core.ai.ChatMessage
 import com.parla.libreta.core.ai.Speaker
 import okio.ByteString
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
+import java.io.IOException
 
 /**
- * A conversation about a selection of a handwritten page: what the user sees ([messages]) and what is sent back to
- * the model every turn ([items]: the user's messages, with the selection in the first one, and the model's output
- * items, reasoning included). Lives in memory only; "Guardar como nota" turns it into a note.
+ * A conversation with the AI, about a selection of a handwritten page ([image]) or about the whole notebook (no
+ * image): what the user sees ([messages]) and what is sent back to the model every turn ([items]: the user's
+ * messages, with the selection in the first one, the model's output items, reasoning and tool calls included, and
+ * the tools' results). Lives in memory only; "Guardar como nota" turns it into a note.
  */
 class AiConversation(val image: ByteArray?) {
 
@@ -26,23 +29,36 @@ class AiConversation(val image: ByteArray?) {
         shown += ChatMessage(Speaker.USER, text)
     }
 
-    internal fun addAnswer(result: TurnResult) {
+    /** The model's output items of one round: reasoning, tool calls, the answer. */
+    internal fun addOutput(result: TurnResult) {
         for (i in 0 until result.output.length()) items.put(result.output.get(i))
-        shown += ChatMessage(Speaker.ASSISTANT, result.text)
     }
 
-    /** Drops the last user message, when its answer failed, so the user can send it again. */
-    internal fun dropUnanswered() {
-        if (shown.lastOrNull()?.speaker != Speaker.USER) return
-        shown.removeAt(shown.size - 1)
-        items.remove(items.length() - 1)
+    internal fun addToolResult(callId: String, output: String) {
+        items.put(JSONObject().put("type", "function_call_output").put("call_id", callId).put("output", output))
+    }
+
+    internal fun addAnswer(text: String) {
+        shown += ChatMessage(Speaker.ASSISTANT, text)
+    }
+
+    /** Where the conversation stands, to [rollBack] to if a message fails. */
+    internal fun mark(): Pair<Int, Int> = items.length() to shown.size
+
+    /** Drops everything added since [mark]: the user's message and whatever the failed answer had added. */
+    internal fun rollBack(mark: Pair<Int, Int>) {
+        while (items.length() > mark.first) items.remove(items.length() - 1)
+        while (shown.size > mark.second) shown.removeAt(shown.size - 1)
     }
 
     /** A copy of what the next turn sends. */
     internal fun input(): JSONArray = JSONArray(items.toString())
 }
 
-/** The two things the app asks the model: transcribe a selection ([CONVERT_MODEL]), and talk about it ([CHAT_MODEL]). */
+/**
+ * What the app asks the model: transcribe a selection ([CONVERT_MODEL]), and talk ([CHAT_MODEL]) about a selection or
+ * the whole notebook, using the notebook's tools (docs/12-preguntar.md).
+ */
 class AiAssistant(private val responses: ResponsesClient) {
 
     /** The handwriting in [png] as Markdown; empty if there is no legible text. */
@@ -52,19 +68,47 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
-     * Sends [text] in [conversation] and adds the answer, streaming its pieces to [onText]. If it fails, the
-     * message is taken back out so it can be sent again.
+     * Sends [text] in [conversation] and adds the answer, streaming its pieces to [onText]. When the model asks for
+     * [tools], they run (each announced to [onToolCall]) and their results go back to it, round after round, until it
+     * answers. If anything fails, the message and all it added are taken back out so it can be sent again.
      */
-    fun send(conversation: AiConversation, text: String, handle: TurnHandle, onText: (String) -> Unit): String {
+    fun send(
+        conversation: AiConversation,
+        text: String,
+        handle: TurnHandle,
+        tools: NotebookTools? = null,
+        onToolCall: (name: String, arguments: JSONObject) -> Unit = { _, _ -> },
+        onText: (String) -> Unit,
+    ): String {
         val trimmed = text.trim()
-        val modelText = if (trimmed.isEmpty() && conversation.messages.isEmpty()) EXPLAIN_REQUEST else trimmed
+        val modelText = if (trimmed.isEmpty() && conversation.messages.isEmpty() && conversation.image != null) EXPLAIN_REQUEST else trimmed
+        val mark = conversation.mark()
         conversation.addUser(trimmed.ifEmpty { modelText }, modelText)
+        val instructions = (if (conversation.image != null) CHAT_INSTRUCTIONS else NOTEBOOK_INSTRUCTIONS) +
+            (if (tools != null) TOOLS_INSTRUCTIONS else "")
         try {
-            val result = responses.respond(CHAT_MODEL, CHAT_INSTRUCTIONS, conversation.input(), handle, onText)
-            conversation.addAnswer(result)
-            return result.text
+            repeat(MAX_TOOL_ROUNDS) {
+                val result = responses.respond(CHAT_MODEL, instructions, conversation.input(), handle, tools?.definitions, onText)
+                conversation.addOutput(result)
+                val calls = result.calls
+                if (calls.isEmpty() || tools == null) {
+                    conversation.addAnswer(result.text)
+                    return result.text
+                }
+                for (call in calls) {
+                    val arguments = try {
+                        JSONObject(call.optString("arguments").ifEmpty { "{}" })
+                    } catch (e: JSONException) {
+                        JSONObject()
+                    }
+                    val name = call.optString("name")
+                    onToolCall(name, arguments)
+                    conversation.addToolResult(call.optString("call_id"), tools.call(name, arguments, handle))
+                }
+            }
+            throw IOException("The AI kept calling tools without answering")
         } catch (e: Exception) {
-            conversation.dropUnanswered()
+            conversation.rollBack(mark)
             throw e
         }
     }
@@ -72,8 +116,8 @@ class AiAssistant(private val responses: ResponsesClient) {
     companion object {
         val CHAT_MODEL = AiModel("gpt-6.1-sol", "medium")
 
-        /** Transcribing needs less than talking: a cheaper, faster model. */
-        val CONVERT_MODEL = AiModel("gpt-6-luna", "medium")
+        /** The same as for talking: gpt-6-luna was tried for transcribing and misread handwriting too often. */
+        val CONVERT_MODEL = AiModel("gpt-6.1-sol", "medium")
 
         private const val CONVERT_INSTRUCTIONS =
             "Transcribe el texto manuscrito de la imagen a Markdown. Reproduce exactamente lo escrito, en su idioma y " +
@@ -86,6 +130,23 @@ class AiAssistant(private val responses: ResponsesClient) {
             "Eres el asistente de Libreta, una libreta de notas a mano en una tablet. El usuario te enseña un recorte " +
                 "de lo que ha escrito o dibujado y conversa contigo sobre él. Responde en español, de forma breve y " +
                 "clara, en Markdown (párrafos, listas y negrita; tablas solo si ayudan). Si no puedes leer algo del recorte, dilo."
+        private const val NOTEBOOK_INSTRUCTIONS =
+            "Eres el asistente de Libreta, la libreta de notas de una tablet (notas de texto y notas escritas a mano, " +
+                "sincronizadas con Nextcloud). Ayudas al usuario con sus notas: encontrar, resumir, relacionar y " +
+                "ordenar lo que ha apuntado. Responde en español, de forma breve y clara, en Markdown (párrafos, " +
+                "listas y negrita; tablas solo si ayudan)."
+
+        private const val TOOLS_INSTRUCTIONS =
+            " Tienes herramientas para buscar, listar, leer, crear notas y añadir texto a una nota. Úsalas en lugar de " +
+                "suponer lo que dicen las notas; si no encuentras algo, dilo. Antes de escribir, ten claro qué quiere " +
+                "el usuario: crear y añadir piden su permiso, y si lo niega, no insistas. Cita cada nota que uses con " +
+                "un enlace Markdown cuyo destino es nota: más su ruta exacta entre < >, por ejemplo " +
+                "[Compra](<nota:Casa/Compra.md>); si lo citado está en una página escrita a mano, añade #página, por " +
+                "ejemplo [Compra](<nota:Casa/Compra.md#2>)."
+
+        /** Rounds of tool calls in one answer before giving up: a model that never answers must not loop forever. */
+        private const val MAX_TOOL_ROUNDS = 8
+
         const val EXPLAIN_REQUEST = "¿Qué hay en este recorte? Explícalo brevemente."
 
         /** The model sometimes wraps Markdown in a ``` block despite the instructions. */

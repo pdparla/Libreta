@@ -34,12 +34,23 @@ import java.io.InputStream
  */
 object Markdown {
 
-    /** For the AI's answers: text only. */
-    fun forChat(context: Context): Markwon =
+    /**
+     * For the AI's answers: text only. With [onNoteLink], links to `nota:<path>` (the AI's citations,
+     * docs/12-preguntar.md) go there, with what follows `nota:`; other links do nothing, as the tablet has no browser.
+     */
+    fun forChat(context: Context, onNoteLink: ((String) -> Unit)? = null): Markwon =
         Markwon.builder(context)
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TablePlugin.create(context))
+            .usePlugin(object : AbstractMarkwonPlugin() {
+                override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
+                    builder.linkResolver { _, link -> if (link.startsWith(NOTE_LINK)) onNoteLink?.invoke(link.removePrefix(NOTE_LINK)) }
+                }
+            })
             .build()
+
+    /** How the AI cites a note: `nota:Casa/Compra.md`, or `nota:Casa/Compra.md#2` for page 2 of a handwritten one. */
+    const val NOTE_LINK = "nota:"
 
     /**
      * For a note stored in [folder]: also shows its images, whose links are relative to the note (for example a

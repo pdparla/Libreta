@@ -7,6 +7,11 @@
         android:showAsAction="always|collapseActionView"
         android:title="@string/action_search" />
     <item
+        android:id="@+id/action_ask"
+        android:icon="@drawable/ic_ask"
+        android:showAsAction="always"
+        android:title="@string/ai_notebook_title" />
+    <item
         android:id="@+id/action_new_note"
         android:icon="@android:drawable/ic_menu_add"
         android:showAsAction="always"
