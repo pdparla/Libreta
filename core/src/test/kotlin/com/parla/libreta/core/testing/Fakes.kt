@@ -73,6 +73,8 @@ class FakeRemote : InMemoryNoteRepository(EtagSequence()), SyncStrategy {
 
     override val name = "fake"
 
+    override fun checkConnection() = guarded {}
+
     var online = true
 
     /** Fail every call once this many more calls have been made. */

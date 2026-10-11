@@ -44,6 +44,14 @@ class NoteNamingTest {
     }
 
     @Test
+    fun `category keeps sub-categories and drops unsafe or empty levels`() {
+        assertEquals("Recetas/Postres", NoteNaming.categoryName("Recetas/Postres"))
+        assertEquals("Trabajo/Ideas", NoteNaming.categoryName("  /Trabajo//..Ideas:/ "))
+        assertEquals("", NoteNaming.categoryName(" / . / "))
+        assertEquals("Mis notas", NoteNaming.categoryName("Mis   notas"))
+    }
+
+    @Test
     fun `unique path counts up while the name is taken`() {
         val taken = setOf(NotePath("Cat/Ideas.md"), NotePath("Cat/Ideas (2).md"))
         assertEquals(NotePath("Cat/Ideas (3).md"), NoteNaming.uniquePath("Ideas", "Cat", { it in taken }))

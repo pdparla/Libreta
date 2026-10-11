@@ -16,4 +16,11 @@ interface SyncStrategy : NoteRepository {
 
     /** Human-readable protocol name, for logs and the settings screen. */
     val name: String
+
+    /**
+     * Checks that the server is reachable, trusted and accepts the credentials, without changing anything.
+     *
+     * @throws com.parla.libreta.core.note.StoreUnavailableException with the reason.
+     */
+    fun checkConnection()
 }

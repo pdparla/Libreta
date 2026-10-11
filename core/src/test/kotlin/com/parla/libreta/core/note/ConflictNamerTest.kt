@@ -1,6 +1,5 @@
-package com.parla.libreta.core.sync
+package com.parla.libreta.core.note
 
-import com.parla.libreta.core.note.NotePath
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

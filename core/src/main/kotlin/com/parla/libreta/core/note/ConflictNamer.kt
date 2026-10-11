@@ -1,6 +1,5 @@
-package com.parla.libreta.core.sync
+package com.parla.libreta.core.note
 
-import com.parla.libreta.core.note.NotePath
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

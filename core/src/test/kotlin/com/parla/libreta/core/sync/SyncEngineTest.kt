@@ -1,5 +1,6 @@
 package com.parla.libreta.core.sync
 
+import com.parla.libreta.core.note.ConflictNamer
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.PreconditionFailedException
 import com.parla.libreta.core.testing.FakeLocal
