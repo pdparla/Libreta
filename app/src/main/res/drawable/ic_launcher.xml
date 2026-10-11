@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vector icon; AGP rasterises it to PNGs because minSdk < 21. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FFF4E3B8"
+        android:strokeColor="#FF5D4A1F"
+        android:strokeWidth="2"
+        android:pathData="M10,4 L38,4 Q42,4 42,8 L42,40 Q42,44 38,44 L10,44 Z" />
+    <path
+        android:fillColor="#FF5D4A1F"
+        android:pathData="M6,4 L12,4 L12,44 L6,44 Z" />
+    <path
+        android:strokeColor="#FF8C7A4F"
+        android:strokeWidth="2"
+        android:pathData="M18,16 L36,16 M18,24 L36,24 M18,32 L30,32" />
+</vector>

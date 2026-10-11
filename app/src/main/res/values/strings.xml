@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Libreta</string>
+    <string name="smoke_status">Kotlin %1$s · API %2$d\nTítulo de prueba: «%3$s»</string>
+</resources>

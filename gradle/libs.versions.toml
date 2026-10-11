@@ -1,0 +1,15 @@
+# Every version here was checked against minSdk 19 (Android 4.4, Dalvik). See README.md.
+[versions]
+agp = "9.4.1"
+kotlin = "2.4.20"
+animalsniffer = "2.0.1"
+junit = "4.13.2"
+
+[libraries]
+android-api19-signature = { module = "net.sf.androidscents.signature:android-api-level-19", version = "4.4.2_r4" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+animalsniffer = { id = "ru.vyarus.animalsniffer", version.ref = "animalsniffer" }
