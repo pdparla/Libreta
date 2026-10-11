@@ -1,9 +1,12 @@
 package com.parla.libreta.ui
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.view.MenuItem
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import com.parla.libreta.R
@@ -53,6 +56,16 @@ class SettingsActivity : Activity() {
 
         test.setOnClickListener { testConnection() }
         save.setOnClickListener { saveAndSync() }
+
+        val homeMode = findViewById<CheckBox>(R.id.settings_home_mode)
+        homeMode.isChecked = HomeMode.isEnabled(this)
+        homeMode.setOnCheckedChangeListener { _, enabled ->
+            HomeMode.setEnabled(this, enabled)
+            if (enabled) HomeMode.showHomeChooser(this)
+        }
+        findViewById<Button>(R.id.settings_android).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean =

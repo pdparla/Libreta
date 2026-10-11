@@ -66,7 +66,8 @@ class LibretaApp : Application() {
 
     /**
      * Syncs when the app comes to the foreground and when it leaves it. The editor saves in onPause, before its
-     * onStop, so the closing sync already includes the last edit. Rotations do not count.
+     * onStop, so the closing sync already includes the last edit. Rotations do not count. Turning the screen off
+     * stops the activity too, so as the home screen (single-app mode) Libreta still syncs on screen off and on.
      */
     private inner class SyncOnOpenAndClose : ActivityLifecycleCallbacks {
         private var started = 0

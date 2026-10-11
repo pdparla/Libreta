@@ -14,12 +14,25 @@
         <activity
             android:name=".ui.NoteListActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Single-app mode: Libreta as the home screen. Off by default; toggled from Ajustes (HomeMode). -->
+        <activity-alias
+            android:name=".ui.HomeAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:targetActivity=".ui.NoteListActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ui.NoteEditorActivity"

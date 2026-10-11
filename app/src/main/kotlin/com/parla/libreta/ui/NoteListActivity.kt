@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -59,6 +60,18 @@ class NoteListActivity : Activity() {
             applyFilter()
             true
         }
+    }
+
+    // singleTask: pressing Home brings the list back and closes an open editor, which saves on its way out.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        // As the home screen there is nothing to go back to.
+        if (keyCode == KeyEvent.KEYCODE_BACK && HomeMode.isHomeIntent(intent)) return true
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onResume() {

@@ -92,6 +92,13 @@ Son subcarpetas, como en Nextcloud Notes, y admiten subcategorías con `/`. En l
 desplegable de la barra superior; en el editor, el botón «Categoría» mueve la nota, y el cambio se aplica al
 guardar.
 
+### Libreta como pantalla de inicio
+
+Desde Libreta → Ajustes → «Usar Libreta como pantalla de inicio» se activa el modo de una sola app: un
+`activity-alias` con la categoría `HOME`, con TouchWiz de reserva. Es lo más parecido a un modo kiosco que permite
+Android 4.4 sin root. Las apps del sistema que sobran están ocultas con `pm block`; la lista, los motivos y cómo
+revertirlo están en [`docs/05-debloat.md`](docs/05-debloat.md).
+
 ## Toolchain y compatibilidad con API 19
 
 | Pieza | Versión | Nota |
