@@ -76,12 +76,21 @@ class SettingsActivity : Activity() {
         if (config.notesUrl() == null) return showStatus(getString(R.string.settings_invalid))
         busy(true)
         showStatus(getString(R.string.settings_testing))
-        container.background.execute({ container.clients.create(config).checkConnection() }) { result ->
+        container.background.execute({
+            // Use the folder the Nextcloud Notes app is configured with, so the notes show up there.
+            val notesAppFolder = container.clients.notesAppSettings(config).notesPath()
+            val effective = if (notesAppFolder != null) config.copy(notesFolder = notesAppFolder) else config
+            container.clients.create(effective).checkConnection()
+            notesAppFolder
+        }) { result ->
             if (isDestroyed) return@execute
             busy(false)
+            val notesAppFolder = result.getOrNull()
+            if (notesAppFolder != null && notesAppFolder != folder.text.toString().trim()) folder.setText(notesAppFolder)
             val error = result.exceptionOrNull()
             showStatus(
                 when {
+                    error == null && notesAppFolder != null -> getString(R.string.settings_test_ok_with_folder, notesAppFolder)
                     error == null -> getString(R.string.settings_test_ok)
                     // Without a password nothing is sent, so a 401 proves that TLS worked.
                     config.appPassword.isEmpty() && (error.cause as? HttpStatusException)?.code == 401 ->

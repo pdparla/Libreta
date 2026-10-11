@@ -64,6 +64,7 @@
     <string name="settings_save">Guardar</string>
     <string name="settings_testing">Probando…</string>
     <string name="settings_test_ok">Conexión correcta: TLS verificado, credenciales aceptadas y carpeta de notas encontrada.</string>
+    <string name="settings_test_ok_with_folder">Conexión correcta: TLS verificado y credenciales aceptadas. Carpeta de la app Notes de Nextcloud: «%1$s». Pulsa Guardar.</string>
     <string name="settings_test_tls_only">TLS correcto con el servidor. Falta la contraseña de aplicación.</string>
     <string name="settings_invalid">La dirección debe empezar por https:// y el usuario no puede estar vacío.</string>
     <string name="settings_incomplete">Faltan datos: dirección https://, usuario y contraseña de aplicación.</string>

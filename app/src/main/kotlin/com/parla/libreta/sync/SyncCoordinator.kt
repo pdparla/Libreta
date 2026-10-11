@@ -2,6 +2,7 @@ package com.parla.libreta.sync
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.parla.libreta.core.note.ConflictNamer
 import com.parla.libreta.core.note.NoteRepository
 import com.parla.libreta.core.sync.SyncEngine
@@ -53,6 +54,7 @@ class SyncCoordinator(
         val config = settings.load()
         if (!config.isComplete) return publish(SyncStatus.NotConfigured)
         publish(SyncStatus.Running)
+        val startedAt = System.currentTimeMillis()
         val outcome = try {
             val report = SyncEngine(notes, remoteFor(config), stateStore, conflictNamer).sync()
             SyncStatus.Finished(report, System.currentTimeMillis())
@@ -62,6 +64,7 @@ class SyncCoordinator(
             // Conscrypt's native library failed to load.
             SyncStatus.Failed(e, System.currentTimeMillis())
         }
+        Log.i(TAG, describe(outcome, System.currentTimeMillis() - startedAt))
         publish(outcome)
     }
 
@@ -75,5 +78,20 @@ class SyncCoordinator(
     private fun publish(newStatus: SyncStatus) {
         status = newStatus
         mainThread.post { listeners.forEach { it(newStatus) } }
+    }
+
+    /** One log line per run, with counts only: note names never go to logcat. */
+    private fun describe(outcome: SyncStatus, millis: Long): String = when (outcome) {
+        is SyncStatus.Finished -> with(outcome.report) {
+            "sync ${millis}ms: up=${uploaded.size} down=${downloaded.size} delLocal=${deletedLocally.size} " +
+                "delRemote=${deletedRemotely.size} conflicts=${conflicts.size} failures=${failures.size}" +
+                (abortedBy?.let { " aborted=${it.javaClass.simpleName}: ${it.cause?.javaClass?.simpleName}" } ?: "")
+        }
+        is SyncStatus.Failed -> "sync ${millis}ms failed: ${outcome.error.javaClass.simpleName}"
+        else -> "sync: $outcome"
+    }
+
+    private companion object {
+        const val TAG = "Libreta"
     }
 }

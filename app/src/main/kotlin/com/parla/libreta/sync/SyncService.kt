@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Runs syncs in a Service, so a sync started when the app goes to the background is not killed with the
  * activity. WorkManager needs API 21+; an IntentService serialises requests on its own worker thread.
  */
-@Suppress("DEPRECATION") // IntentService is deprecated on API 30+, irrelevant on this API 19 device.
+@Suppress("DEPRECATION", "OVERRIDE_DEPRECATION") // IntentService is deprecated on API 30+, irrelevant on this API 19 device.
 class SyncService : IntentService("SyncService") {
 
     override fun onHandleIntent(intent: Intent?) {
