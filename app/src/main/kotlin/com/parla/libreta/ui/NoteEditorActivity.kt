@@ -22,8 +22,11 @@ import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.core.note.SaveResult
 import com.parla.libreta.core.note.Version
 import com.parla.libreta.ui.dictation.Dictation
+import io.noties.markwon.Markwon
 import io.noties.markwon.editor.MarkwonEditorTextWatcher
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * A text note, like in Nextcloud Notes: it opens formatted (Markdown with its images, see [Markdown.forNote]) and
@@ -42,6 +45,13 @@ class NoteEditorActivity : Activity() {
     private var deleted = false
     private var editing = true
 
+    /** Parses the Markdown for the highlighting off the main thread; the spans are applied there, if the text did not change meanwhile. */
+    private val highlighter: ExecutorService = Executors.newSingleThreadExecutor()
+
+    /** The formatted view's Markwon, built on first use and kept while the note stays in the same [noteFolder]. */
+    private var noteMarkwon: Markwon? = null
+    private var noteFolder: File? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_note_editor)
@@ -49,7 +59,7 @@ class NoteEditorActivity : Activity() {
         editor = findViewById(R.id.editor)
         preview = findViewById(R.id.preview)
         // Before the text is set, so the highlighting covers it from the start.
-        editor.addTextChangedListener(MarkwonEditorTextWatcher.withProcess(Markdown.editor(this)))
+        editor.addTextChangedListener(MarkwonEditorTextWatcher.withPreRender(Markdown.editor(this), highlighter, editor))
 
         val restored = savedInstanceState?.let(::restoreDraft)
         draft = restored ?: openDraft() ?: return
@@ -60,6 +70,11 @@ class NoteEditorActivity : Activity() {
         if (draft.origin == null) window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         showMode()
         showTitle()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        highlighter.shutdownNow()
     }
 
     override fun onPause() {
@@ -163,7 +178,11 @@ class NoteEditorActivity : Activity() {
             keyboard.hideSoftInputFromWindow(editor.windowToken, 0)
             // Images are linked relative to the note's folder, i.e. its category as saved.
             val folder = File(container.notesDir, draft.origin?.path?.category ?: draft.category)
-            Markdown.forNote(this, folder).setMarkdown(preview, editor.text.toString())
+            val markwon = noteMarkwon?.takeIf { noteFolder == folder } ?: Markdown.forNote(this, folder).also {
+                noteMarkwon = it
+                noteFolder = folder
+            }
+            markwon.setMarkdown(preview, editor.text.toString())
         }
         invalidateOptionsMenu()
     }

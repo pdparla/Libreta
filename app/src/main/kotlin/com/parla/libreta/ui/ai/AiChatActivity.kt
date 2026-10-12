@@ -68,6 +68,9 @@ class AiChatActivity : Activity() {
     private var category = ""
     private var turn: TurnHandle? = null
     private val mainThread = Handler(Looper.getMainLooper())
+
+    /** The scheduled render of the answer being streamed, if any (main thread only). */
+    private var pendingRender: Runnable? = null
     private val markwon by lazy { Markdown.forChat(this, ::openCitation, ::showWebLink) }
     private lateinit var tools: NotebookTools
 
@@ -115,6 +118,8 @@ class AiChatActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        pendingRender?.let(mainThread::removeCallbacks)
+        pendingRender = null
         turn?.cancel()
     }
 
@@ -143,7 +148,15 @@ class AiChatActivity : Activity() {
         turn = handle
         send.setText(R.string.ai_stop)
 
+        // The text arrives in pieces of a few characters; formatting everything received so far for each one would
+        // cost more and more on the main thread. The pieces are collected at once and shown at most every STREAM_RENDER_MS.
         val received = StringBuilder()
+        val render = Runnable {
+            pendingRender = null
+            if (turn !== handle) return@Runnable
+            show(answer, Speaker.ASSISTANT, received.toString())
+            scrollToEnd()
+        }
         val toolLines = ArrayList<View>()
         val onToolCall = { name: String, arguments: JSONObject ->
             mainThread.post { toolLines += addToolLine(describeTool(name, arguments), before = answer) }
@@ -152,12 +165,18 @@ class AiChatActivity : Activity() {
         container.aiBackground.execute({
             container.ai.send(conversation, text, handle, tools, onToolCall = onToolCall) { piece ->
                 mainThread.post {
+                    if (turn !== handle) return@post
                     received.append(piece)
-                    show(answer, Speaker.ASSISTANT, received.toString())
-                    scrollToEnd()
+                    if (pendingRender == null) {
+                        pendingRender = render
+                        mainThread.postDelayed(render, STREAM_RENDER_MS)
+                    }
                 }
             }
         }) { result ->
+            // A render still waiting must not overwrite the final text, the error or a removed view.
+            pendingRender?.let(mainThread::removeCallbacks)
+            pendingRender = null
             turn = null
             if (isDestroyed) return@execute
             send.setText(R.string.ai_send)
@@ -344,6 +363,9 @@ class AiChatActivity : Activity() {
         private const val ERROR_COLOR = 0xFFC5221F.toInt()
         private const val TOOL_COLOR = 0xFF80868B.toInt()
         private const val PREVIEW = 400
+
+        /** The longest an answer being streamed goes without showing the text received since. */
+        private const val STREAM_RENDER_MS = 100L
 
         /** A conversation about the whole notebook, with no selection (docs/12-preguntar.md). */
         fun intentForNotebook(context: Context, category: String): Intent =
