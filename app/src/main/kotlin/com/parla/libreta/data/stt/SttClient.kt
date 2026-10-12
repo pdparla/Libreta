@@ -25,9 +25,15 @@ class SttHttpException(val code: Int) : IOException("Dictation HTTP $code")
 /**
  * Sends a recording to Libreta's dictation service (server/stt) and returns the text. The connection trusts only
  * the service's own certificate, from the settings, through [provider] (Conscrypt on the device) with the same TLS
- * 1.2 suites as Nextcloud.
+ * 1.2 suites as Nextcloud. Its clients derive from [base] with their own socket factory, so they share the pool
+ * and threads but never a connection with a different trust configuration.
  */
-class SttClient(private val store: SttSettingsStore, private val provider: () -> Provider?) {
+class SttClient(
+    private val store: SttSettingsStore,
+    private val provider: () -> Provider?,
+    /** The app's shared base client (connection pool and dispatcher); each certificate's client derives from it. */
+    private val base: () -> OkHttpClient = { OkHttpClient() },
+) {
 
     private var cached: Pair<String, OkHttpClient>? = null
 
@@ -73,7 +79,7 @@ class SttClient(private val store: SttSettingsStore, private val provider: () ->
     private fun clientFor(settings: SttSettings): OkHttpClient {
         cached?.let { (pem, client) -> if (pem == settings.certificatePem) return client }
         val trustManager = Tls.trustManagerFor(settings.certificatePem.byteInputStream())
-        val client = OkHttpClient.Builder()
+        val client = base().newBuilder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
             // Five minutes of audio take a while to transcribe on the server's CPU.

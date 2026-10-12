@@ -26,13 +26,14 @@ import com.parla.libreta.data.settings.SettingsStore
 import com.parla.libreta.sync.SyncCoordinator
 import com.parla.libreta.sync.SyncService
 import com.parla.libreta.ui.BackgroundRunner
+import com.parla.libreta.ui.idleSingleThreadExecutor
 import com.parla.libreta.ui.ink.InkRenderer
 import com.parla.libreta.ui.ink.InkTranscriber
 import okhttp3.OkHttpClient
 import org.conscrypt.Conscrypt
 import java.io.File
+import java.security.Provider
 import java.security.SecureRandom
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /** Composition root: the object graph, built once per process. */
@@ -47,10 +48,10 @@ class AppContainer(context: Context) {
     val inkNotes = InkNoteService(notes, noteService, InkRenderer, newFolderId = ::randomFolderId)
     val conversationNotes = ConversationNotes(notes, newFolderId = ::randomFolderId)
     val settings = SettingsStore(context)
-    val background = BackgroundRunner(Executors.newSingleThreadExecutor())
+    val background = BackgroundRunner(idleSingleThreadExecutor("libreta-background"))
 
     /** Model calls take seconds: their own thread, so they never hold up the settings screen's work. */
-    val aiBackground = BackgroundRunner(Executors.newSingleThreadExecutor())
+    val aiBackground = BackgroundRunner(idleSingleThreadExecutor("libreta-ai"))
 
     /** The ChatGPT session file; cheap to read, so the UI can check it on the main thread. */
     val chatGptSessions = ChatGptSessionStore(File(context.filesDir, "chatgpt-session.json"))
@@ -58,16 +59,30 @@ class AppContainer(context: Context) {
     private val userAgent = "Libreta/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
 
     /**
+     * One Conscrypt provider for every TLS client, created on first use, off the main thread (it loads the native
+     * library). Conscrypt is passed to each SSLContext explicitly rather than installed as the default provider,
+     * so nothing else in the process changes.
+     */
+    private val conscrypt: Provider by lazy { Conscrypt.newProvider() }
+
+    /**
+     * The base of every HTTP client: they derive from it with `newBuilder()`, so all share one connection pool and
+     * dispatcher (and its threads). Connections are keyed by address, including the socket factory, host name
+     * verifier and connection specs, so a client never reuses a connection made under another trust configuration.
+     */
+    private val httpBase: OkHttpClient by lazy { OkHttpClient() }
+
+    /**
      * Built on first use, off the main thread: loading Conscrypt's native library and parsing the CA take a
-     * moment. Conscrypt is passed to the SSLContext explicitly rather than installed as the default provider, so
-     * nothing else in the process changes.
+     * moment.
      */
     val clients: NextcloudClientFactory by lazy {
         val trustManager = context.resources.openRawResource(R.raw.nextcloud_ca).use(Tls::trustManagerFor)
         NextcloudClientFactory(
-            socketFactory = Tls.socketFactory(trustManager, Conscrypt.newProvider()),
+            socketFactory = Tls.socketFactory(trustManager, conscrypt),
             trustManager = trustManager,
             userAgent = userAgent,
+            base = httpBase,
         )
     }
 
@@ -78,12 +93,12 @@ class AppContainer(context: Context) {
      */
     private val openAiHttp: OkHttpClient by lazy {
         val trustManager = context.resources.openRawResource(R.raw.openai_roots).use(Tls::trustManagerFor)
-        OkHttpClient.Builder()
+        httpBase.newBuilder()
             .connectTimeout(20, TimeUnit.SECONDS)
             // Between streamed events; reasoning can keep the stream quiet for a while before the answer.
             .readTimeout(180, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
-            .sslSocketFactory(Tls.socketFactory(trustManager, Conscrypt.newProvider()), trustManager)
+            .sslSocketFactory(Tls.socketFactory(trustManager, conscrypt), trustManager)
             .connectionSpecs(listOf(Tls.CONNECTION_SPEC))
             .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
             .build()
@@ -109,8 +124,8 @@ class AppContainer(context: Context) {
 
     /** Dictation (docs/07-ia.md, part 2): the service's address, token and certificate, from scripts/stt-pair.sh. */
     val sttSettings = SttSettingsStore(File(context.filesDir, "stt.json"))
-    val stt = SttClient(sttSettings, provider = { Conscrypt.newProvider() })
-    val sttBackground = BackgroundRunner(Executors.newSingleThreadExecutor())
+    val stt = SttClient(sttSettings, provider = { conscrypt }, base = { httpBase })
+    val sttBackground = BackgroundRunner(idleSingleThreadExecutor("libreta-stt"))
 
     val sync = SyncCoordinator(
         notes = notes,

@@ -13,10 +13,12 @@ class NextcloudClientFactory(
     private val socketFactory: SSLSocketFactory,
     private val trustManager: X509TrustManager,
     private val userAgent: String,
+    /** Shared base client: its connection pool and dispatcher are reused by every client built here. */
+    base: OkHttpClient = OkHttpClient(),
 ) {
 
     // Shared so every client built from it reuses one connection pool and dispatcher.
-    private val baseClient: OkHttpClient = OkHttpClient.Builder()
+    private val baseClient: OkHttpClient = base.newBuilder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
