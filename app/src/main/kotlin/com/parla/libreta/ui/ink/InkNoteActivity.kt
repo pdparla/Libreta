@@ -27,6 +27,7 @@ import com.parla.libreta.core.ink.InkDocument
 import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkMark
 import com.parla.libreta.core.ink.InkOutline
+import com.parla.libreta.core.ink.InkPage
 import com.parla.libreta.core.ink.InkRect
 import com.parla.libreta.core.ink.InkSizes
 import com.parla.libreta.core.ink.InkTranscripts
@@ -42,7 +43,6 @@ import com.parla.libreta.ui.ai.AiChatActivity
 import com.parla.libreta.ui.ai.AiMessages
 import com.parla.libreta.ui.dictation.Dictation
 import java.io.File
-import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -90,6 +90,10 @@ class InkNoteActivity : Activity() {
     private lateinit var fillColorView: View
     private lateinit var penSize: SeekBar
     private lateinit var eraserSize: SeekBar
+
+    /** The colours the swatches in the toolbar show now, to rebuild them only when they change (null: not yet). */
+    private var penSwatch: Int? = null
+    private var selectionSwatch: Int? = null
     private val toolPreferences by lazy { getSharedPreferences(PREFERENCES_TOOLS, MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -250,12 +254,12 @@ class InkNoteActivity : Activity() {
             color = inkView.penColor
             diameter = inkView.penWidth * density
         }
-        findViewById<TextView>(R.id.ink_pen_size_label).text = sizeLabel(inkView.penWidth)
+        setTextIfChanged(findViewById(R.id.ink_pen_size_label), sizeLabel(inkView.penWidth))
         findViewById<SizePreview>(R.id.ink_eraser_preview).apply {
             outline = true
             diameter = 2 * inkView.eraserRadius * density
         }
-        findViewById<TextView>(R.id.ink_eraser_size_label).text = sizeLabel(inkView.eraserRadius)
+        setTextIfChanged(findViewById(R.id.ink_eraser_size_label), sizeLabel(inkView.eraserRadius))
     }
 
     private fun sizeLabel(size: Float) = String.format(Locale.getDefault(), if (size < 10f) "%.1f" else "%.0f", size)
@@ -326,7 +330,7 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_redo).isEnabled = editor?.canRedo == true
         findViewById<View>(R.id.ink_prev).isEnabled = editor != null && editor.pageIndex > 0
         findViewById<View>(R.id.ink_next).isEnabled = editor != null && editor.pageIndex < editor.pageCount - 1
-        pageLabel.text = editor?.let { getString(R.string.ink_page, it.pageIndex + 1, it.pageCount) }.orEmpty()
+        setTextIfChanged(pageLabel, editor?.let { getString(R.string.ink_page, it.pageIndex + 1, it.pageCount) }.orEmpty())
         findViewById<View>(R.id.ink_pen_options).visibility = visibleIf(inkView.tool == InkView.Tool.PEN)
         findViewById<View>(R.id.ink_eraser_options).visibility = visibleIf(inkView.tool == InkView.Tool.ERASER)
         findViewById<View>(R.id.ink_select_options).visibility = visibleIf(inkView.tool == InkView.Tool.SELECT)
@@ -341,13 +345,26 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_title).isEnabled = holdsInk
         findViewById<View>(R.id.ink_tag).isEnabled = holdsInk
         selectedStrokes().firstOrNull()?.let { first ->
-            findViewById<View>(R.id.ink_selection_color).background = ColorPalette.swatchDrawable(first.color, false, resources.displayMetrics.density)
+            // The swatches are rebuilt only when their colour changes: this runs after every stroke.
+            if (first.color != selectionSwatch) {
+                selectionSwatch = first.color
+                findViewById<View>(R.id.ink_selection_color).background = ColorPalette.swatchDrawable(first.color, false, resources.displayMetrics.density)
+            }
         }
-        colorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
-        fillColorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
+        val penColor = inkView.penColor
+        if (penColor != penSwatch) {
+            penSwatch = penColor
+            colorView.background = ColorPalette.swatchDrawable(penColor, false, resources.displayMetrics.density)
+            fillColorView.background = ColorPalette.swatchDrawable(penColor, false, resources.displayMetrics.density)
+        }
         findViewById<View>(R.id.ink_erase_area).isSelected = !inkView.eraseWholeStrokes
         findViewById<View>(R.id.ink_erase_strokes).isSelected = inkView.eraseWholeStrokes
         showSizes()
+    }
+
+    /** Setting a text always lays it out again, even if it is the same. */
+    private fun setTextIfChanged(view: TextView, text: String) {
+        if (view.text.toString() != text) view.text = text
     }
 
     private fun visibleIf(visible: Boolean) = if (visible) View.VISIBLE else View.GONE
@@ -437,15 +454,22 @@ class InkNoteActivity : Activity() {
         scheduleAutosave()
     }
 
-    /** The selection as an image for the model; null (after saying why) if it holds no ink. */
-    private fun selectionImage(): ByteArray? {
+    /** What to render for the model: the page, which is immutable, and the selected area of it, taken now. */
+    private class SelectionToRender(val page: InkPage, val area: InkRect) {
+        /** The selection as a PNG: heavy, so only from a background thread. */
+        fun image(): ByteArray = InkRenderer.renderSelection(page, area)
+    }
+
+    /** The selection to turn into an image; null (after saying why) if there is none or it holds no ink. */
+    private fun selectionToRender(): SelectionToRender? {
         val editor = editor ?: return null
         val area = inkView.selection ?: return null
-        if (!area.hasInk(editor.page)) {
+        val page = editor.page
+        if (!area.hasInk(page)) {
             Toast.makeText(this, R.string.ink_selection_empty, Toast.LENGTH_SHORT).show()
             return null
         }
-        return InkRenderer.renderSelection(editor.page, area)
+        return SelectionToRender(page, area)
     }
 
     private fun signedIn(): Boolean {
@@ -565,7 +589,7 @@ class InkNoteActivity : Activity() {
     /** Has the AI read the selected handwriting, then hands the text to [onText]; a cancellable wait meanwhile. */
     private fun readSelection(onText: (String) -> Unit) {
         if (!signedIn()) return
-        val image = selectionImage() ?: return
+        val selection = selectionToRender() ?: return
         val handle = TurnHandle()
         @Suppress("DEPRECATION") // ProgressDialog is the progress dialog API 19 has.
         val progress = ProgressDialog(this).apply {
@@ -575,7 +599,7 @@ class InkNoteActivity : Activity() {
             setOnCancelListener { handle.cancel() }
             show()
         }
-        container.aiBackground.execute({ container.ai.convertToText(image, handle) }) { result ->
+        container.aiBackground.execute({ container.ai.convertToText(selection.image(), handle) }) { result ->
             if (isDestroyed) return@execute
             progress.dismiss()
             if (handle.isCancelled) return@execute
@@ -617,16 +641,16 @@ class InkNoteActivity : Activity() {
 
     private fun chatAboutSelection() {
         if (!signedIn()) return
-        val image = selectionImage() ?: return
+        val selection = selectionToRender() ?: return
         save()
         val file = File(cacheDir, AiChatActivity.SELECTION_FILE)
-        try {
-            file.writeBytes(image)
-        } catch (e: IOException) {
-            Toast.makeText(this, R.string.error_saving, Toast.LENGTH_LONG).show()
-            return
+        // Rendering and writing the image take a moment: the chat opens once the file is there.
+        container.aiBackground.execute({ file.writeBytes(selection.image()) }) { result ->
+            if (isDestroyed) return@execute
+            result
+                .onSuccess { startActivity(AiChatActivity.intent(this, file, note?.path?.category ?: category)) }
+                .onFailure { Toast.makeText(this, R.string.error_saving, Toast.LENGTH_LONG).show() }
         }
-        startActivity(AiChatActivity.intent(this, file, note?.path?.category ?: category))
     }
 
     private fun saveToolPreferences() {

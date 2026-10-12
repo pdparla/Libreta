@@ -149,7 +149,9 @@ object InkRenderer : PageRenderer {
     /**
      * The ink inside [selected] of [page], with a margin, as a PNG for the model: strokes only, on white, without the
      * paper's lines, which add nothing and can be mistaken for writing. [SELECTION_SCALE] pixels per unit, or fewer
-     * to keep the longer side within [SELECTION_MAX_SIDE].
+     * to keep the longer side within [SELECTION_MAX_SIDE]. RGB 565 like [render], because the image is opaque (white
+     * under the strokes): at up to 1600 pixels a side that halves the 6.8 MB the bitmap would take, and anti-aliased
+     * ink on white reads as well for recognition. Heavy (render and compress): call it off the UI thread.
      */
     fun renderSelection(page: InkPage, selected: InkRect): ByteArray {
         // A white margin around the ink: a selection snapped to its strokes (Fase 8) leaves letters touching the
@@ -160,7 +162,7 @@ object InkRenderer : PageRenderer {
         val bitmap = Bitmap.createBitmap(
             ceil(area.width * scale).toInt().coerceAtLeast(1),
             ceil(area.height * scale).toInt().coerceAtLeast(1),
-            Bitmap.Config.ARGB_8888,
+            Bitmap.Config.RGB_565,
         )
         try {
             val canvas = Canvas(bitmap)
