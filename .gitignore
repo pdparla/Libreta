@@ -12,3 +12,9 @@ captures/
 *.keystore
 keystore.properties
 secrets.properties
+
+# Remotion promo video and its agent skills (local only)
+/video/
+/.agents/
+/.claude/skills/
+/skills-lock.json
