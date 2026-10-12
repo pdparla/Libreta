@@ -39,9 +39,8 @@ import com.parla.libreta.data.ai.MathTask
 import com.parla.libreta.data.ai.NotebookTools
 import com.parla.libreta.data.ai.TurnHandle
 import com.parla.libreta.ui.Markdown
-import com.parla.libreta.ui.NoteEditorActivity
-import com.parla.libreta.ui.ink.InkNoteActivity
 import com.parla.libreta.ui.dictation.Dictation
+import com.parla.libreta.ui.openNote
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -291,16 +290,8 @@ class AiChatActivity : Activity() {
     /** Opens the note a citation points to (`Casa/Compra.md#2`), at its page if handwritten. */
     private fun openCitation(target: String) {
         val path = NotePath.parseOrNull(target.substringBefore('#'))?.takeIf { it.isNote }
-        val markdown = path?.let { container.notes.readOrNull(it)?.text }
-        if (path == null || markdown == null) {
-            Toast.makeText(this, R.string.ai_citation_missing, Toast.LENGTH_SHORT).show()
-            return
-        }
         val page = (target.substringAfter('#', "").toIntOrNull() ?: 1) - 1
-        startActivity(
-            if (container.notebookIndex.entry(path, markdown).isInk) InkNoteActivity.intent(this, path, page.coerceAtLeast(0))
-            else NoteEditorActivity.intent(this, path),
-        )
+        if (path == null || !openNote(path, page)) Toast.makeText(this, R.string.ai_citation_missing, Toast.LENGTH_SHORT).show()
     }
 
     /**

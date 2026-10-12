@@ -177,6 +177,9 @@ written as Markdown (lists, headings, line breaks) with no comments.
 
 ## Notebook tools
 
+The instructions ask the model to link other notes with `[[Title]]` inside the text of a note it creates or extends (see
+[Links between notes](architecture.md#links-between-notes)), and to cite notes in its answers with `nota:` links.
+
 The general chat ("ask your notebook") and the chat about a selection use the same tools. The model searches, reads
 and writes notes through function tools, and each call appears in the chat as a gray line.
 

@@ -42,6 +42,8 @@ The assistant has five tools for your notes. A grey line in the chat shows each 
 | Create a note | Creates a text note. Asks your permission. |
 | Add to a note | Adds text to the end of a text note, or above the pages of a handwritten note. Asks your permission. |
 
+When it creates a note or adds to one, it links the other notes it mentions with `[[Title]]`. See [Links between notes](notes.md#links-between-notes).
+
 The assistant cites the notes it uses as links. Tap a link to open the note. For a handwritten note, it opens on the page cited. If the note no longer exists, a message says «Esa nota ya no existe.» (That note no longer exists.)
 
 ### Permission to write

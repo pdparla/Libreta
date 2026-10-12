@@ -151,6 +151,24 @@ draws each formula as a drawable, so no WebView is needed: the KitKat WebView is
 - **The editor stays plain.** Markdown highlighting while you type uses a Markwon without formulas, so typing never
   waits for LaTeX.
 
+## Links between notes
+
+`core/note/NoteLinks.kt` holds everything about `[[…]]` links, as plain Kotlin tested in `NoteLinksTest`:
+
+- **Finding.** A regular expression finds `[[target]]` and `[[target|label]]` outside inline code and fenced blocks.
+- **Drawing.** The formatted view's Markwon (`Markdown.forNote`) rewrites each link as a Markdown link to the
+  `libreta-enlace:` scheme in `processMarkdown`, before parsing. Its link resolver sends that scheme to
+  `followNoteLink` and every other link to Markwon's usual resolver. The note's file never changes.
+- **Resolving.** By title, ignoring case and the extension, after cleaning it like a file name (`NoteNaming`). With a
+  `/`, the category must match too. Among several matches, the linking note's category wins, then path order.
+- **Following.** `ui/OpenNote.kt` resolves against the note listing off the main thread, then opens the note (text or
+  handwritten, like the AI's citations) or offers to create it with `NoteService.create`.
+- **Backlinks.** After drawing a note, the editor computes `NoteLinks.backlinks` off the main thread from the
+  `NotebookIndex` texts (for a handwritten note, the user's text), so only changed notes are read again. If there are
+  any, it draws the note again with an «Enlazada desde» list of `[[Category/Title|…]]` links, which resolve exactly.
+- **Taps.** The formatted view's text is selectable, which installs a movement method that ignores taps on links.
+  The editor sets `LinkMovementMethod`, which follows links and still lets you select text.
+
 ## The editor's save model
 
 ### Text notes

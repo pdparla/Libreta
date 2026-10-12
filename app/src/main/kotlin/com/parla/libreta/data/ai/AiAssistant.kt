@@ -190,7 +190,8 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "el usuario: crear y añadir piden su permiso, y si lo niega, no insistas. Cita cada nota que uses con " +
                 "un enlace Markdown cuyo destino es nota: más su ruta exacta entre < >, por ejemplo " +
                 "[Compra](<nota:Casa/Compra.md>); si lo citado está en una página escrita a mano, añade #página, por " +
-                "ejemplo [Compra](<nota:Casa/Compra.md#2>)."
+                "ejemplo [Compra](<nota:Casa/Compra.md#2>). Dentro del texto de una nota que crees o amplíes, enlaza otras " +
+                "notas con su título entre dobles corchetes, por ejemplo [[Compra]], o [[Casa/Compra]] si hay varias con ese título."
 
         private const val WEB_INSTRUCTIONS =
             " Puedes buscar en la web cuando haga falta información actual o que no esté en las notas ni en el recorte; " +

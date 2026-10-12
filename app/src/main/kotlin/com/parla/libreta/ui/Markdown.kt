@@ -22,7 +22,9 @@ import android.text.Editable
 import android.text.Spanned
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
+import com.parla.libreta.core.note.NoteLinks
 import io.noties.markwon.AbstractMarkwonPlugin
+import io.noties.markwon.LinkResolverDef
 import io.noties.markwon.Markwon
 import io.noties.markwon.MarkwonConfiguration
 import io.noties.markwon.core.spans.HeadingSpan
@@ -89,12 +91,26 @@ object Markdown {
     /** How the AI cites a note: `nota:Casa/Compra.md`, or `nota:Casa/Compra.md#2` for page 2 of a handwritten one. */
     const val NOTE_LINK = "nota:"
 
+    /** What a `[[…]]` link becomes for Markwon, before its target. */
+    private const val WIKI_LINK = "libreta-enlace:"
+
     /**
      * For a note stored in [folder]: also shows its images, whose links are relative to the note (for example a
-     * handwritten note's `.attachments.k3/pagina-1.png`). Only local files are loaded.
+     * handwritten note's `.attachments.k3/pagina-1.png`). Only local files are loaded. `[[…]]` links between notes
+     * ([NoteLinks]) go to [onNoteLink] with what is inside; other links open as usual.
      */
-    fun forNote(context: Context, folder: File): Markwon =
+    fun forNote(context: Context, folder: File, onNoteLink: (String) -> Unit): Markwon =
         builder(context, NOTE_TEXT_SP)
+            .usePlugin(object : AbstractMarkwonPlugin() {
+                override fun processMarkdown(markdown: String): String = NoteLinks.toMarkdownLinks(markdown, WIKI_LINK)
+
+                override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
+                    val usual = LinkResolverDef()
+                    builder.linkResolver { view, link ->
+                        if (link.startsWith(WIKI_LINK)) onNoteLink(link.removePrefix(WIKI_LINK)) else usual.resolve(view, link)
+                    }
+                }
+            })
             .usePlugin(
                 ImagesPlugin.create { plugin ->
                     plugin.addSchemeHandler(FileSchemeHandler.create())

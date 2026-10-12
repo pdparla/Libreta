@@ -44,6 +44,12 @@ A text note is a UTF-8 Markdown file.
 - **Duplicates.** If a name is taken in the same folder, Libreta adds ` (2)`, ` (3)` and so on.
 - **Tags.** Words after a `#` with no space, like `#compras`. A tag starts with a letter or digit and may contain letters, digits, `_` and `-`. Libreta lowercases tags and ignores repeats. `# Title` is a heading, and a `#` inside a word or a link (`note.md#2`) is not a tag.
 
+### Links
+
+A text note can link to other notes with `[[Title]]`, `[[Category/Title]]` or `[[Title|text]]`. The file keeps the
+brackets as they are; only the formatted view turns them into links. A title can't hold `/` or `|`, so they can
+separate the parts. See [Links between notes](../guide/notes.md#links-between-notes).
+
 ### Versions
 
 Libreta compares files by version, not by date:

@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.text.method.LinkMovementMethod
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -17,6 +18,7 @@ import com.parla.libreta.R
 import com.parla.libreta.container
 import com.parla.libreta.core.note.NoteDraft
 import com.parla.libreta.core.note.NoteEntry
+import com.parla.libreta.core.note.NoteLinks
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.core.note.SaveResult
@@ -52,12 +54,17 @@ class NoteEditorActivity : Activity() {
     private var noteMarkwon: Markwon? = null
     private var noteFolder: File? = null
 
+    /** Counts the formatted view's renders, so that backlinks found for an older one are dropped. */
+    private var previewGeneration = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_note_editor)
         actionBar?.setDisplayHomeAsUpEnabled(true)
         editor = findViewById(R.id.editor)
         preview = findViewById(R.id.preview)
+        // Selectable text gets a movement method that ignores taps on links; this one follows them and still selects.
+        preview.movementMethod = LinkMovementMethod.getInstance()
         // Before the text is set, so the highlighting covers it from the start.
         editor.addTextChangedListener(MarkwonEditorTextWatcher.withPreRender(Markdown.editor(this), highlighter, editor))
 
@@ -178,13 +185,36 @@ class NoteEditorActivity : Activity() {
             keyboard.hideSoftInputFromWindow(editor.windowToken, 0)
             // Images are linked relative to the note's folder, i.e. its category as saved.
             val folder = File(container.notesDir, draft.origin?.path?.category ?: draft.category)
-            val markwon = noteMarkwon?.takeIf { noteFolder == folder } ?: Markdown.forNote(this, folder).also {
-                noteMarkwon = it
-                noteFolder = folder
-            }
-            markwon.setMarkdown(preview, editor.text.toString())
+            val markwon = noteMarkwon?.takeIf { noteFolder == folder }
+                ?: Markdown.forNote(this, folder) { target -> followNoteLink(target, draft.origin?.path) }.also {
+                    noteMarkwon = it
+                    noteFolder = folder
+                }
+            val text = editor.text.toString()
+            markwon.setMarkdown(preview, text)
+            showBacklinks(markwon, text)
         }
         invalidateOptionsMenu()
+    }
+
+    /**
+     * Adds to the formatted view the notes that link here with `[[…]]` (docs/guide/notes.md#links-between-notes), once
+     * they are found in the background: every note is read the first time, and only changed ones after that.
+     */
+    private fun showBacklinks(markwon: Markwon, text: String) {
+        val generation = ++previewGeneration
+        val path = draft.origin?.path ?: return
+        container.background.execute({
+            NoteLinks.backlinks(path, container.notebookIndex.all().associate { it.path to it.searchable.text })
+        }) { result ->
+            val links = result.getOrNull().orEmpty()
+            if (isDestroyed || editing || generation != previewGeneration || links.isEmpty()) return@execute
+            val section = links.joinToString("\n", prefix = "\n\n---\n\n**${getString(R.string.link_backlinks)}**\n\n") { from ->
+                val label = if (from.category.isEmpty()) from.baseName else "${from.baseName} (${from.category})"
+                "- [[${from.category}/${from.baseName}|$label]]"
+            }
+            markwon.setMarkdown(preview, text + section)
+        }
     }
 
     /**

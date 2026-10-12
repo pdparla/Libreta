@@ -43,6 +43,7 @@ minutes instead of hanging the build.
 | Sync | `SyncPlannerTest`, `SyncEngineTest` | The decision for each combination of local, remote and recorded state; conflict copies; deletions; a failed note that retries without stopping the rest |
 | Notes | `NoteServiceTest`, `NoteRepositoryTest`, `NotePathTest`, `NoteNamingTest`, `NoteAttachmentsTest`, `ConflictNamerTest`, `ContentHashTest` | Creating, moving and deleting notes; path and title rules; attachment folders; conflict-copy names; content hashes |
 | Search and index | `NoteSearchTest`, `NotebookIndexTest`, `NotebookIndexCacheTest`, `NoteTagsTest` | Case- and accent-insensitive search, snippets, the shared index and its cache (only changed notes are read again), tags in text notes |
+| Links | `NoteLinksTest` | `[[…]]` with a category or a label; links in code are text; rewriting as Markdown links; resolving by title, category and the linking note's category; backlinks |
 | Ink model | `InkTest` (strokes and `InkEditor`), `InkPrefilterTest`, `InkDiffTest`, `InkFillTest`, `InkSizesTest`, `InkViewportTest` | Erasing and cutting strokes; undo and redo; selection, move, scale, recolor, copy and paste as one undo step each; bounding-box prefilters give the same result as the full test; which regions change between two pages (partial redraw); paint-bucket fills; pen and eraser sizes; zoom, pan and fit-to-width maths |
 | Ink files | `InkJsonCodecTest`, `InkNoteServiceTest`, `InkRectTest` | The `libreta.ink.json` codec (versions 1 and 2, marks); saving and reading handwritten notes; selection rectangles |
 | Transcripts | `InkTranscriptsTest`, `InkTranscriptLedgerTest` | Which pages are pending; fingerprints; the ledger that skips complete notes |
@@ -94,6 +95,11 @@ ChatGPT session for the AI and a paired dictation server for voice. Skip the sec
    Markdown with highlighted symbols.
 2. Create a new note. Check that it opens in the editor.
 3. Search for a word with and without accents and capitals. Check the results and the empty-result message.
+4. Write `$x^2 + y^2 = r^2$`, a `$$` block and `5 $ y 10 $` in a note. Check that the formatted view draws both
+   formulas, that `+` and `=` are legible, and that the prices stay text.
+5. Write `[[Destino]]` and `` `[[código]]` `` in a note. Check that only the first is a link, that tapping it offers
+   to create «Destino», that the new note opens in the editor, and that its formatted view lists the first note under
+   «Enlazada desde». Tap that entry and check that it opens. Long-press text and check that you can still select it.
 
 ### Handwriting
 

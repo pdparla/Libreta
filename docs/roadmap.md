@@ -19,7 +19,6 @@ From most to least interesting:
 | **Page templates** | Daily, weekly, Cornell, to-do and meeting-minutes pages | Extends the current paper types |
 | **Review** | A weekly summary, study cards or questions, saved as notes | Builds on the notebook tools |
 | **Annotate PDFs from Nextcloud** | Write on top of a PDF | `PdfRenderer` needs API 21, so a server would have to convert the pages to images |
-| **Links between notes** | `[[note]]` links | Easier now that the notebook tools can resolve notes |
 
 ## Known gaps
 

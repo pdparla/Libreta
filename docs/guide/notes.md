@@ -80,6 +80,31 @@ When you change the first line, the file is renamed on the next save. Libreta al
 
 If another note already has the same title in the same category, Libreta adds a number: `Shopping (2).md`.
 
+## Links between notes
+
+Write the title of another note between double brackets to link to it, as in many notebook apps:
+
+| You write | It links to |
+|---|---|
+| `[[Compra]]` | The note titled «Compra». Capitals don't matter. |
+| `[[Casa/Compra]]` | The note «Compra» in the category «Casa». Use it when several notes share a title. |
+| `[[/Compra]]` | The note «Compra» with no category. |
+| `[[Compra\|la lista]]` | The note «Compra», shown as «la lista». |
+
+In the formatted view, a link looks like any other link:
+
+- Tap it to open the note. A handwritten note opens on its first page.
+- If no note has that title, a dialog asks «No hay ninguna nota «…». ¿Crearla?» (There is no note «…». Create it?).
+  Tap «Crear» (Create) to make the note, in the link's category or else in the current one, and to start writing it.
+- If several notes share the title, the one in the same category as the current note wins. Otherwise, the first by
+  category name does.
+
+At the end of the formatted view, «Enlazada desde» (Linked from) lists the notes that link to this one. Tap one to open
+it. The list appears a moment after the note, because Libreta checks every note the first time.
+
+Links inside code (`` `[[…]]` `` or a code block) are text. In Nextcloud Notes, links show as `[[…]]` text. When the
+assistant writes a note for you, it links other notes the same way. See [Ask your notebook](assistant.md#ask-your-notebook).
+
 ## Categories
 
 A category is a folder. Use `/` for sub-categories, for example `Home/Kitchen`.
