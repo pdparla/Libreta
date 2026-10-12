@@ -47,7 +47,9 @@ object InkFill {
         val seedX = min((x / cell).toInt(), grid.columns - 1)
         val seedY = min((y / cell).toInt(), grid.rows - 1)
         if (grid[seedX, seedY] != FREE) return null
-        val (top, bottom) = grid.flood(seedX, seedY)
+        val area = grid.flood(seedX, seedY)
+        val top = area.top
+        val bottom = area.bottom
 
         // The margin given back is the gap plus a cell: the first free cell can be up to a cell further than the gap.
         val width = step + 2 * (gap + cell)
@@ -60,19 +62,18 @@ object InkFill {
         while (row <= bottom + half) {
             val center = min(row, bottom)
             // Each band covers the rows around it: the union of their runs, so that thin slivers are not missed.
-            covered.fill(false)
-            for (r in max(top, center - half)..min(bottom, center + half)) {
-                for (c in 0 until grid.columns) if (grid[c, r] == AREA) covered[c] = true
-            }
+            covered.fill(false, area.left, area.right + 1)
+            for (r in max(top, center - half)..min(bottom, center + half)) grid.cover(r, area.left, area.right, covered)
             val bandY = (center + 0.5f) * cell
-            var c = 0
-            while (c < grid.columns) {
+            // The area lies between its leftmost and rightmost columns, so nothing outside them needs a look.
+            var c = area.left
+            while (c <= area.right) {
                 if (!covered[c]) {
                     c++
                     continue
                 }
                 val start = c
-                while (c < grid.columns && covered[c]) c++
+                while (c <= area.right && covered[c]) c++
                 val left = (start + 0.5f) * cell
                 val right = (c - 0.5f) * cell
                 val points = if (start == c - 1) listOf(InkPoint(left, bandY, 0)) else listOf(InkPoint(left, bandY, 0), InkPoint(right, bandY, 0))
@@ -89,10 +90,19 @@ object InkFill {
         return Result(bands, replaced)
     }
 
+    /** The rows and columns the flood reached, all inclusive. */
+    private class Extent(val top: Int, val bottom: Int, val left: Int, val right: Int)
+
     private class Grid(val columns: Int, val rows: Int, val cell: Float) {
         private val cells = ByteArray(columns * rows)
 
         operator fun get(c: Int, r: Int): Byte = cells[r * columns + c]
+
+        /** Marks in [covered] the columns from [from] to [to] that row [r] has in the area. */
+        fun cover(r: Int, from: Int, to: Int, covered: BooleanArray) {
+            val base = r * columns
+            for (c in from..to) if (cells[base + c] == AREA) covered[c] = true
+        }
 
         /**
          * The pieces of an old fill [band] that lie outside the area, or null when the area does not reach its line.
@@ -161,8 +171,8 @@ object InkFill {
             }
         }
 
-        /** Floods the free cells connected to ([c], [r]), a row span at a time; returns the first and last rows reached. */
-        fun flood(c: Int, r: Int): Pair<Int, Int> {
+        /** Floods the free cells connected to ([c], [r]), a row span at a time; returns the rows and columns reached. */
+        fun flood(c: Int, r: Int): Extent {
             var stack = IntArray(256)
             var size = 0
             fun push(index: Int) {
@@ -171,6 +181,8 @@ object InkFill {
             }
             var top = r
             var bottom = r
+            var leftmost = c
+            var rightmost = c
             push(r * columns + c)
             while (size > 0) {
                 val index = stack[--size]
@@ -183,8 +195,14 @@ object InkFill {
                 for (x in left..right) cells[row * columns + x] = AREA
                 top = min(top, row)
                 bottom = max(bottom, row)
-                for (next in intArrayOf(row - 1, row + 1)) {
-                    if (next < 0 || next >= rows) continue
+                leftmost = min(leftmost, left)
+                rightmost = max(rightmost, right)
+                var next = row - 1
+                while (next <= row + 1) {
+                    if (next < 0 || next >= rows) {
+                        next += 2
+                        continue
+                    }
                     var x = left
                     while (x <= right) {
                         if (cells[next * columns + x] == FREE) {
@@ -194,9 +212,10 @@ object InkFill {
                             x++
                         }
                     }
+                    next += 2
                 }
             }
-            return top to bottom
+            return Extent(top, bottom, leftmost, rightmost)
         }
     }
 }

@@ -41,13 +41,25 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
      * (the long bands of a fill cross a selection with no point in it).
      */
     fun touches(area: InkRect): Boolean {
+        // [bounds] already counts the thickness: a stroke whose box misses the area cannot touch it.
+        val box = bounds
+        if (box.right < area.left - BOX_MARGIN || box.left > area.right + BOX_MARGIN ||
+            box.bottom < area.top - BOX_MARGIN || box.top > area.bottom + BOX_MARGIN
+        ) {
+            return false
+        }
         val reach = width / 2
         val left = area.left - reach
         val top = area.top - reach
         val right = area.right + reach
         val bottom = area.bottom + reach
-        if (points.any { it.x in left..right && it.y in top..bottom }) return true
-        return (1 until points.size).any { crosses(points[it - 1], points[it], left, top, right, bottom) }
+        for (point in points) {
+            if (point.x in left..right && point.y in top..bottom) return true
+        }
+        for (i in 1 until points.size) {
+            if (crosses(points[i - 1], points[i], left, top, right, bottom)) return true
+        }
+        return false
     }
 
     /** Whether segment [a]-[b] crosses the rectangle (Liang-Barsky clipping). */
@@ -56,7 +68,19 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
         var to = 1f
         val dx = b.x - a.x
         val dy = b.y - a.y
-        for ((p, q) in listOf(-dx to a.x - left, dx to right - a.x, -dy to a.y - top, dy to bottom - a.y)) {
+        for (side in 0..3) {
+            val p = when (side) {
+                0 -> -dx
+                1 -> dx
+                2 -> -dy
+                else -> dy
+            }
+            val q = when (side) {
+                0 -> a.x - left
+                1 -> right - a.x
+                2 -> a.y - top
+                else -> bottom - a.y
+            }
             if (p == 0f) {
                 if (q < 0f) return false
                 continue
@@ -68,8 +92,19 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
         return true
     }
 
+    /**
+     * Whether the disc of [radius] around ([x], [y]) is clearly clear of the stroke's box, so that the eraser cannot
+     * hit it: the cheap test to run before walking every segment. Slightly conservative at the edge.
+     */
+    internal fun isOutsideDisc(x: Float, y: Float, radius: Float): Boolean {
+        val box = bounds
+        return x + radius < box.left - BOX_MARGIN || x - radius > box.right + BOX_MARGIN ||
+            y + radius < box.top - BOX_MARGIN || y - radius > box.bottom + BOX_MARGIN
+    }
+
     /** Whether the pen passed within [radius] of ([x], [y]), counting the stroke's own thickness. */
     fun isHitBy(x: Float, y: Float, radius: Float): Boolean {
+        if (isOutsideDisc(x, y, radius)) return false
         val reach = radius + width / 2
         if (points.size == 1) return distanceSquared(x, y, points[0].x, points[0].y) <= reach * reach
         for (i in 1 until points.size) {
@@ -84,6 +119,7 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
      * Each piece starts its own clock, so its timestamps keep meaning "milliseconds after the stroke began".
      */
     fun erasedAt(x: Float, y: Float, radius: Float): List<Stroke> {
+        if (isOutsideDisc(x, y, radius)) return listOf(this)
         val reach = radius + width / 2
         if (points.size == 1) return if (distanceSquared(x, y, points[0].x, points[0].y) <= reach * reach) emptyList() else listOf(this)
         val pieces = ArrayList<List<InkPoint>>()
@@ -155,6 +191,9 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
     private companion object {
         /** Crumbs shorter than this (in page units) left at the edge of the eraser are dropped. */
         const val MIN_PIECE_LENGTH = 0.5f
+
+        /** Slack, in page units, on box tests: far above float rounding, so a prefilter never changes a result. */
+        const val BOX_MARGIN = 0.01f
     }
 }
 

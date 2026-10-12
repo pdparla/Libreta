@@ -44,9 +44,16 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
      * touches (docs/15-relleno.md). Returns whether any did.
      */
     fun eraseStrokesAt(x: Float, y: Float, radius: Float): Boolean {
-        val hit = page.withWholeFills(page.strokes.indices.filter { page.strokes[it].isHitBy(x, y, radius) }).toSet()
-        if (hit.isEmpty()) return false
-        val remaining = page.strokes.filterIndexed { i, _ -> i !in hit }
+        val strokes = page.strokes
+        var touched: ArrayList<Int>? = null
+        for (i in strokes.indices) {
+            if (!strokes[i].isHitBy(x, y, radius)) continue
+            (touched ?: ArrayList<Int>().also { touched = it }).add(i)
+        }
+        // Most touch points hit nothing: that costs no allocation beyond the scan.
+        val hitIndexes = touched ?: return false
+        val hit = page.withWholeFills(hitIndexes).toSet()
+        val remaining = strokes.filterIndexed { i, _ -> i !in hit }
         change { pages -> pages[pageIndex] = page.copy(strokes = remaining) }
         return true
     }
@@ -56,12 +63,29 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
      * anything was erased.
      */
     fun eraseAreaAt(x: Float, y: Float, radius: Float): Boolean {
-        var erased = false
-        val remaining = page.strokes.flatMap { stroke ->
-            stroke.erasedAt(x, y, radius).also { if (it.size != 1 || it[0] !== stroke) erased = true }
+        val strokes = page.strokes
+        // The new list is only started at the first stroke the eraser changes; most touch points change none.
+        var remaining: ArrayList<Stroke>? = null
+        for (i in strokes.indices) {
+            val stroke = strokes[i]
+            if (stroke.isOutsideDisc(x, y, radius)) {
+                remaining?.add(stroke)
+                continue
+            }
+            val pieces = stroke.erasedAt(x, y, radius)
+            if (pieces.size == 1 && pieces[0] === stroke) {
+                remaining?.add(stroke)
+                continue
+            }
+            val out = remaining ?: ArrayList<Stroke>(strokes.size).also {
+                it.addAll(strokes.subList(0, i))
+                remaining = it
+            }
+            out.addAll(pieces)
         }
-        if (erased) change { pages -> pages[pageIndex] = page.copy(strokes = remaining) }
-        return erased
+        val result = remaining ?: return false
+        change { pages -> pages[pageIndex] = page.copy(strokes = result) }
+        return true
     }
 
     /**
@@ -191,8 +215,13 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         if (gestureStart == null) push(Snapshot(document, pageIndex))
         val pages = document.pages.toMutableList()
         edit(pages)
-        // Marks whose strokes were erased go with them (docs/13-indice.md).
-        document = InkDocument(pages.map { it.withLiveMarks() })
+        // Marks whose strokes were erased go with them (docs/13-indice.md). Only pages the edit replaced can have lost any.
+        val before = document.pages
+        for (i in pages.indices) {
+            val edited = pages[i]
+            if (i >= before.size || edited !== before[i]) pages[i] = edited.withLiveMarks()
+        }
+        document = InkDocument(pages)
         pageIndex = newPageIndex
     }
 
