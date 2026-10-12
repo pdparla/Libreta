@@ -50,7 +50,8 @@ import java.util.Locale
  *
  * The select tool marks a rectangle around strokes: drag it to move them, pull its corner to resize them, change
  * their colour or thickness, copy, paste or delete them. The AI works on it too (docs/07-ia.md): "Convertir a
- * texto" adds the recognised text to the note, "Conversar con IA" opens a conversation about it.
+ * texto" adds the recognised text to the note, "Conversar con IA" opens a conversation about it. The paint bucket
+ * fills a shape with the pen's colour (docs/15-relleno.md).
  */
 class InkNoteActivity : Activity() {
 
@@ -66,6 +67,7 @@ class InkNoteActivity : Activity() {
     private val widths = listOf(2f, 3.5f, 6f)
     private val eraserRadii = listOf(5f, 10f, 22f)
     private lateinit var colorView: View
+    private lateinit var fillColorView: View
     private lateinit var widthViews: List<View>
     private lateinit var eraserRadiusViews: List<View>
     private val toolPreferences by lazy { getSharedPreferences(PREFERENCES_TOOLS, MODE_PRIVATE) }
@@ -83,6 +85,7 @@ class InkNoteActivity : Activity() {
         inkView.onTouchEnd = ::scheduleAutosave
         inkView.onSelectionChange = ::updateControls
         inkView.onZoomChange = { showZoom() }
+        inkView.onNothingToFill = { Toast.makeText(this, R.string.ink_fill_nothing, Toast.LENGTH_SHORT).show() }
         setUpToolbar()
 
         val path = (savedInstanceState?.getString(STATE_PATH) ?: intent.getStringExtra(EXTRA_PATH))?.let(NotePath::parseOrNull)
@@ -152,6 +155,7 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_pen).setOnClickListener { selectTool(InkView.Tool.PEN) }
         findViewById<View>(R.id.ink_eraser).setOnClickListener { selectTool(InkView.Tool.ERASER) }
         findViewById<View>(R.id.ink_select).setOnClickListener { selectTool(InkView.Tool.SELECT) }
+        findViewById<View>(R.id.ink_fill).setOnClickListener { selectTool(InkView.Tool.FILL) }
         // Undo and redo can change which strokes exist, and a selection belongs to the page it was marked on.
         findViewById<View>(R.id.ink_undo).setOnClickListener { editor?.undo(); inkView.clearSelection(); afterEdit() }
         findViewById<View>(R.id.ink_redo).setOnClickListener { editor?.redo(); inkView.clearSelection(); afterEdit() }
@@ -170,10 +174,14 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_chat).setOnClickListener { chatAboutSelection() }
 
         colorView = findViewById(R.id.ink_color)
-        colorView.setOnClickListener {
-            ColorPalette.show(inkView, inkView.penColor) { color ->
-                inkView.penColor = color
-                selectTool(InkView.Tool.PEN)
+        fillColorView = findViewById(R.id.ink_fill_color)
+        // One colour for the pen and the bucket; picking it keeps the tool it was picked for.
+        for (view in listOf(colorView, fillColorView)) {
+            view.setOnClickListener {
+                ColorPalette.show(inkView, inkView.penColor) { color ->
+                    inkView.penColor = color
+                    updateControls()
+                }
             }
         }
         widthViews = listOf(R.id.ink_width_thin, R.id.ink_width_medium, R.id.ink_width_thick).map { findViewById(it) }
@@ -262,6 +270,7 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_pen).isSelected = inkView.tool == InkView.Tool.PEN
         findViewById<View>(R.id.ink_eraser).isSelected = inkView.tool == InkView.Tool.ERASER
         findViewById<View>(R.id.ink_select).isSelected = inkView.tool == InkView.Tool.SELECT
+        findViewById<View>(R.id.ink_fill).isSelected = inkView.tool == InkView.Tool.FILL
         findViewById<View>(R.id.ink_undo).isEnabled = editor?.canUndo == true
         findViewById<View>(R.id.ink_redo).isEnabled = editor?.canRedo == true
         findViewById<View>(R.id.ink_prev).isEnabled = editor != null && editor.pageIndex > 0
@@ -270,6 +279,7 @@ class InkNoteActivity : Activity() {
         findViewById<View>(R.id.ink_pen_options).visibility = visibleIf(inkView.tool == InkView.Tool.PEN)
         findViewById<View>(R.id.ink_eraser_options).visibility = visibleIf(inkView.tool == InkView.Tool.ERASER)
         findViewById<View>(R.id.ink_select_options).visibility = visibleIf(inkView.tool == InkView.Tool.SELECT)
+        findViewById<View>(R.id.ink_fill_options).visibility = visibleIf(inkView.tool == InkView.Tool.FILL)
         val selected = inkView.selection != null
         val holdsInk = inkView.selectedStrokes.isNotEmpty()
         findViewById<View>(R.id.ink_select_hint).visibility = if (holdsInk) View.GONE else View.VISIBLE
@@ -283,6 +293,7 @@ class InkNoteActivity : Activity() {
             findViewById<View>(R.id.ink_selection_color).background = ColorPalette.swatchDrawable(first.color, false, resources.displayMetrics.density)
         }
         colorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
+        fillColorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
         widthViews.forEachIndexed { i, view -> view.isSelected = widths[i] == inkView.penWidth }
         findViewById<View>(R.id.ink_erase_area).isSelected = !inkView.eraseWholeStrokes
         findViewById<View>(R.id.ink_erase_strokes).isSelected = inkView.eraseWholeStrokes

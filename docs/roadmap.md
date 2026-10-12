@@ -1,6 +1,7 @@
 # Roadmap
 
-Qué construir después de la Fase 7 ([`docs/07-ia.md`](07-ia.md)) y en qué orden. Sale de comparar Libreta con las
+Qué construir después de la Fase 7 ([`docs/07-ia.md`](07-ia.md)) y en qué orden. Las fases 15 a 17 salen de usar la
+app (2026-10-12) y tienen su plan en su propio documento. Sale de comparar Libreta con las
 libretas y apps parecidas (reMarkable, Supernote, Kindle Scribe, Boox, GoodNotes, Notability, Apple Notes y Samsung
 Notes) en octubre de 2026 y de cruzarlo con lo que ya tenemos.
 
@@ -29,6 +30,9 @@ conversación; el servidor no tiene GPU.
 | 12 | [Pregúntale a tu libreta](#fase-12-pregúntale-a-tu-libreta) — **hecha**, ver [`12-preguntar.md`](12-preguntar.md) | M | 11 |
 | 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) — **hecha**, ver [`13-indice.md`](13-indice.md) | M | 8 (selección), 11 (transcripción) |
 | 14 | [Pasar a limpio una nota entera](#fase-14-pasar-a-limpio-una-nota-entera) — **hecha**, ver [`14-pasar-a-limpio.md`](14-pasar-a-limpio.md) | S | — |
+| 15 | Rellenar figuras con un bote de pintura — **hecha**, ver [`15-relleno.md`](15-relleno.md) | M | — |
+| 16 | Grosor de la pluma y tamaño del borrador a medida — ver [`16-grosor.md`](16-grosor.md) | S | — |
+| 17 | Búsqueda web en las conversaciones con la IA — ver [`17-busqueda-web.md`](17-busqueda-web.md) | S–M | 12 |
 | — | [Sin prioridad](#sin-prioridad) | | |
 
 ---

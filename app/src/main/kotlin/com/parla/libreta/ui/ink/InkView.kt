@@ -37,10 +37,12 @@ import kotlin.math.max
  * inside ([selectedStrokes]) and snaps around them; then dragging inside it moves them and dragging its corner
  * handle resizes them. While they move they are drawn on their own, transformed by the canvas, over a cache
  * without them; the change goes into the document, as one undo step, when the finger lifts.
+ *
+ * With [Tool.FILL], a tap fills the shape under it with [penColor] (docs/15-relleno.md).
  */
 class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
-    enum class Tool { PEN, ERASER, SELECT }
+    enum class Tool { PEN, ERASER, SELECT, FILL }
 
     var editor: InkEditor? = null
         set(value) {
@@ -74,6 +76,9 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     /** Called when the selection changes through touch: marked, moved, resized or dropped. */
     var onSelectionChange: () -> Unit = {}
+
+    /** Called when a tap with [Tool.FILL] finds nothing to fill: it landed on the ink. */
+    var onNothingToFill: () -> Unit = {}
 
     /** Called when the zoom changes, with the new level. */
     var onZoomChange: (Float) -> Unit = {}
@@ -367,7 +372,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private fun abandon(editor: InkEditor) {
         activePointer = NO_POINTER
         when (tool) {
-            Tool.PEN -> Unit
+            Tool.PEN, Tool.FILL -> Unit
             Tool.ERASER -> {
                 editor.cancelGesture()
                 eraserX = Float.NaN
@@ -436,6 +441,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                 eraseAlong(editor, event, index)
             }
             Tool.SELECT -> beginSelect(editor, event.getX(index), event.getY(index))
+            Tool.FILL -> Unit
         }
     }
 
@@ -467,6 +473,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private fun move(editor: InkEditor, event: MotionEvent, index: Int) {
         if (tool == Tool.ERASER) return eraseAlong(editor, event, index)
         if (tool == Tool.SELECT) return select(editor, event, index)
+        if (tool == Tool.FILL) return
         for (h in 0 until event.historySize) {
             addPoint(event.getHistoricalX(index, h), event.getHistoricalY(index, h), event.getHistoricalEventTime(h))
         }
@@ -481,6 +488,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
             onChange()
         }
         if (tool == Tool.SELECT) endSelect(editor)
+        if (tool == Tool.FILL) fillAt(editor, downX, downY)
         if (tool == Tool.PEN && points.isNotEmpty()) {
             val stroke = Stroke(penColor, penWidth / zoom, startedAt, ArrayList(points))
             editor.addStroke(stroke)
@@ -579,6 +587,17 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         dragDy = 0f
         dragScale = 1f
         refresh()
+    }
+
+    /** Fills the shape under the tap, where the stylus first touched. */
+    private fun fillAt(editor: InkEditor, viewX: Float, viewY: Float) {
+        val viewport = viewport ?: return
+        val started = System.nanoTime()
+        val filled = editor.fill(viewport.toPageX(viewX), viewport.toPageY(viewY), penColor, zoom, startedAt)
+        if (BuildConfig.DEBUG) Log.d(TAG, "fill in ${(System.nanoTime() - started) / 1_000_000} ms: $filled")
+        if (!filled) return onNothingToFill()
+        refresh()
+        onChange()
     }
 
     /** Erases at every sample of the event, then redraws the page once. */

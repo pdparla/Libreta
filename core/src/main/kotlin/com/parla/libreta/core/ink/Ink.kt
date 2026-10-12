@@ -1,6 +1,8 @@
 package com.parla.libreta.core.ink
 
 import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -13,8 +15,9 @@ data class InkPoint(val x: Float, val y: Float, val t: Int)
  *
  * @param color ARGB colour.
  * @param startedAt wall-clock time of the first point, in epoch milliseconds.
+ * @param fill whether the stroke is one band of a fill (docs/15-relleno.md): the bands of one fill share [startedAt].
  */
-data class Stroke(val color: Int, val width: Float, val startedAt: Long, val points: List<InkPoint>) {
+data class Stroke(val color: Int, val width: Float, val startedAt: Long, val points: List<InkPoint>, val fill: Boolean = false) {
 
     init {
         require(points.isNotEmpty()) { "A stroke has at least one point" }
@@ -33,10 +36,36 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
             points = points.map { InkPoint(pivotX + (it.x - pivotX) * scale + dx, pivotY + (it.y - pivotY) * scale + dy, it.t) },
         )
 
-    /** Whether some point of the stroke, or its thickness around it, falls inside [area]. */
+    /**
+     * Whether some of the stroke, or its thickness around it, falls inside [area]: a point, or a line between two
+     * (the long bands of a fill cross a selection with no point in it).
+     */
     fun touches(area: InkRect): Boolean {
         val reach = width / 2
-        return points.any { it.x >= area.left - reach && it.x <= area.right + reach && it.y >= area.top - reach && it.y <= area.bottom + reach }
+        val left = area.left - reach
+        val top = area.top - reach
+        val right = area.right + reach
+        val bottom = area.bottom + reach
+        if (points.any { it.x in left..right && it.y in top..bottom }) return true
+        return (1 until points.size).any { crosses(points[it - 1], points[it], left, top, right, bottom) }
+    }
+
+    /** Whether segment [a]-[b] crosses the rectangle (Liang-Barsky clipping). */
+    private fun crosses(a: InkPoint, b: InkPoint, left: Float, top: Float, right: Float, bottom: Float): Boolean {
+        var from = 0f
+        var to = 1f
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        for ((p, q) in listOf(-dx to a.x - left, dx to right - a.x, -dy to a.y - top, dy to bottom - a.y)) {
+            if (p == 0f) {
+                if (q < 0f) return false
+                continue
+            }
+            val r = q / p
+            if (p < 0f) from = max(from, r) else to = min(to, r)
+            if (from > to) return false
+        }
+        return true
     }
 
     /** Whether the pen passed within [radius] of ([x], [y]), counting the stroke's own thickness. */
@@ -80,7 +109,7 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
         current?.let { pieces += it }
         return pieces.filter { length(it) >= MIN_PIECE_LENGTH }.map { piece ->
             val start = piece[0].t
-            Stroke(color, width, startedAt + start, piece.map { it.copy(t = it.t - start) })
+            Stroke(color, width, startedAt + start, piece.map { it.copy(t = it.t - start) }, fill)
         }
     }
 
@@ -154,6 +183,14 @@ data class InkPage(
     }
 
     val isEmpty: Boolean get() = strokes.isEmpty()
+
+    /** [indexes] plus every band of the fills they touch: a fill is erased, selected and moved whole. */
+    fun withWholeFills(indexes: Collection<Int>): List<Int> {
+        val fills = indexes.mapNotNullTo(HashSet()) { i -> strokes.getOrNull(i)?.takeIf { it.fill }?.startedAt }
+        if (fills.isEmpty()) return indexes.toList()
+        val chosen = indexes.toSet()
+        return strokes.indices.filter { it in chosen || (strokes[it].fill && strokes[it].startedAt in fills) }
+    }
 
     /** The strokes [mark] is made of that are still on the page. */
     fun strokesOf(mark: InkMark): List<Stroke> = strokes.filter { it.startedAt in mark.strokes }

@@ -39,10 +39,14 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         pages[pageIndex] = page.copy(strokes = page.strokes + stroke)
     }
 
-    /** Removes every stroke on the current page that the eraser at ([x], [y]) touches. Returns whether any did. */
+    /**
+     * Removes every stroke on the current page that the eraser at ([x], [y]) touches, and the whole of any fill it
+     * touches (docs/15-relleno.md). Returns whether any did.
+     */
     fun eraseStrokesAt(x: Float, y: Float, radius: Float): Boolean {
-        val remaining = page.strokes.filterNot { it.isHitBy(x, y, radius) }
-        if (remaining.size == page.strokes.size) return false
+        val hit = page.withWholeFills(page.strokes.indices.filter { page.strokes[it].isHitBy(x, y, radius) }).toSet()
+        if (hit.isEmpty()) return false
+        val remaining = page.strokes.filterIndexed { i, _ -> i !in hit }
         change { pages -> pages[pageIndex] = page.copy(strokes = remaining) }
         return true
     }
@@ -107,6 +111,21 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         if (indexes.isEmpty()) return
         val doomed = indexes.toSet()
         change { pages -> pages[pageIndex] = page.copy(strokes = page.strokes.filterIndexed { i, _ -> i !in doomed }) }
+    }
+
+    /**
+     * Fills the area around ([x], [y]) of the current page with [color], seen at [zoom], in one undo step
+     * (docs/15-relleno.md). The new bands go behind the ink, after the fills already at the bottom of the page, and
+     * replace the fill bands inside the area. Returns false when there is nothing to fill there (the point is on ink).
+     */
+    fun fill(x: Float, y: Float, color: Int, zoom: Float, startedAt: Long): Boolean {
+        val result = InkFill.at(page, x, y, color, zoom, startedAt) ?: return false
+        if (result.bands.isEmpty()) return false
+        val replaced = result.replaced.toSet()
+        val kept = page.strokes.filterIndexed { i, _ -> i !in replaced }
+        val bottom = kept.indexOfFirst { !it.fill }.let { if (it < 0) kept.size else it }
+        change { pages -> pages[pageIndex] = page.copy(strokes = kept.subList(0, bottom) + result.bands + kept.subList(bottom, kept.size)) }
+        return true
     }
 
     /** Adds [strokes] on top of the current page, in one undo step; returns their indexes there. */

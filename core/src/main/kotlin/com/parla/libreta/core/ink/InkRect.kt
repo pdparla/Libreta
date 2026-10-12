@@ -21,9 +21,10 @@ data class InkRect(val left: Float, val top: Float, val right: Float, val bottom
 
     /**
      * The strokes of [page] this rectangle selects, as indexes into [InkPage.strokes]: every stroke with some ink
-     * inside, whole. Strokes are not cut at the edge: moving half a letter makes no sense.
+     * inside, whole, and whole fills (docs/15-relleno.md). Strokes are not cut at the edge: moving half a letter makes
+     * no sense.
      */
-    fun selectedStrokes(page: InkPage): List<Int> = page.strokes.indices.filter { page.strokes[it].touches(this) }
+    fun selectedStrokes(page: InkPage): List<Int> = page.withWholeFills(page.strokes.indices.filter { page.strokes[it].touches(this) })
 
     fun contains(x: Float, y: Float): Boolean = x in left..right && y in top..bottom
 

@@ -5,11 +5,13 @@ package com.parla.libreta.core.ink
  *
  * ```json
  * {"format":"libreta-ink","version":2,"pages":[{"width":600,"height":900,"paper":"lined","strokes":[
- *   {"color":"#ff202124","width":3.5,"start":1760197500000,"points":[12.5,40,0, 13,41.5,16, ...]}],
+ *   {"color":"#ff202124","width":3.5,"start":1760197500000,"points":[12.5,40,0, 13,41.5,16, ...]},
+ *   {"color":"#ffffeb3b","width":7.5,"start":1760197600000,"fill":true,"points":[100,201,0, 180,201,0]}],
  *   "marks":[{"kind":"title","text":"Viaje","strokes":[1760197500000]}]}]}
  * ```
  *
- * Points are a flat array of `x, y, t` triples to keep files small; coordinates are rounded to 0.1 units. A
+ * Points are a flat array of `x, y, t` triples to keep files small; coordinates are rounded to 0.1 units. `fill`
+ * (docs/15-relleno.md) is only written when true, so pages without fills keep their fingerprint. A
  * hand-written codec, because org.json is only a stub in JVM tests and bundling another copy would clash with the
  * one in Android itself.
  */
@@ -29,7 +31,9 @@ object InkJson {
             append("""{"width":${page.width},"height":${page.height},"paper":"${page.paper.code}","strokes":[""")
             page.strokes.forEachIndexed { s, stroke ->
                 if (s > 0) append(',')
-                append("""{"color":"${colorToHex(stroke.color)}","width":${number(stroke.width)},"start":${stroke.startedAt},"points":[""")
+                append("""{"color":"${colorToHex(stroke.color)}","width":${number(stroke.width)},"start":${stroke.startedAt},""")
+                if (stroke.fill) append("\"fill\":true,")
+                append("\"points\":[")
                 stroke.points.forEachIndexed { i, point ->
                     if (i > 0) append(',')
                     append(number(point.x)).append(',').append(number(point.y)).append(',').append(point.t)
@@ -94,6 +98,7 @@ object InkJson {
             width = number(stroke, "width").toFloat(),
             startedAt = number(stroke, "start").toLong(),
             points = points,
+            fill = stroke["fill"] == true,
         )
     }
 

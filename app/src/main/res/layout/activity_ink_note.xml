@@ -68,6 +68,12 @@
             android:src="@drawable/ic_ink_select" />
 
         <ImageButton
+            android:id="@+id/ink_fill"
+            style="@style/InkTool"
+            android:contentDescription="@string/ink_fill"
+            android:src="@drawable/ic_ink_fill" />
+
+        <ImageButton
             android:id="@+id/ink_undo"
             style="@style/InkTool"
             android:contentDescription="@string/ink_undo"
@@ -154,6 +160,30 @@
                 android:id="@+id/ink_width_thick"
                 style="@style/InkWidth"
                 android:text="@string/ink_width_thick" />
+        </LinearLayout>
+
+        <!-- The paint bucket (docs/15-relleno.md): the pen's colour -->
+        <LinearLayout
+            android:id="@+id/ink_fill_options"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <View
+                android:id="@+id/ink_fill_color"
+                style="@style/InkSwatch"
+                android:contentDescription="@string/ink_color" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/ink_fill_hint"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:textColor="?android:attr/textColorSecondary" />
         </LinearLayout>
 
         <LinearLayout

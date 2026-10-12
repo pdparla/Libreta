@@ -62,6 +62,9 @@
     <string name="search_page">pág. %1$d</string>
     <string name="search_nothing">Ninguna nota contiene «%1$s».</string>
     <string name="ink_select">Seleccionar</string>
+    <string name="ink_fill">Rellenar</string>
+    <string name="ink_fill_hint">Toca dentro de una figura cerrada para rellenarla</string>
+    <string name="ink_fill_nothing">Toca dentro de la figura, no encima de la tinta.</string>
     <string name="ink_select_hint">Marca un recuadro; luego arrástralo o tira de su esquina</string>
     <string name="ink_convert">A texto</string>
     <string name="ink_chat">Chat IA</string>
