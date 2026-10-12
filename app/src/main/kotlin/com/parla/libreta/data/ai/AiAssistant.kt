@@ -202,9 +202,11 @@ class AiAssistant(private val responses: ResponsesClient) {
             return text.trimEnd() + "\n\n**Fuentes:**\n" + missing.joinToString("\n") { (title, url) -> "- [${title.replace("]", "")}](<$url>)" }
         }
 
+        private val CODE_FENCE = Regex("""^```[a-zA-Z]*\n([\s\S]*?)\n?```$""")
+
         /** The model sometimes wraps Markdown in a ``` block despite the instructions. */
         internal fun withoutCodeFence(text: String): String {
-            val match = Regex("""^```[a-zA-Z]*\n([\s\S]*?)\n?```$""").find(text.trim()) ?: return text
+            val match = CODE_FENCE.find(text.trim()) ?: return text
             return match.groupValues[1].trim()
         }
     }

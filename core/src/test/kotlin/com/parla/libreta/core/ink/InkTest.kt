@@ -469,5 +469,46 @@ class InkNoteFormatTest {
             InkNoteFormat.update(fewer, ".attachments.k3", 2),
         )
     }
-}
 
+    @Test
+    fun `a page image line is recognised exactly as the escaped regex did, for any folder`() {
+        val folders = listOf(".attachments.k3", ".attachments.k3f", ".attachments.k", ".attachments.a+b", ".attachments.a)b", ".attachments.a]b", ".attachments.a.b", ".attachments.\\E")
+        val lines = listOf(
+            "![Página 1](.attachments.k3/pagina-1.png)",
+            "![](.attachments.k3/pagina-12.png)",
+            "![Página 1](.attachments.k3/pagina-1.png)   ",
+            "![Página 1](.attachments.k3/pagina-1.png) x",
+            " ![Página 1](.attachments.k3/pagina-1.png)",
+            "![Página 1](.attachments.k3f/pagina-1.png)",
+            "![Página 1](.attachments.k/pagina-1.png)",
+            "![Página 1](.attachments.k3/pagina-.png)",
+            "![Página 1](.attachments.k3/pagina-1.PNG)",
+            "![Página 1](.attachments.k3/pagina-1.png",
+            "![a]b](.attachments.k3/pagina-1.png)",
+            "![a](b](.attachments.k3/pagina-1.png)",
+            "![a]](.attachments.k3/pagina-1.png)",
+            "![a] (.attachments.k3/pagina-1.png)",
+            "[a](.attachments.k3/pagina-1.png)",
+            "!![a](.attachments.k3/pagina-1.png)",
+            "![Página 1](.attachments.k3/pagina-1.png).attachments.k3/pagina-1.png)",
+            "![x](.attachments.k3/pagina-1.png/pagina-2.png)",
+            "![x](.attachments.a+b/pagina-3.png)",
+            "![x](.attachments.axb/pagina-3.png)",
+            "![x](.attachments.a)b/pagina-3.png)",
+            "![x](.attachments.a]b/pagina-3.png)",
+            "![x](.attachments.a.b/pagina-3.png)",
+            "![x](.attachments.\\E/pagina-3.png)",
+            "![x](.attachments.k3//pagina-1.png)",
+            "![x](.attachments.k3/pagina-1.png)\t",
+            "texto",
+            "",
+        )
+        for (folder in folders) {
+            val old = Regex("""^!\[[^\]]*]\(${Regex.escape(folder)}/pagina-\d+\.png\)\s*$""")
+            for (line in lines) {
+                val kept = InkNoteFormat.update("$line\nx", folder, 0).startsWith("$line\nx\n")
+                assertEquals("folder=$folder line=$line", !old.matches(line), kept)
+            }
+        }
+    }
+}

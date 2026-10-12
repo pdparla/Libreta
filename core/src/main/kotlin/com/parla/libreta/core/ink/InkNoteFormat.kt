@@ -86,8 +86,7 @@ object InkNoteFormat {
 
     /** What the user typed in a handwritten note's Markdown: without the page images and the strokes reference, of any folder. */
     fun userText(markdown: String): String {
-        val anyPageImage = Regex("""^!\[[^\]]*]\(\.attachments\.[^/)]+/pagina-\d+\.png\)\s*$""")
-        return markdown.lines().filterNot { anyPageImage.matches(it) || INK_REFERENCE.matches(it) }.joinToString("\n").trim()
+        return markdown.lines().filterNot { ANY_PAGE_IMAGE.matches(it) || INK_REFERENCE.matches(it) }.joinToString("\n").trim()
     }
 
     /**
@@ -95,7 +94,6 @@ object InkNoteFormat {
      * the tags line, trailing blanks dropped.
      */
     private fun userLines(markdown: String, folder: String): List<String> {
-        val pageImage = Regex("""^!\[[^\]]*]\(${Regex.escape(folder)}/pagina-\d+\.png\)\s*$""")
         val kept = ArrayList<String>()
         var inIndex = false
         for (line in markdown.lines()) {
@@ -104,13 +102,29 @@ object InkNoteFormat {
                 inIndex && (line.isBlank() || INDEX_ITEM.matches(line)) -> Unit
                 else -> {
                     inIndex = false
-                    if (!pageImage.matches(line) && !INK_REFERENCE.matches(line) && !TAGS_LINE.matches(line)) kept += line
+                    if (!isPageImage(line, folder) && !INK_REFERENCE.matches(line) && !TAGS_LINE.matches(line)) kept += line
                 }
             }
         }
         return kept.dropLastWhile { it.isBlank() }
     }
 
+    /**
+     * Whether [line] is the image of a page in [folder]: `![any alt text](<folder>/pagina-N.png)`, trailing blanks
+     * allowed. The alt text cannot hold `]`, so the folder starts right after the first `](`, and the rest is the
+     * same for every folder. [folder] is compared literally, whatever characters it has.
+     */
+    private fun isPageImage(line: String, folder: String): Boolean {
+        if (!line.startsWith("![")) return false
+        val close = line.indexOf(']', 2)
+        if (close < 0 || !line.startsWith("](", close)) return false
+        val folderStart = close + 2
+        if (!line.startsWith(folder, folderStart)) return false
+        return PAGE_IMAGE_TAIL.matches(line.substring(folderStart + folder.length))
+    }
+
+    private val ANY_PAGE_IMAGE = Regex("""^!\[[^\]]*]\(\.attachments\.[^/)]+/pagina-\d+\.png\)\s*$""")
+    private val PAGE_IMAGE_TAIL = Regex("""/pagina-\d+\.png\)\s*""")
     private const val INDEX_HEADING = "## Índice"
     private const val TAGS_PREFIX = "Etiquetas: "
     private val INDEX_ITEM = Regex("""^- .* \(pág\. \d+\)$""")

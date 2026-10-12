@@ -79,19 +79,43 @@ class ChatGptSession(
 /** The session in the app's private storage (`files/chatgpt-session.json`), written atomically. */
 class ChatGptSessionStore(private val file: File) {
 
-    /** The stored session, or null without one. An unreadable file counts as no session. */
+    /** A parsed session with the file's modification time and size it was parsed from. */
+    private class Cached(val modified: Long, val length: Long, val session: ChatGptSession)
+
+    private var cached: Cached? = null
+
+    /**
+     * The stored session, or null without one. An unreadable file counts as no session. The parsed session is kept
+     * until the file changes, as this is asked on the main thread to know whether the user is signed in.
+     */
+    @Synchronized
     fun load(): ChatGptSession? {
-        if (!file.isFile) return null
-        return try {
+        if (!file.isFile) {
+            cached = null
+            return null
+        }
+        val modified = file.lastModified()
+        val length = file.length()
+        cached?.let { if (it.modified == modified && it.length == length) return it.session }
+        cached = null
+        val session = try {
             ChatGptSession.fromJson(file.readText())
         } catch (e: IllegalArgumentException) {
-            null
+            return null
         }
+        cached = Cached(modified, length, session)
+        return session
     }
 
-    fun save(session: ChatGptSession) = writeAtomically(file, session.toJson())
+    @Synchronized
+    fun save(session: ChatGptSession) {
+        cached = null
+        writeAtomically(file, session.toJson())
+    }
 
+    @Synchronized
     fun delete() {
+        cached = null
         file.delete()
     }
 }

@@ -14,8 +14,8 @@ import com.parla.libreta.core.note.NoteRepository
 import com.parla.libreta.core.note.readOrNull
 import com.parla.libreta.data.ai.AiAssistant
 import com.parla.libreta.data.ai.TurnHandle
+import com.parla.libreta.ui.idleSingleThreadExecutor
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -34,7 +34,7 @@ class InkTranscriber(
 ) {
 
     private val ledger = InkTranscriptLedger()
-    private val executor = Executors.newSingleThreadExecutor()
+    private val executor = idleSingleThreadExecutor("libreta-transcriber")
     private val running = AtomicBoolean(false)
     private val mainThread = Handler(Looper.getMainLooper())
     private val listeners = CopyOnWriteArrayList<(Int) -> Unit>()

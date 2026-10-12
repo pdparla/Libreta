@@ -257,9 +257,11 @@ data class InkMark(val kind: Kind, val text: String, val strokes: Set<Long>) {
     enum class Kind(val code: String) { TITLE("title"), TAG("tag") }
 
     companion object {
+        private val WHITESPACE = Regex("""\s+""")
+
         /** A tag as stored and shown: lower case, without `#`, words joined by `-`. */
         fun tagText(raw: String): String =
-            raw.trim().removePrefix("#").lowercase().split(Regex("""\s+""")).filter { it.isNotEmpty() }.joinToString("-")
+            raw.trim().removePrefix("#").lowercase().split(WHITESPACE).filter { it.isNotEmpty() }.joinToString("-")
     }
 }
 
