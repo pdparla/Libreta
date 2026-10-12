@@ -84,7 +84,9 @@ class AiAssistant(private val responses: ResponsesClient) {
     /**
      * Sends [text] in [conversation] and adds the answer, streaming its pieces to [onText]. When the model asks for
      * [tools], they run (each announced to [onToolCall]) and their results go back to it, round after round, until it
-     * answers. If anything fails, the message and all it added are taken back out so it can be sent again.
+     * answers. With [webSearch] it can also search the web (docs/17-busqueda-web.md): each search is announced to
+     * [onToolCall] as [WEB_SEARCH], and the pages it cites without a link in the text are added as sources. If
+     * anything fails, the message and all it added are taken back out so it can be sent again.
      */
     fun send(
         conversation: AiConversation,
@@ -92,6 +94,7 @@ class AiAssistant(private val responses: ResponsesClient) {
         handle: TurnHandle,
         tools: NotebookTools? = null,
         onToolCall: (name: String, arguments: JSONObject) -> Unit = { _, _ -> },
+        webSearch: Boolean = true,
         onText: (String) -> Unit,
     ): String {
         val trimmed = text.trim()
@@ -99,15 +102,24 @@ class AiAssistant(private val responses: ResponsesClient) {
         val mark = conversation.mark()
         conversation.addUser(trimmed.ifEmpty { modelText }, modelText)
         val instructions = (if (conversation.image != null) CHAT_INSTRUCTIONS else NOTEBOOK_INSTRUCTIONS) +
-            (if (tools != null) TOOLS_INSTRUCTIONS else "")
+            (if (tools != null) TOOLS_INSTRUCTIONS else "") + (if (webSearch) WEB_INSTRUCTIONS else "")
+        val definitions = JSONArray()
+        tools?.definitions?.let { for (i in 0 until it.length()) definitions.put(it.get(i)) }
+        if (webSearch) definitions.put(WEB_SEARCH_TOOL)
+        val onItem = { item: JSONObject ->
+            val action = item.optJSONObject("action")
+            val query = action?.optString("query").orEmpty()
+            if (item.optString("type") == "web_search_call" && query.isNotBlank()) onToolCall(WEB_SEARCH, JSONObject().put("consulta", query))
+        }
         try {
             repeat(MAX_TOOL_ROUNDS) {
-                val result = responses.respond(CHAT_MODEL, instructions, conversation.input(), handle, tools?.definitions, onText)
+                val result = responses.respond(CHAT_MODEL, instructions, conversation.input(), handle, definitions, onItem, onText)
                 conversation.addOutput(result)
                 val calls = result.calls
                 if (calls.isEmpty() || tools == null) {
-                    conversation.addAnswer(result.text)
-                    return result.text
+                    val answer = withSources(result.text, result.citations)
+                    conversation.addAnswer(answer)
+                    return answer
                 }
                 for (call in calls) {
                     val arguments = try {
@@ -128,6 +140,14 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     companion object {
+        /** How a web search is announced to `onToolCall`, with the query as `consulta`. */
+        const val WEB_SEARCH = "web_search"
+
+        /** OpenAI's own search (docs/17-busqueda-web.md), with results that make sense from Spain. */
+        private val WEB_SEARCH_TOOL: JSONObject
+            get() = JSONObject().put("type", "web_search")
+                .put("user_location", JSONObject().put("type", "approximate").put("country", "ES"))
+
         val CHAT_MODEL = AiModel("gpt-6.1-sol", "medium")
 
         /** The same as for talking: gpt-6-luna was tried for transcribing and misread handwriting too often. */
@@ -158,6 +178,10 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "[Compra](<nota:Casa/Compra.md>); si lo citado está en una página escrita a mano, añade #página, por " +
                 "ejemplo [Compra](<nota:Casa/Compra.md#2>)."
 
+        private const val WEB_INSTRUCTIONS =
+            " Puedes buscar en la web cuando haga falta información actual o que no esté en las notas ni en el recorte; " +
+                "para lo que es del usuario, usa antes sus notas. Cita las páginas que uses con enlaces Markdown."
+
         private const val CLEAN_INSTRUCTIONS =
             "Recibes, en orden, lo transcrito de las páginas de una nota escrita a mano. Únelo en una sola nota en " +
                 "Markdown, limpia y bien estructurada: títulos de sección con ##, listas y tablas donde el original las " +
@@ -170,6 +194,13 @@ class AiAssistant(private val responses: ResponsesClient) {
         private const val MAX_TOOL_ROUNDS = 8
 
         const val EXPLAIN_REQUEST = "¿Qué hay en este recorte? Explícalo brevemente."
+
+        /** [text] with the [citations] it does not link to already, as a list of sources at the end. */
+        internal fun withSources(text: String, citations: List<Pair<String, String>>): String {
+            val missing = citations.filter { (_, url) -> !text.contains(url) }
+            if (missing.isEmpty()) return text
+            return text.trimEnd() + "\n\n**Fuentes:**\n" + missing.joinToString("\n") { (title, url) -> "- [${title.replace("]", "")}](<$url>)" }
+        }
 
         /** The model sometimes wraps Markdown in a ``` block despite the instructions. */
         internal fun withoutCodeFence(text: String): String {

@@ -110,6 +110,10 @@
     <string name="ai_tool_read">Leyendo «%1$s»…</string>
     <string name="ai_tool_create">Creando la nota «%1$s»…</string>
     <string name="ai_tool_append">Añadiendo a «%1$s»…</string>
+    <string name="ai_tool_web">Buscando en la web «%1$s»…</string>
+    <string name="ai_web_link">Página citada</string>
+    <string name="ai_web_open">Abrir</string>
+    <string name="ai_web_no_browser">No hay ningún navegador en la tablet. Copia la dirección.</string>
     <string name="ai_permission_title">¿Permitir?</string>
     <string name="ai_permission_create">La IA quiere crear la nota «%1$s».</string>
     <string name="ai_permission_create_in">La IA quiere crear la nota «%1$s» en «%2$s».</string>

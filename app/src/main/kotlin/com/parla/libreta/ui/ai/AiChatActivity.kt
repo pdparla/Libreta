@@ -2,12 +2,14 @@ package com.parla.libreta.ui.ai
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -66,7 +68,7 @@ class AiChatActivity : Activity() {
     private var category = ""
     private var turn: TurnHandle? = null
     private val mainThread = Handler(Looper.getMainLooper())
-    private val markwon by lazy { Markdown.forChat(this, ::openCitation) }
+    private val markwon by lazy { Markdown.forChat(this, ::openCitation, ::showWebLink) }
     private lateinit var tools: NotebookTools
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -148,7 +150,7 @@ class AiChatActivity : Activity() {
             Unit
         }
         container.aiBackground.execute({
-            container.ai.send(conversation, text, handle, tools, onToolCall) { piece ->
+            container.ai.send(conversation, text, handle, tools, onToolCall = onToolCall) { piece ->
                 mainThread.post {
                     received.append(piece)
                     show(answer, Speaker.ASSISTANT, received.toString())
@@ -221,6 +223,7 @@ class AiChatActivity : Activity() {
         NotebookTools.READ -> getString(R.string.ai_tool_read, noteTitle(arguments.optString("nota")))
         NotebookTools.CREATE -> getString(R.string.ai_tool_create, arguments.optString("titulo"))
         NotebookTools.APPEND -> getString(R.string.ai_tool_append, noteTitle(arguments.optString("nota")))
+        AiAssistant.WEB_SEARCH -> getString(R.string.ai_tool_web, arguments.optString("consulta"))
         else -> name
     }
 
@@ -270,6 +273,26 @@ class AiChatActivity : Activity() {
             if (container.notebookIndex.entry(path, markdown).isInk) InkNoteActivity.intent(this, path, page.coerceAtLeast(0))
             else NoteEditorActivity.intent(this, path),
         )
+    }
+
+    /**
+     * A page the AI cites (docs/17-busqueda-web.md): its address, to open in the tablet's browser if there is one, or
+     * to copy.
+     */
+    private fun showWebLink(url: String) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ai_web_link)
+            .setMessage(url)
+            .setPositiveButton(R.string.ai_web_open) { _, _ ->
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(this, R.string.ai_web_no_browser, Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNeutralButton(R.string.ai_copy) { _, _ -> copy(url) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun copy(text: String) {

@@ -20,7 +20,20 @@ class TurnResult(val text: String, val output: JSONArray) {
 
     /** The tools the model asked to call (`function_call` items), in order; empty when it answered. */
     val calls: List<JSONObject>
-        get() = (0 until output.length()).mapNotNull { output.optJSONObject(it) }.filter { it.optString("type") == "function_call" }
+        get() = items.filter { it.optString("type") == "function_call" }
+
+    /** The web pages the answer cites (`url_citation` annotations, docs/17-busqueda-web.md): title and address, once each. */
+    val citations: List<Pair<String, String>>
+        get() = items.filter { it.optString("type") == "message" }.flatMap { message ->
+            val content = message.optJSONArray("content") ?: JSONArray()
+            (0 until content.length()).mapNotNull { content.optJSONObject(it)?.optJSONArray("annotations") }.flatMap { annotations ->
+                (0 until annotations.length()).mapNotNull { annotations.optJSONObject(it) }
+                    .filter { it.optString("type") == "url_citation" && it.optString("url").isNotEmpty() }
+                    .map { it.optString("title").ifEmpty { it.optString("url") } to it.optString("url") }
+            }
+        }.distinctBy { it.second }
+
+    private val items: List<JSONObject> get() = (0 until output.length()).mapNotNull { output.optJSONObject(it) }
 }
 
 /** Lets the UI stop a turn from another thread. */
@@ -56,8 +69,9 @@ class ResponsesClient(
 ) {
 
     /**
-     * Runs a turn of [model] with [instructions] over [input], offering [tools] if any, calling [onText] with each piece of text as it arrives (on this
-     * thread). Blocks until the turn ends. @throws IOException, including the ones in AiErrors.kt
+     * Runs a turn of [model] with [instructions] over [input], offering [tools] if any, calling [onText] with each piece of text as it arrives and
+     * [onItem] with each output item as it is complete (on this thread). Blocks until the turn ends.
+     * @throws IOException, including the ones in AiErrors.kt
      */
     fun respond(
         model: AiModel,
@@ -65,6 +79,7 @@ class ResponsesClient(
         input: JSONArray,
         handle: TurnHandle = TurnHandle(),
         tools: JSONArray? = null,
+        onItem: (JSONObject) -> Unit = {},
         onText: (String) -> Unit = {},
     ): TurnResult {
         val body = JSONObject()
@@ -83,7 +98,7 @@ class ResponsesClient(
             response.close()
             response = send(body, auth.accessToken(forceRefresh = true), handle)
         }
-        return response.use { read(it, onText) }
+        return response.use { read(it, onItem, onText) }
     }
 
     private fun send(body: String, token: String, handle: TurnHandle): Response {
@@ -98,7 +113,7 @@ class ResponsesClient(
         return call.execute()
     }
 
-    private fun read(response: Response, onText: (String) -> Unit): TurnResult {
+    private fun read(response: Response, onItem: (JSONObject) -> Unit, onText: (String) -> Unit): TurnResult {
         val responseBody = response.body() ?: throw IOException("OpenAI sent no body")
         if (!response.isSuccessful) throw OpenAiHttpException(response.code(), errorCode(responseBody.string()))
         val text = StringBuilder()
@@ -126,7 +141,10 @@ class ResponsesClient(
                     text.append(it)
                     onText(it)
                 }
-                "response.output_item.done" -> json.optJSONObject("item")?.let(output::put)
+                "response.output_item.done" -> json.optJSONObject("item")?.let {
+                    output.put(it)
+                    onItem(it)
+                }
                 "response.completed" -> return TurnResult(text.toString(), output)
                 "response.failed" -> {
                     val error = json.optJSONObject("response")?.optJSONObject("error")

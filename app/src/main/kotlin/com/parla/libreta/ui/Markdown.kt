@@ -38,13 +38,18 @@ object Markdown {
      * For the AI's answers: text only. With [onNoteLink], links to `nota:<path>` (the AI's citations,
      * docs/12-preguntar.md) go there, with what follows `nota:`; other links do nothing, as the tablet has no browser.
      */
-    fun forChat(context: Context, onNoteLink: ((String) -> Unit)? = null): Markwon =
+    fun forChat(context: Context, onNoteLink: ((String) -> Unit)? = null, onWebLink: ((String) -> Unit)? = null): Markwon =
         Markwon.builder(context)
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TablePlugin.create(context))
             .usePlugin(object : AbstractMarkwonPlugin() {
                 override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
-                    builder.linkResolver { _, link -> if (link.startsWith(NOTE_LINK)) onNoteLink?.invoke(link.removePrefix(NOTE_LINK)) }
+                    builder.linkResolver { _, link ->
+                        when {
+                            link.startsWith(NOTE_LINK) -> onNoteLink?.invoke(link.removePrefix(NOTE_LINK))
+                            link.startsWith("http://") || link.startsWith("https://") -> onWebLink?.invoke(link)
+                        }
+                    }
                 }
             })
             .build()

@@ -126,7 +126,8 @@ class AiAssistantTest {
         assertEquals("En [Compra](<nota:Casa/Compra.md>).", text)
         assertEquals(listOf(NotebookTools.SEARCH), called)
         val first = JSONObject(server.takeRequest().body.readUtf8())
-        assertEquals(5, first.getJSONArray("tools").length())
+        // The notebook's five and the web search (docs/17-busqueda-web.md).
+        assertEquals(6, first.getJSONArray("tools").length())
         val second = JSONObject(server.takeRequest().body.readUtf8()).getJSONArray("input")
         val output = second.getJSONObject(second.length() - 1)
         assertEquals("function_call_output", output.getString("type"))
@@ -179,6 +180,57 @@ class AiAssistantTest {
         server.takeRequest()
         server.takeRequest()
         assertEquals(1, JSONObject(server.takeRequest().body.readUtf8()).getJSONArray("input").length())
+    }
+
+    // --- Web search (docs/17-busqueda-web.md) ---
+
+    private fun searchedAnswer(text: String, citations: List<Pair<String, String>>): MockResponse {
+        val annotations = citations.joinToString(",") { (title, url) ->
+            """{"type":"url_citation","start_index":0,"end_index":1,"title":${JSONObject.quote(title)},"url":${JSONObject.quote(url)}}"""
+        }
+        return sse(
+            """{"type":"response.output_item.done","item":{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"balón de oro 2025"}}}""",
+            """{"type":"response.output_text.delta","delta":${JSONObject.quote(text)}}""",
+            """{"type":"response.output_item.done","item":{"type":"message","role":"assistant","content":[{"type":"output_text","text":${JSONObject.quote(text)},"annotations":[$annotations]}]}}""",
+            """{"type":"response.completed","response":{"status":"completed"}}""",
+        )
+    }
+
+    @Test
+    fun `a web search is announced, and cited pages without a link become sources`() {
+        server.enqueue(
+            searchedAnswer(
+                "Lo ganó Dembélé ([ballondor.com](https://ballondor.com/es/winners)).",
+                listOf("Ganadores" to "https://ballondor.com/es/winners", "UEFA" to "https://es.uefa.com/noticia"),
+            ),
+        )
+        val called = mutableListOf<Pair<String, String>>()
+
+        val text = assistant().send(
+            AiConversation(null), "¿Quién ganó el Balón de Oro?", TurnHandle(),
+            onToolCall = { name, arguments -> called += name to arguments.optString("consulta") },
+        ) {}
+
+        assertEquals(listOf(AiAssistant.WEB_SEARCH to "balón de oro 2025"), called)
+        assertEquals("Lo ganó Dembélé ([ballondor.com](https://ballondor.com/es/winners)).\n\n**Fuentes:**\n- [UEFA](<https://es.uefa.com/noticia>)", text)
+        val tools = JSONObject(server.takeRequest().body.readUtf8()).getJSONArray("tools")
+        assertEquals("web_search", tools.getJSONObject(tools.length() - 1).getString("type"))
+    }
+
+    @Test
+    fun `the search goes back with the conversation, and it can be left out`() {
+        server.enqueue(searchedAnswer("Dembélé.", emptyList()))
+        server.enqueue(answer("En 2025."))
+        val conversation = AiConversation(null)
+
+        assistant().send(conversation, "¿Quién ganó?", TurnHandle()) {}
+        assistant().send(conversation, "¿Cuándo?", TurnHandle(), webSearch = false) {}
+
+        server.takeRequest()
+        val second = JSONObject(server.takeRequest().body.readUtf8())
+        val input = second.getJSONArray("input")
+        assertEquals(listOf("message", "web_search_call", "message", "message"), (0 until input.length()).map { input.getJSONObject(it).getString("type") })
+        assertTrue(!second.has("tools"))
     }
 
     @Test
