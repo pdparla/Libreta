@@ -317,4 +317,74 @@ class SyncEngineTest {
         assertEquals(3, remote.writes)
         assertConverged()
     }
+
+    // State persistence
+
+    @Test
+    fun `a run that changes nothing does not rewrite the state`() {
+        givenSynced("a.md" to "a", "b.md" to "b")
+        val savesBefore = stateStore.saves
+
+        val report = engine.sync()
+
+        assertEquals(0, report.changeCount)
+        assertEquals(savesBefore, stateStore.saves)
+    }
+
+    @Test
+    fun `an empty first run does not write the state`() {
+        engine.sync()
+
+        assertEquals(0, stateStore.saves)
+    }
+
+    @Test
+    fun `a run that changes something saves the state`() {
+        givenSynced("a.md" to "a")
+        val savesBefore = stateStore.saves
+
+        local.put("a.md", "a, edited")
+        engine.sync()
+
+        assertEquals(savesBefore + 1, stateStore.saves)
+    }
+
+    @Test
+    fun `forgetting a note deleted on both sides saves the state`() {
+        givenSynced("a.md" to "a")
+        local.remove("a.md")
+        remote.remove("a.md")
+        val savesBefore = stateStore.saves
+
+        engine.sync()
+
+        assertEquals(savesBefore + 1, stateStore.saves)
+        assertTrue(stateStore.state.isEmpty())
+    }
+
+    @Test
+    fun `a run aborted after some progress still saves the state`() {
+        givenSynced("a.md" to "a")
+        val savesBefore = stateStore.saves
+        local.put("b.md", "b")
+        local.put("c.md", "c")
+        remote.failAfterCalls = 2 // list, upload b, then the network drops
+
+        val report = engine.sync()
+
+        assertNotNull(report.abortedBy)
+        assertEquals(savesBefore + 1, stateStore.saves)
+        assertEquals(setOf(path("a.md"), path("b.md")), stateStore.state.keys)
+    }
+
+    @Test
+    fun `a run aborted before any progress does not rewrite the state`() {
+        givenSynced("a.md" to "a")
+        val savesBefore = stateStore.saves
+        remote.online = false
+
+        engine.sync()
+
+        assertEquals(savesBefore, stateStore.saves)
+    }
 }

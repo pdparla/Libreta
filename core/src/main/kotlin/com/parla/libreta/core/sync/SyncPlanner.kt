@@ -19,10 +19,15 @@ object SyncPlanner {
         local: Map<NotePath, Version>,
         remote: Map<NotePath, Version>,
         base: Map<NotePath, SyncBase>,
-    ): List<SyncAction> =
-        (local.keys + remote.keys + base.keys)
+    ): List<SyncAction> {
+        val paths = HashSet<NotePath>((local.size + remote.size + base.size) * 2)
+        paths.addAll(local.keys)
+        paths.addAll(remote.keys)
+        paths.addAll(base.keys)
+        return paths
             .sorted()
             .mapNotNull { path -> planFor(path, local[path], remote[path], base[path]) }
+    }
 
     private fun planFor(path: NotePath, local: Version?, remote: Version?, base: SyncBase?): SyncAction? {
         if (base == null) {

@@ -17,7 +17,8 @@ import com.parla.libreta.core.note.readOrNull
  * optimistic concurrency. A write that loses a race (the note changed after it was listed) is never forced; it
  * is resolved as a conflict or left for the next run.
  *
- * Progress is saved even if the run stops halfway, so an interrupted sync resumes where it stopped. Runs are
+ * Progress is saved even if the run stops halfway, so an interrupted sync resumes where it stopped; the state is
+ * not written at all when the run left it unchanged. Runs are
  * serialised: the app may trigger them on open, on close and from a button at the same time.
  */
 class SyncEngine(
@@ -29,7 +30,8 @@ class SyncEngine(
 
     @Synchronized
     fun sync(): SyncReport {
-        val state = stateStore.load().toMutableMap()
+        val loaded = stateStore.load()
+        val state = loaded.toMutableMap()
         val run = Run(state)
         try {
             val localVersions = local.list().associate { it.path to it.version }
@@ -42,7 +44,8 @@ class SyncEngine(
         } catch (e: StoreUnavailableException) {
             run.abortedBy = e
         } finally {
-            stateStore.save(state)
+            // Most runs change nothing: skip the rewrite (and its fsync) then, but never lose progress of a partial run.
+            if (state != loaded) stateStore.save(state)
         }
         return run.report()
     }

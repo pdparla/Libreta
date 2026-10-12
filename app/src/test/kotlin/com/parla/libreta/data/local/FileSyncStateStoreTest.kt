@@ -63,4 +63,32 @@ class FileSyncStateStoreTest {
 
         assertEquals(emptyMap<NotePath, SyncBase>(), store.load())
     }
+
+    @Test
+    fun `load after save returns the saved state`() {
+        store.save(state)
+
+        assertEquals(state, store.load())
+        assertEquals(state, store.load())
+    }
+
+    @Test
+    fun `a file changed behind the store's back is read again`() {
+        store.save(state)
+        assertEquals(state, store.load())
+
+        file.writeText("# libreta sync state v1\nOther.md\tsha1:1\t\"2\"\n")
+
+        assertEquals(mapOf(NotePath("Other.md") to SyncBase(Version("sha1:1"), Version("\"2\""))), store.load())
+    }
+
+    @Test
+    fun `a deleted file is not served from memory`() {
+        store.save(state)
+        assertEquals(state, store.load())
+
+        file.delete()
+
+        assertEquals(emptyMap<NotePath, SyncBase>(), store.load())
+    }
 }

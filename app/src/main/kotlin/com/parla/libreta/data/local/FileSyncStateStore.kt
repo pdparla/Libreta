@@ -15,10 +15,28 @@ import java.io.IOException
  *
  * A missing or unreadable file means "never synced". That is safe: the next sync compares the contents of both
  * sides, and only notes whose texts differ become conflict copies.
+ *
+ * The last loaded or saved state is kept in memory, together with the size and modification time of the file it
+ * matches, so a sync does not read and parse an unchanged file again. If the file differs from that signature
+ * (or is gone), it is read again.
  */
 class FileSyncStateStore(private val file: File) : SyncStateStore {
 
+    private class Cached(val state: Map<NotePath, SyncBase>, val length: Long, val modified: Long)
+
+    private var cached: Cached? = null
+
+    @Synchronized
     override fun load(): Map<NotePath, SyncBase> {
+        cached?.let { if (file.isFile && file.length() == it.length && file.lastModified() == it.modified) return it.state }
+        cached = null
+        val state = read()
+        // A missing file or unknown format is not cached: it is cheap to read again.
+        if (file.isFile && state.isNotEmpty()) cached = Cached(state, file.length(), file.lastModified())
+        return state
+    }
+
+    private fun read(): Map<NotePath, SyncBase> {
         val lines = try {
             if (file.isFile) file.readLines(Charsets.UTF_8) else return emptyMap()
         } catch (e: IOException) {
@@ -28,7 +46,9 @@ class FileSyncStateStore(private val file: File) : SyncStateStore {
         return lines.drop(1).mapNotNull(::parse).toMap()
     }
 
+    @Synchronized
     override fun save(state: Map<NotePath, SyncBase>) {
+        cached = null
         val text = buildString {
             append(HEADER).append('\n')
             for ((path, base) in state.entries.sortedBy { it.key }) {
@@ -39,13 +59,16 @@ class FileSyncStateStore(private val file: File) : SyncStateStore {
         }
         try {
             writeAtomically(file, text)
+            cached = Cached(state.toMap(), file.length(), file.lastModified())
         } catch (e: IOException) {
             throw StoreUnavailableException("Cannot save sync state", e)
         }
     }
 
     /** Forgets everything, for example when the server account changes. */
+    @Synchronized
     fun clear() {
+        cached = null
         file.delete()
     }
 
