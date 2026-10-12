@@ -12,6 +12,7 @@ import kotlin.math.sin
 
 private const val YELLOW = 0xffffeb3b.toInt()
 private const val BLUE = 0xff1a73e8.toInt()
+private const val GREEN = 0xff34a853.toInt()
 
 /** A circle drawn as a stroke, leaving out an arc of [gap] units if asked. */
 private fun circle(cx: Float, cy: Float, r: Float, width: Float = 3f, gap: Float = 0f, startedAt: Long = 1_000): Stroke {
@@ -53,6 +54,19 @@ class InkFillTest {
         // ...and nothing outside its outer edge.
         assertTrue(bands.reach(200f, 200f) <= 80f + 1.5f)
         assertTrue(result.replaced.isEmpty())
+    }
+
+    @Test
+    fun `the fill reaches flat edges of the ink, above and below`() {
+        val square = page.copy(strokes = listOf(stroke(100f, 100f, 300f, 100f, 300f, 300f, 100f, 300f, 100f, 100f)))
+
+        val bands = InkFill.at(square, 200f, 200f, YELLOW, startedAt = 2_000)!!.bands
+
+        // The pen is 3 wide, so the ink's inner edges are at 101.5 and 298.5.
+        for (x in 110..290 step 10) {
+            assertTrue("top $x", bands.paints(x.toFloat(), 101.6f))
+            assertTrue("bottom $x", bands.paints(x.toFloat(), 298.4f))
+        }
     }
 
     @Test
@@ -107,6 +121,30 @@ class InkFillTest {
         assertEquals(first, editor.page.strokes)
         editor.undo()
         assertTrue(editor.page.strokes.none { it.fill })
+    }
+
+    @Test
+    fun `filling a shape drawn inside an older fill keeps the older fill around it`() {
+        val editor = InkEditor(InkDocument(listOf(page)))
+        editor.fill(200f, 200f, BLUE, zoom = 1f, startedAt = 2_000)
+        editor.insertStrokes(listOf(circle(200f, 200f, 30f, startedAt = 3_000)))
+
+        assertTrue(editor.fill(200f, 200f, GREEN, zoom = 1f, startedAt = 4_000))
+        val strokes = editor.page.strokes
+        val blue = strokes.filter { it.fill && it.color == BLUE }
+        val green = strokes.filter { it.fill && it.color == GREEN }
+
+        // The ring between the circles is still blue on every row, left and right of the inner circle...
+        for (y in 175..225 step 5) {
+            assertTrue("left $y", blue.paints(150f, y.toFloat()))
+            assertTrue("right $y", blue.paints(250f, y.toFloat()))
+        }
+        // ...the inner circle is green, drawn over what is left of the blue, and the ink stays on top.
+        for (y in 185..215 step 5) for (x in 185..215 step 5) assertTrue("($x, $y)", green.paints(x.toFloat(), y.toFloat()))
+        assertTrue(strokes.indexOf(green.first()) > strokes.indexOf(blue.last()))
+        assertTrue(strokes.takeLast(2).none { it.fill })
+        // Blue that was cut stays one fill: erased whole with the rest of it.
+        assertTrue(blue.all { it.startedAt == 2_000L })
     }
 
     @Test

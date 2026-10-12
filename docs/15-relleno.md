@@ -32,14 +32,16 @@ borrador de trazos), se selecciona, mueve, copia y recolorea, y sale en las imá
   1. Se rasteriza la página en una rejilla: cada celda que toca la tinta (sin contar otros rellenos) queda bloqueada,
      con la tinta **engordada** un margen *g* que cierra los huecos pequeños.
   2. Desde la celda tocada se inunda (relleno por líneas, con una pila: sin recursión) la zona libre conectada.
-  3. Cada *s* unidades de alto se toma la fila y, de cada tramo seguido de celdas de la zona, sale una franja de grosor
-     `s + 2g`: el grosor y las puntas redondas devuelven el margen *g* que quitó el paso 1, de modo que el relleno
-     llega hasta la tinta sin salirse por fuera del contorno.
+  3. Cada *s* unidades de alto, empezando en la primera fila de la zona, se toma la fila y, de cada tramo seguido de
+     celdas de la zona, sale una franja de grosor `s + 2(g + celda)`: el grosor y las puntas redondas devuelven el
+     margen *g* que quitó el paso 1 (más una celda, porque la primera celda libre puede quedar hasta una celda más
+     allá), de modo que el relleno llega hasta la tinta sin salirse por fuera del contorno.
 - **Tamaños.** *g* = 3 unidades en pantalla y *s* = *g* / 2, divididos por el zoom, para que una figura pequeña
   dibujada con la página ampliada (Fase 9) también se pueda rellenar. La celda mide 1 / zoom unidades, pero nunca menos
   de lo que deja la rejilla en 1,5 millones de celdas (1,5 MB de memoria; la app tiene 64 MB).
-- **Volver a rellenar.** Las franjas de relleno que caen dentro de la zona nueva se quitan antes de añadir las nuevas,
-  en el mismo paso de deshacer.
+- **Volver a rellenar.** Las franjas de relleno antiguas que cruzan la zona nueva pierden solo el tramo que cae dentro:
+  las que estaban enteras dentro desaparecen (recolorear) y las que la atraviesan conservan sus trozos de fuera, con el
+  mismo `start`. Todo en el mismo paso de deshacer.
 - **Orden.** Las franjas nuevas van al fondo de la página, delante de la primera tinta y después de los rellenos que ya
   hay allí: la tinta queda encima y un relleno nuevo, sobre los anteriores.
 - **Agrupar.** El borrador de trazos enteros quita el relleno entero, y la selección que toca parte de un relleno lo
@@ -59,6 +61,22 @@ Con dos círculos de 100 unidades dibujados con la pluma «Medio», uno con una 
 | Círculo con un hueco de 8 unidades | Se rellena sin escaparse por el hueco |
 | Tocar otra vez con azul | El relleno pasa a azul; a 2× los bordes quedan limpios bajo el contorno |
 | Deshacer | Vuelve el amarillo, de un paso |
+
+### Corrección (2026-10-12)
+
+Dos fallos encontrados al usarlo:
+
+- **Rellenar un círculo dibujado dentro de otro ya relleno** (azul fuera, verde dentro) borraba franjas horizontales
+  del azul de lado a lado: toda franja antigua que tocaba la zona nueva se quitaba entera, aunque solo la cruzara. Ahora
+  se recorta (ver «Volver a rellenar»).
+- **Un hilo blanco** entre el relleno y la tinta donde el contorno es casi horizontal (arriba de un círculo): la primera
+  franja empezaba una fila por debajo de la zona y su grosor no contaba con el redondeo a celdas.
+
+| Prueba | Resultado |
+|---|---|
+| Círculo relleno de azul, otro dentro, rellenarlo de verde | El interior queda verde y el anillo sigue azul entero |
+| Tocar el anillo con rojo | El anillo pasa a rojo, el verde no cambia; deshacer devuelve el azul |
+| Borde superior del círculo | Sin hilo blanco |
 
 ## Hecho cuando
 

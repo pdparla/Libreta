@@ -116,13 +116,12 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
     /**
      * Fills the area around ([x], [y]) of the current page with [color], seen at [zoom], in one undo step
      * (docs/15-relleno.md). The new bands go behind the ink, after the fills already at the bottom of the page, and
-     * replace the fill bands inside the area. Returns false when there is nothing to fill there (the point is on ink).
+     * replace the fill bands inside the area; an older band that crosses it keeps its pieces outside. Returns false when there is nothing to fill there (the point is on ink).
      */
     fun fill(x: Float, y: Float, color: Int, zoom: Float, startedAt: Long): Boolean {
         val result = InkFill.at(page, x, y, color, zoom, startedAt) ?: return false
         if (result.bands.isEmpty()) return false
-        val replaced = result.replaced.toSet()
-        val kept = page.strokes.filterIndexed { i, _ -> i !in replaced }
+        val kept = page.strokes.flatMapIndexed { i, stroke -> result.replaced[i] ?: listOf(stroke) }
         val bottom = kept.indexOfFirst { !it.fill }.let { if (it < 0) kept.size else it }
         change { pages -> pages[pageIndex] = page.copy(strokes = kept.subList(0, bottom) + result.bands + kept.subList(bottom, kept.size)) }
         return true

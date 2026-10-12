@@ -16,8 +16,11 @@ import kotlin.math.sqrt
  */
 object InkFill {
 
-    /** What filling does to a page: [bands] to add behind the ink and the old fill bands at [replaced] to remove. */
-    class Result(val bands: List<Stroke>, val replaced: List<Int>)
+    /**
+     * What filling does to a page: [bands] to add behind the ink, and the old fill bands that cross the area, by index,
+     * each with the pieces of it left outside the area (none when it lay all inside).
+     */
+    class Result(val bands: List<Stroke>, val replaced: Map<Int, List<Stroke>>)
 
     /** Gaps in an outline narrower than about twice this, in units on screen, do not let the fill out. */
     const val GAP = 3f
@@ -46,12 +49,14 @@ object InkFill {
         if (grid[seedX, seedY] != FREE) return null
         val (top, bottom) = grid.flood(seedX, seedY)
 
-        val width = step + 2 * gap
+        // The margin given back is the gap plus a cell: the first free cell can be up to a cell further than the gap.
+        val width = step + 2 * (gap + cell)
         val rowStep = max(1, (step / cell).roundToInt())
         val half = rowStep / 2
         val bands = ArrayList<Stroke>()
         val covered = BooleanArray(grid.columns)
-        var row = top + half
+        // The first band sits on the top row and the last on the bottom one, so the fill reaches flat edges of the ink.
+        var row = top
         while (row <= bottom + half) {
             val center = min(row, bottom)
             // Each band covers the rows around it: the union of their runs, so that thin slivers are not missed.
@@ -75,9 +80,11 @@ object InkFill {
             }
             row += rowStep
         }
-        val replaced = page.strokes.indices.filter { i ->
-            val stroke = page.strokes[i]
-            stroke.fill && grid.hasAreaAlong(stroke.points.first().x, stroke.points.last().x, stroke.points.first().y)
+        // An old band only loses the stretch inside the area: filling a shape drawn inside an older fill must not wipe
+        // out the older fill's rows from one side to the other.
+        val replaced = LinkedHashMap<Int, List<Stroke>>()
+        page.strokes.forEachIndexed { i, stroke ->
+            if (stroke.fill) grid.outsideArea(stroke)?.let { replaced[i] = it }
         }
         return Result(bands, replaced)
     }
@@ -87,13 +94,40 @@ object InkFill {
 
         operator fun get(c: Int, r: Int): Byte = cells[r * columns + c]
 
-        /** Whether the area reaches the horizontal line from [x1] to [x2] at [y]: an old band it overlaps. */
-        fun hasAreaAlong(x1: Float, x2: Float, y: Float): Boolean {
+        /**
+         * The pieces of an old fill [band] that lie outside the area, or null when the area does not reach its line.
+         * Pieces over nothing but ink (a sliver between two parts of the area) are dropped with the rest.
+         */
+        fun outsideArea(band: Stroke): List<Stroke>? {
+            val y = band.points.first().y
             val r = (y / cell).toInt()
-            if (r !in 0 until rows) return false
-            val from = max(0, (min(x1, x2) / cell).toInt())
-            val to = min(columns - 1, (max(x1, x2) / cell).toInt())
-            return (from..to).any { get(it, r) == AREA }
+            if (r !in 0 until rows) return null
+            val x1 = min(band.points.first().x, band.points.last().x)
+            val x2 = max(band.points.first().x, band.points.last().x)
+            val from = max(0, (x1 / cell).toInt())
+            val to = min(columns - 1, (x2 / cell).toInt())
+            if ((from..to).none { get(it, r) == AREA }) return null
+            val pieces = ArrayList<Stroke>()
+            var c = from
+            while (c <= to) {
+                if (get(c, r) == AREA) {
+                    c++
+                    continue
+                }
+                val start = c
+                var free = false
+                while (c <= to && get(c, r) != AREA) {
+                    if (get(c, r) == FREE) free = true
+                    c++
+                }
+                if (!free) continue
+                // The ends of the band itself stay where they were; the cut ends sit at the edge of the area.
+                val left = if (start == from) x1 else (start + 0.5f) * cell
+                val right = if (c > to) x2 else (c - 0.5f) * cell
+                val points = if (left == right) listOf(InkPoint(left, y, 0)) else listOf(InkPoint(left, y, 0), InkPoint(right, y, 0))
+                pieces += band.copy(points = points)
+            }
+            return pieces
         }
 
         /** Marks as ink every cell whose centre lies within the stroke's half thickness plus [gap] of its line. */
