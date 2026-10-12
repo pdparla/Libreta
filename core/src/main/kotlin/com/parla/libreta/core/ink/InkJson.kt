@@ -23,36 +23,53 @@ object InkJson {
     /** Without marks a document is written exactly as before marks existed, so its fingerprints do not change. */
     private const val VERSION_WITHOUT_MARKS = 1
 
-    fun encode(document: InkDocument): String = buildString {
-        val version = if (document.pages.any { it.marks.isNotEmpty() }) VERSION else VERSION_WITHOUT_MARKS
-        append("""{"format":"$FORMAT","version":$version,"pages":[""")
-        document.pages.forEachIndexed { p, page ->
-            if (p > 0) append(',')
-            append("""{"width":${page.width},"height":${page.height},"paper":"${page.paper.code}","strokes":[""")
-            page.strokes.forEachIndexed { s, stroke ->
-                if (s > 0) append(',')
-                append("""{"color":"${colorToHex(stroke.color)}","width":${number(stroke.width)},"start":${stroke.startedAt},""")
-                if (stroke.fill) append("\"fill\":true,")
-                append("\"points\":[")
-                stroke.points.forEachIndexed { i, point ->
-                    if (i > 0) append(',')
-                    append(number(point.x)).append(',').append(number(point.y)).append(',').append(point.t)
-                }
-                append("]}")
-            }
-            append("]")
-            if (page.marks.isNotEmpty()) {
-                append(",\"marks\":[")
-                page.marks.forEachIndexed { m, mark ->
-                    if (m > 0) append(',')
-                    append("{\"kind\":\"").append(mark.kind.code).append("\",\"text\":").append(jsonString(mark.text))
-                    append(",\"strokes\":[").append(mark.strokes.joinToString(",")).append("]}")
-                }
-                append("]")
-            }
-            append("}")
+    fun encode(document: InkDocument): String {
+        var estimate = 64
+        for (page in document.pages) {
+            estimate += 96
+            for (stroke in page.strokes) estimate += 96 + stroke.points.size * CHARS_PER_POINT
         }
-        append("]}")
+        val out = StringBuilder(estimate)
+        val version = if (document.pages.any { it.marks.isNotEmpty() }) VERSION else VERSION_WITHOUT_MARKS
+        out.append("{\"format\":\"").append(FORMAT).append("\",\"version\":").append(version).append(",\"pages\":[")
+        for ((p, page) in document.pages.withIndex()) {
+            if (p > 0) out.append(',')
+            out.append("{\"width\":").append(page.width).append(",\"height\":").append(page.height)
+            out.append(",\"paper\":\"").append(page.paper.code).append("\",\"strokes\":[")
+            for ((s, stroke) in page.strokes.withIndex()) {
+                if (s > 0) out.append(',')
+                out.append("{\"color\":\"#")
+                appendHex(out, stroke.color)
+                out.append("\",\"width\":")
+                appendNumber(out, stroke.width)
+                out.append(",\"start\":").append(stroke.startedAt).append(',')
+                if (stroke.fill) out.append("\"fill\":true,")
+                out.append("\"points\":[")
+                var first = true
+                for (point in stroke.points) {
+                    if (!first) out.append(',')
+                    first = false
+                    appendNumber(out, point.x)
+                    out.append(',')
+                    appendNumber(out, point.y)
+                    out.append(',').append(point.t)
+                }
+                out.append("]}")
+            }
+            out.append("]")
+            if (page.marks.isNotEmpty()) {
+                out.append(",\"marks\":[")
+                page.marks.forEachIndexed { m, mark ->
+                    if (m > 0) out.append(',')
+                    out.append("{\"kind\":\"").append(mark.kind.code).append("\",\"text\":").append(jsonString(mark.text))
+                    out.append(",\"strokes\":[").append(mark.strokes.joinToString(",")).append("]}")
+                }
+                out.append("]")
+            }
+            out.append("}")
+        }
+        out.append("]}")
+        return out.toString()
     }
 
     /** @throws IllegalArgumentException if [json] is not a valid ink document. */
@@ -86,12 +103,21 @@ object InkJson {
         val stroke = json as? Map<*, *> ?: invalid("stroke is not an object")
         val flat = stroke["points"] as? List<*> ?: invalid("missing points")
         if (flat.isEmpty() || flat.size % 3 != 0) invalid("points must be x,y,t triples")
-        val points = (flat.indices step 3).map { i ->
-            InkPoint(
-                x = (flat[i] as? Double ?: invalid("bad x")).toFloat(),
-                y = (flat[i + 1] as? Double ?: invalid("bad y")).toFloat(),
-                t = (flat[i + 2] as? Double ?: invalid("bad t")).toInt(),
-            )
+        val points = ArrayList<InkPoint>(flat.size / 3)
+        if (flat is NumberArray) {
+            // Straight from the primitives, without a box per number.
+            val v = flat.values
+            for (i in 0 until flat.size step 3) points.add(InkPoint(v[i].toFloat(), v[i + 1].toFloat(), v[i + 2].toInt()))
+        } else {
+            for (i in flat.indices step 3) {
+                points.add(
+                    InkPoint(
+                        x = (flat[i] as? Double ?: invalid("bad x")).toFloat(),
+                        y = (flat[i + 1] as? Double ?: invalid("bad y")).toFloat(),
+                        t = (flat[i + 2] as? Double ?: invalid("bad t")).toInt(),
+                    ),
+                )
+            }
         }
         return Stroke(
             color = hexToColor(stroke["color"] as? String ?: invalid("missing color")),
@@ -104,13 +130,38 @@ object InkJson {
 
     private fun number(json: Map<*, *>, key: String): Double = json[key] as? Double ?: invalid("missing $key")
 
-    /** Shortest form with at most one decimal: 12.0 -> "12", 12.34 -> "12.3". */
-    private fun number(value: Float): String {
+    /**
+     * Appends the shortest form with at most one decimal: 12.0 -> "12", 12.34 -> "12.3", -0.5 -> "-0.5". Written
+     * digit by digit; magnitudes from 1e7 on, where `Double.toString` turns scientific, take the old way.
+     */
+    private fun appendNumber(out: StringBuilder, value: Float) {
         val tenths = Math.round(value * 10.0)
-        return if (tenths % 10 == 0L) (tenths / 10).toString() else (tenths / 10.0).toString()
+        if (tenths <= -PLAIN_LIMIT || tenths >= PLAIN_LIMIT) {
+            out.append(if (tenths % 10 == 0L) (tenths / 10).toString() else (tenths / 10.0).toString())
+            return
+        }
+        var magnitude = tenths.toInt()
+        if (magnitude < 0) {
+            out.append('-')
+            magnitude = -magnitude
+        }
+        out.append(magnitude / 10)
+        val decimal = magnitude % 10
+        if (decimal != 0) out.append('.').append(('0'.code + decimal).toChar())
     }
 
-    private fun colorToHex(color: Int): String = "#" + (color.toLong() and 0xffffffffL).toString(16).padStart(8, '0')
+    /** [color] as 8 lowercase hex digits (ARGB). */
+    private fun appendHex(out: StringBuilder, color: Int) {
+        for (shift in 28 downTo 0 step 4) out.append(HEX_DIGITS[(color ushr shift) and 0xf])
+    }
+
+    private const val HEX_DIGITS = "0123456789abcdef"
+
+    /** Tenths below this (1e7 units) print plainly in `Double.toString`. */
+    private const val PLAIN_LIMIT = 100_000_000L
+
+    /** A generous guess at the size of one point (`123.4,567.8,12345,`), to size the output once. */
+    private const val CHARS_PER_POINT = 18
 
     private fun hexToColor(hex: String): Int {
         val digits = hex.removePrefix("#")
