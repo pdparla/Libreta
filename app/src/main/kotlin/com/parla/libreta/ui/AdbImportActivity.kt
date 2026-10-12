@@ -12,8 +12,9 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Receives what the PC scripts hand over with adb (docs/07-ia.md): the ChatGPT session from
- * `scripts/chatgpt-login.sh` and the dictation settings from `scripts/stt-pair.sh`. A script pushes its file to
+ * Receives what the PC scripts hand over with adb (docs/reference/scripts.md): the ChatGPT session from
+ * `scripts/chatgpt-login.sh`, the dictation settings from `scripts/stt-pair.sh` and the Nextcloud CA from
+ * `scripts/nextcloud-ca.sh` (an empty file removes it). A script pushes its file to
  * /data/local/tmp and starts this activity, which stores whatever is there in the app's private storage and
  * reports on logcat (tag [TAG]) so the script can delete the pushed copy.
  *
@@ -34,6 +35,12 @@ class AdbImportActivity : Activity() {
                 val settings = SttSettings.fromJson(json)
                 container.sttSettings.save(settings)
                 getString(R.string.stt_import_ok, settings.url)
+            },
+            import(NEXTCLOUD_CA, "nextcloud ca") { pem ->
+                container.nextcloudCa.save(pem)
+                val subjects = container.nextcloudCa.subjects()
+                if (subjects.isEmpty()) getString(R.string.nextcloud_ca_removed)
+                else getString(R.string.nextcloud_ca_import_ok, subjects.joinToString(", "))
             },
         )
         if (messages.isNotEmpty()) Toast.makeText(this, messages.joinToString("\n"), Toast.LENGTH_LONG).show()
@@ -59,5 +66,6 @@ class AdbImportActivity : Activity() {
         const val TAG = "LibretaImport"
         val CHATGPT = File("/data/local/tmp/libreta-chatgpt.json")
         val STT = File("/data/local/tmp/libreta-stt.json")
+        val NEXTCLOUD_CA = File("/data/local/tmp/libreta-nextcloud-ca.pem")
     }
 }

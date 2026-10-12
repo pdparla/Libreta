@@ -1,6 +1,6 @@
 package com.parla.libreta.ui
 
-/** Which notes the list shows: all, those of one category, or those with one tag (docs/13-indice.md). */
+/** Which notes the list shows: all, those of one category, or those with one tag (docs/design/ink.md). */
 sealed class CategoryFilter {
 
     abstract fun matches(note: ListedNote): Boolean

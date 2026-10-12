@@ -57,7 +57,7 @@ class AiConversation(val image: ByteArray?) {
 
 /**
  * What the app asks the model: transcribe a selection ([CONVERT_MODEL]), and talk ([CHAT_MODEL]) about a selection or
- * the whole notebook, using the notebook's tools (docs/12-preguntar.md).
+ * the whole notebook, using the notebook's tools (docs/design/ai.md).
  */
 class AiAssistant(private val responses: ResponsesClient) {
 
@@ -68,9 +68,9 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
-     * One clean Markdown text from the transcripts of several handwritten [pages], in order (docs/14-pasar-a-limpio.md):
+     * One clean Markdown text from the transcripts of several handwritten [pages], in order (docs/design/ai.md):
      * joined without repeats or sentences cut between pages, structured, and with nothing that is not written.
-     * [titles], marked by the user (docs/13-indice.md), guide the structure.
+     * [titles], marked by the user (docs/design/ink.md), guide the structure.
      */
     fun cleanCopy(pages: List<String>, titles: List<String>, handle: TurnHandle): String {
         val request = buildString {
@@ -84,7 +84,7 @@ class AiAssistant(private val responses: ResponsesClient) {
     /**
      * Sends [text] in [conversation] and adds the answer, streaming its pieces to [onText]. When the model asks for
      * [tools], they run (each announced to [onToolCall]) and their results go back to it, round after round, until it
-     * answers. With [webSearch] it can also search the web (docs/17-busqueda-web.md): each search is announced to
+     * answers. With [webSearch] it can also search the web (docs/design/ai.md): each search is announced to
      * [onToolCall] as [WEB_SEARCH], and the pages it cites without a link in the text are added as sources. If
      * anything fails, the message and all it added are taken back out so it can be sent again.
      */
@@ -143,7 +143,7 @@ class AiAssistant(private val responses: ResponsesClient) {
         /** How a web search is announced to `onToolCall`, with the query as `consulta`. */
         const val WEB_SEARCH = "web_search"
 
-        /** OpenAI's own search (docs/17-busqueda-web.md), with results that make sense from Spain. */
+        /** OpenAI's own search (docs/design/ai.md), with results that make sense from Spain. */
         private val WEB_SEARCH_TOOL: JSONObject
             get() = JSONObject().put("type", "web_search")
                 .put("user_location", JSONObject().put("type", "approximate").put("country", "ES"))

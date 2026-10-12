@@ -92,7 +92,7 @@
     <string name="ink_paste">Pegar</string>
     <string name="ink_copied">Copiado. Pégalo en esta u otra página con «Pegar».</string>
 
-    <!-- AI (docs/07-ia.md) -->
+    <!-- AI (docs/design/ai.md) -->
     <string name="ai_converting">Reconociendo la escritura…</string>
     <string name="ai_convert_title">Texto reconocido</string>
     <string name="ai_convert_nothing">No se ha reconocido texto en el recuadro.</string>
@@ -132,7 +132,7 @@
     <string name="ai_nothing_to_save">Todavía no hay conversación.</string>
     <string name="ai_selection_image">Recorte de la nota</string>
     <string name="ai_sign_in_title">Inicia sesión con ChatGPT</string>
-    <string name="ai_sign_in_needed">Inicia sesión con ChatGPT desde el PC con la tablet conectada por USB:\n\nscripts/chatgpt-login.sh\n\n(ver docs/07-ia.md)</string>
+    <string name="ai_sign_in_needed">Inicia sesión con ChatGPT desde el PC con la tablet conectada por USB:\n\nscripts/chatgpt-login.sh\n\n(ver docs/setup/chatgpt.md)</string>
     <string name="ai_error_session_expired">la sesión de ChatGPT ha caducado; vuelve a iniciarla desde el PC con scripts/chatgpt-login.sh</string>
     <string name="ai_error_usage_limit">has alcanzado el límite de uso de tu plan de ChatGPT</string>
     <string name="ai_error_usage_unavailable">tu plan de ChatGPT no permite usarlo ahora desde Libreta</string>
@@ -142,7 +142,7 @@
     <string name="ai_import_ok">Sesión de ChatGPT guardada: %1$s</string>
     <string name="stt_title">Dictado</string>
     <string name="action_dictate">Dictar</string>
-    <string name="stt_not_configured">El dictado no está configurado. Desde el PC, con la tablet conectada por USB:\n\nscripts/stt-pair.sh\n\n(ver docs/07-ia.md)</string>
+    <string name="stt_not_configured">El dictado no está configurado. Desde el PC, con la tablet conectada por USB:\n\nscripts/stt-pair.sh\n\n(ver docs/setup/dictation-server.md)</string>
     <string name="stt_recording">Grabando… %1$s de %2$s\n\nPulsa «Parar» al terminar.</string>
     <string name="stt_stop">Parar</string>
     <string name="stt_transcribing">Transcribiendo…</string>
@@ -152,6 +152,8 @@
     <string name="stt_no_microphone">No se pudo usar el micrófono.</string>
     <string name="stt_dictated_title">Texto dictado</string>
     <string name="stt_import_ok">Dictado configurado: %1$s</string>
+    <string name="nextcloud_ca_import_ok">CA de Nextcloud importada: %1$s</string>
+    <string name="nextcloud_ca_removed">CA de Nextcloud eliminada: se usan los certificados del sistema.</string>
     <string name="import_failed">No se pudo importar lo enviado desde el PC.</string>
 
     <!-- Sync -->
@@ -181,14 +183,16 @@
 
     <!-- Settings -->
     <string name="settings_url">Dirección del servidor</string>
-    <string name="settings_url_hint">https://192.0.2.10</string>
+    <string name="settings_url_hint">https://nextcloud.example.com</string>
     <string name="settings_user">Usuario de Nextcloud</string>
     <string name="settings_password">Contraseña de aplicación</string>
     <string name="settings_password_kept">Guardada · déjalo vacío para no cambiarla</string>
     <string name="settings_folder">Carpeta de notas</string>
     <string name="settings_certificate">Nombre del certificado</string>
     <string name="settings_certificate_hint">p. ej. nextcloud.local</string>
-    <string name="settings_certificate_help">Solo si el certificado del servidor está emitido a un nombre distinto de la dirección (por ejemplo, al conectar por IP). Se acepta únicamente si además lo firma la CA incluida en la app.</string>
+    <string name="settings_certificate_help">Solo si el certificado del servidor está emitido a un nombre distinto de la dirección (por ejemplo, al conectar por IP). El certificado tiene que estar firmado igualmente por una CA de confianza.</string>
+    <string name="settings_trust_imported">Certificados de confianza: CA importada (%1$s). Para cambiarla, scripts/nextcloud-ca.sh desde el PC.</string>
+    <string name="settings_trust_system">Certificados de confianza: los del sistema. Para un servidor con CA propia, impórtala desde el PC con scripts/nextcloud-ca.sh.</string>
     <string name="settings_test">Probar conexión</string>
     <string name="settings_save">Guardar</string>
     <string name="settings_testing">Probando…</string>
@@ -215,7 +219,7 @@
     </plurals>
     <string name="settings_ai">IA (ChatGPT)</string>
     <string name="settings_ai_signed_in">Sesión iniciada como %1$s. Conversar: %2$s (razonamiento %3$s). Convertir a texto: %4$s (razonamiento %5$s).</string>
-    <string name="settings_ai_signed_out">Sin sesión. Para usar la IA, inicia sesión con ChatGPT desde el PC con la tablet conectada por USB: scripts/chatgpt-login.sh (ver docs/07-ia.md).</string>
+    <string name="settings_ai_signed_out">Sin sesión. Para usar la IA, inicia sesión con ChatGPT desde el PC con la tablet conectada por USB: scripts/chatgpt-login.sh (ver docs/setup/chatgpt.md).</string>
     <string name="settings_ai_sign_out">Cerrar sesión</string>
     <string name="settings_ai_sign_out_confirm">¿Cerrar la sesión de ChatGPT en esta tableta?</string>
     <string name="settings_ai_signed_out_revoked">Sesión cerrada y revocada en OpenAI.</string>

@@ -14,7 +14,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The tools the AI can use on the notes in the tablet (docs/12-preguntar.md): search, list and read them, create a
+ * The tools the AI can use on the notes in the tablet (docs/design/ai.md): search, list and read them, create a
  * note and add text to one. The two that write ask the user first through [confirm]. Results are small JSON
  * objects, because the whole conversation, tool results included, is sent again every turn.
  *

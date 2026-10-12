@@ -36,7 +36,7 @@ object Markdown {
 
     /**
      * For the AI's answers: text only. With [onNoteLink], links to `nota:<path>` (the AI's citations,
-     * docs/12-preguntar.md) go there, with what follows `nota:`; other links do nothing, as the tablet has no browser.
+     * docs/design/ai.md) go there, with what follows `nota:`; other links do nothing, as the tablet has no browser.
      */
     fun forChat(context: Context, onNoteLink: ((String) -> Unit)? = null, onWebLink: ((String) -> Unit)? = null): Markwon =
         Markwon.builder(context)
@@ -116,7 +116,7 @@ object Markdown {
 
     /**
      * Decodes images no wider than the screen, halving them as often as needed (`inSampleSize`). A page of a
-     * handwritten note is 1200×1800 pixels (docs/09-zoom.md): about 8 MB decoded whole, with 64 MB for the app.
+     * handwritten note is 1200×1800 pixels (docs/design/ink.md): about 8 MB decoded whole, with 64 MB for the app.
      */
     private class FitWidthDecoder(private val resources: Resources) : MediaDecoder() {
 

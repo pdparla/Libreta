@@ -98,7 +98,7 @@ class AiAssistantTest {
         assertEquals("medium", body.getJSONObject("reasoning").getString("effort"))
     }
 
-    // --- Tools (docs/12-preguntar.md) ---
+    // --- Tools (docs/design/ai.md) ---
 
     private fun toolsOn(dir: java.io.File): Pair<NotebookTools, FileNoteRepository> {
         val notes = FileNoteRepository(dir)
@@ -126,7 +126,7 @@ class AiAssistantTest {
         assertEquals("En [Compra](<nota:Casa/Compra.md>).", text)
         assertEquals(listOf(NotebookTools.SEARCH), called)
         val first = JSONObject(server.takeRequest().body.readUtf8())
-        // The notebook's five and the web search (docs/17-busqueda-web.md).
+        // The notebook's five and the web search (docs/design/ai.md).
         assertEquals(6, first.getJSONArray("tools").length())
         val second = JSONObject(server.takeRequest().body.readUtf8()).getJSONArray("input")
         val output = second.getJSONObject(second.length() - 1)
@@ -182,7 +182,7 @@ class AiAssistantTest {
         assertEquals(1, JSONObject(server.takeRequest().body.readUtf8()).getJSONArray("input").length())
     }
 
-    // --- Web search (docs/17-busqueda-web.md) ---
+    // --- Web search (docs/design/ai.md) ---
 
     private fun searchedAnswer(text: String, citations: List<Pair<String, String>>): MockResponse {
         val annotations = citations.joinToString(",") { (title, url) ->

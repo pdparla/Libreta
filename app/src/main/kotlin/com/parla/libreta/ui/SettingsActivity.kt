@@ -20,7 +20,7 @@ import com.parla.libreta.sync.SyncService
 /**
  * Server settings. The stored app password is never shown: leaving the field empty keeps it. "Probar conexión"
  * checks TLS, credentials and the notes folder without saving anything. The AI section shows the ChatGPT session,
- * which can only be started from the PC (docs/07-ia.md), and closes it.
+ * which can only be started from the PC (docs/design/ai.md), and closes it.
  */
 class SettingsActivity : Activity() {
 
@@ -56,6 +56,7 @@ class SettingsActivity : Activity() {
             certificateName.setText(stored.certificateName)
         }
         if (stored.appPassword.isNotEmpty()) password.setHint(R.string.settings_password_kept)
+        showTrust()
 
         test.setOnClickListener { testConnection() }
         save.setOnClickListener { saveAndSync() }
@@ -76,7 +77,15 @@ class SettingsActivity : Activity() {
         setUpTranscription()
     }
 
-    /** Reading handwriting for search (docs/11-busqueda.md): on or off, and how many pages are still to be read. */
+    /** Which roots Nextcloud's certificate is checked against: the imported CA or the system's. */
+    private fun showTrust() {
+        val subjects = container.nextcloudCa.subjects()
+        findViewById<TextView>(R.id.settings_trust).text =
+            if (subjects.isEmpty()) getString(R.string.settings_trust_system)
+            else getString(R.string.settings_trust_imported, subjects.joinToString(", "))
+    }
+
+    /** Reading handwriting for search (docs/design/ai.md): on or off, and how many pages are still to be read. */
     private fun setUpTranscription() {
         val checkBox = findViewById<CheckBox>(R.id.settings_transcribe)
         val status = findViewById<TextView>(R.id.settings_transcribe_status)

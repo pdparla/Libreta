@@ -7,7 +7,7 @@ import android.util.AttributeSet
 import android.view.View
 
 /**
- * A sample of a pen or eraser size (docs/16-grosor.md): a dot as wide as the pen's stroke, in its colour, or a ring as
+ * A sample of a pen or eraser size (docs/design/ink.md): a dot as wide as the pen's stroke, in its colour, or a ring as
  * big as the eraser. One that does not fit stays as big as the view: the number beside it tells the size.
  */
 class SizePreview(context: Context, attrs: AttributeSet?) : View(context, attrs) {

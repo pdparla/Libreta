@@ -7,8 +7,8 @@ import com.parla.libreta.core.ink.InkTranscriptService
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * What every note can be found by, for the note list's search and the AI's tools (docs/11-busqueda.md,
- * docs/12-preguntar.md), so that both find exactly the same: the title, the text (for a handwritten note, what the
+ * What every note can be found by, for the note list's search and the AI's tools (docs/design/ai.md,
+ * docs/design/ai.md), so that both find exactly the same: the title, the text (for a handwritten note, what the
  * user typed, not the managed lines) and what each handwritten page says.
  *
  * [entries] and [all] keep what they built for each note, with the versions of the files it was built from (the

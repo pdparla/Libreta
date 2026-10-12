@@ -8,7 +8,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * The paint bucket (docs/15-relleno.md): the area around a point that the ink encloses, as bands of ink.
+ * The paint bucket (docs/design/ink.md): the area around a point that the ink encloses, as bands of ink.
  *
  * The page is rasterised into a grid where the ink, other fills left out, is thickened by a margin that closes small
  * gaps in an outline; the free area connected to the point is flooded; and every few rows a thick horizontal band

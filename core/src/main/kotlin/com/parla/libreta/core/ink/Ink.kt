@@ -15,7 +15,7 @@ data class InkPoint(val x: Float, val y: Float, val t: Int)
  *
  * @param color ARGB colour.
  * @param startedAt wall-clock time of the first point, in epoch milliseconds.
- * @param fill whether the stroke is one band of a fill (docs/15-relleno.md): the bands of one fill share [startedAt].
+ * @param fill whether the stroke is one band of a fill (docs/design/ink.md): the bands of one fill share [startedAt].
  */
 data class Stroke(val color: Int, val width: Float, val startedAt: Long, val points: List<InkPoint>, val fill: Boolean = false) {
 
@@ -237,7 +237,7 @@ data class InkPage(
     /** The rectangle around [mark]'s strokes: it follows them when they move. Null once they are all gone. */
     fun boundsOf(mark: InkMark): InkRect? = InkRect.around(strokesOf(mark))
 
-    /** The page with its marks kept to the strokes still on it; a mark with none left is gone (docs/13-indice.md). */
+    /** The page with its marks kept to the strokes still on it; a mark with none left is gone (docs/design/ink.md). */
     fun withLiveMarks(): InkPage {
         if (marks.isEmpty()) return this
         val present = strokes.mapTo(HashSet()) { it.startedAt }
@@ -250,7 +250,7 @@ data class InkPage(
 }
 
 /**
- * Handwriting marked as a title or a tag (docs/13-indice.md): its [text], as read by the AI and checked by the user,
+ * Handwriting marked as a title or a tag (docs/design/ink.md): its [text], as read by the AI and checked by the user,
  * and the strokes it is made of, by their [Stroke.startedAt], which moving or recolouring them does not change.
  */
 data class InkMark(val kind: Kind, val text: String, val strokes: Set<Long>) {

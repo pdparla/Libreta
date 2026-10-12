@@ -11,7 +11,7 @@ package com.parla.libreta.core.ink
  * ```
  *
  * Points are a flat array of `x, y, t` triples to keep files small; coordinates are rounded to 0.1 units. `fill`
- * (docs/15-relleno.md) is only written when true, so pages without fills keep their fingerprint. A
+ * (docs/design/ink.md) is only written when true, so pages without fills keep their fingerprint. A
  * hand-written codec, because org.json is only a stub in JVM tests and bundling another copy would clash with the
  * one in Android itself.
  */

@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Dictation (docs/07-ia.md, part 2). -->
+    <!-- Dictation (docs/design/ai.md). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
@@ -36,7 +36,7 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Turns with the tablet without being recreated, so the note, undo and zoom stay (docs/10-orientacion.md). -->
+        <!-- Turns with the tablet without being recreated, so the note, undo and zoom stay (docs/design/ink.md). -->
         <activity
             android:name=".ui.ink.InkNoteActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"

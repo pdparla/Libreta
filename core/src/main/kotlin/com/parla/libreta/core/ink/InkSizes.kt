@@ -5,7 +5,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
- * A size chosen with a slider of [STEPS] steps (docs/16-grosor.md), from [min] to [max] page units. It grows
+ * A size chosen with a slider of [STEPS] steps (docs/design/ink.md), from [min] to [max] page units. It grows
  * exponentially, so there is as much travel between the thin sizes as between the thick ones.
  */
 class InkSizes(val min: Float, val max: Float) {

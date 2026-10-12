@@ -3,7 +3,7 @@ package com.parla.libreta.core.ink
 import kotlin.math.min
 
 /**
- * How a page is shown in a view (docs/09-zoom.md): scaled to fit at 1× and then zoomed up to [MAX_ZOOM], with
+ * How a page is shown in a view (docs/design/ink.md): scaled to fit at 1× and then zoomed up to [MAX_ZOOM], with
  * [originX], [originY] being where the page's top-left corner falls, in view pixels. Strokes stay in page units;
  * this only converts between the two.
  *
@@ -18,7 +18,7 @@ class InkViewport(val pageWidth: Int, val pageHeight: Int, val viewWidth: Int, v
 
     /**
      * View pixels per page unit at 1×: the whole page fits, except an upright page in a landscape view, which fits
-     * the width and is scrolled (docs/10-orientacion.md); whole, it would be too small to write on.
+     * the width and is scrolled (docs/design/ink.md); whole, it would be too small to write on.
      */
     val fitScale: Float =
         if (viewWidth > viewHeight && pageHeight > pageWidth) viewWidth / pageWidth.toFloat()

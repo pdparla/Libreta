@@ -31,7 +31,7 @@ import kotlin.math.max
  * (see [maxTouchMajor]) draws, and every other one (the palm, a resting finger) is ignored. Finished strokes live
  * in a cached bitmap together with the paper; only the stroke being drawn is redrawn on every frame.
  *
- * The page can be zoomed from 1× to 4× and moved (docs/09-zoom.md): with two fingers, or with [zoomStep]. Every
+ * The page can be zoomed from 1× to 4× and moved (docs/design/ink.md): with two fingers, or with [zoomStep]. Every
  * conversion between the screen and the page goes through an [InkViewport]. A second finger that arrives while the
  * first contact is still fresh turns both into a pinch and drops what the first had started; while pinching, the
  * cached page is only scaled and moved by the canvas, and redrawn sharp when the fingers lift.
@@ -41,7 +41,7 @@ import kotlin.math.max
  * handle resizes them. While they move they are drawn on their own, transformed by the canvas, over a cache
  * without them; the change goes into the document, as one undo step, when the finger lifts.
  *
- * With [Tool.FILL], a tap fills the shape under it with [penColor] (docs/15-relleno.md).
+ * With [Tool.FILL], a tap fills the shape under it with [penColor] (docs/design/ink.md).
  */
 class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
@@ -278,7 +278,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
      */
     private fun drawPage(canvas: Canvas, page: InkPage, scale: Float, within: InkRect, hidden: Set<Int>) {
         InkRenderer.drawPaper(canvas, page, scale)
-        // Titles and tags (docs/13-indice.md) behind their ink, so the page shows what is marked.
+        // Titles and tags (docs/design/ink.md) behind their ink, so the page shows what is marked.
         page.marks.forEach { mark ->
             page.boundsOf(mark)?.let { r ->
                 val pad = InkDiff.MARK_PADDING

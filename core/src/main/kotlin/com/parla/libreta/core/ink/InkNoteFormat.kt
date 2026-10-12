@@ -52,7 +52,7 @@ object InkNoteFormat {
 
     /**
      * [markdown] with its managed lines replaced: the user's lines stay in place, then the index and the tags of
-     * [outline] if any (docs/13-indice.md), one image per page and the strokes reference at the end.
+     * [outline] if any (docs/design/ink.md), one image per page and the strokes reference at the end.
      */
     fun update(markdown: String, folder: String, pageCount: Int, outline: InkOutline = InkOutline.EMPTY): String {
         val userLines = userLines(markdown, folder)

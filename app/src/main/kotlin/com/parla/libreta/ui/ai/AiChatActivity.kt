@@ -52,10 +52,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONObject
 
 /**
- * A conversation with the AI, about a selection of a handwritten page (docs/07-ia.md) or, without one, about the whole
- * notebook (docs/12-preguntar.md). Either way the AI can use the notebook's tools: a grey line shows each one, the
+ * A conversation with the AI, about a selection of a handwritten page (docs/design/ai.md) or, without one, about the whole
+ * notebook (docs/design/ai.md). Either way the AI can use the notebook's tools: a grey line shows each one, the
  * ones that write ask first, and its citations open the notes. It lives in memory only: the screen handles its own
- * configuration changes, so turning the tablet does not recreate it (docs/10-orientacion.md). "Guardar como nota"
+ * configuration changes, so turning the tablet does not recreate it (docs/design/ink.md). "Guardar como nota"
  * keeps it as a note, with the selection if there is one.
  */
 class AiChatActivity : Activity() {
@@ -295,7 +295,7 @@ class AiChatActivity : Activity() {
     }
 
     /**
-     * A page the AI cites (docs/17-busqueda-web.md): its address, to open in the tablet's browser if there is one, or
+     * A page the AI cites (docs/design/ai.md): its address, to open in the tablet's browser if there is one, or
      * to copy.
      */
     private fun showWebLink(url: String) {
@@ -367,7 +367,7 @@ class AiChatActivity : Activity() {
         /** The longest an answer being streamed goes without showing the text received since. */
         private const val STREAM_RENDER_MS = 100L
 
-        /** A conversation about the whole notebook, with no selection (docs/12-preguntar.md). */
+        /** A conversation about the whole notebook, with no selection (docs/design/ai.md). */
         fun intentForNotebook(context: Context, category: String): Intent =
             Intent(context, AiChatActivity::class.java).putExtra(EXTRA_CATEGORY, category)
 

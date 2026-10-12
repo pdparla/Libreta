@@ -3,7 +3,7 @@ package com.parla.libreta.core.note
 import java.text.Normalizer
 
 /**
- * What a note can be found by (docs/11-busqueda.md): its title, its text (for a handwritten note, only what the user
+ * What a note can be found by (docs/design/ai.md): its title, its text (for a handwritten note, only what the user
  * typed, not the page images) and, for a handwritten note, what each page says.
  */
 data class SearchableNote(val path: NotePath, val title: String, val text: String, val pages: List<String> = emptyList()) {

@@ -131,7 +131,7 @@ object InkRenderer : PageRenderer {
 
     /**
      * The page as a PNG at [PAGE_IMAGE_SCALE] pixels per unit, for Nextcloud Notes: at 1 pixel per unit, writing done
-     * zoomed in (docs/09-zoom.md) would be unreadable. RGB 565 because a page has no transparency, and it halves the
+     * zoomed in (docs/design/ink.md) would be unreadable. RGB 565 because a page has no transparency, and it halves the
      * memory the bitmap takes while saving.
      */
     override fun render(page: InkPage): ByteArray {

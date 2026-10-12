@@ -20,6 +20,7 @@ import com.parla.libreta.data.local.FileNoteRepository
 import com.parla.libreta.data.stt.SttClient
 import com.parla.libreta.data.stt.SttSettingsStore
 import com.parla.libreta.data.local.FileSyncStateStore
+import com.parla.libreta.data.remote.NextcloudCaStore
 import com.parla.libreta.data.remote.NextcloudClientFactory
 import com.parla.libreta.data.remote.Tls
 import com.parla.libreta.data.settings.SettingsStore
@@ -75,23 +76,20 @@ class AppContainer(context: Context) {
      */
     private val httpBase: OkHttpClient by lazy { OkHttpClient.Builder().connectionSpecs(listOf(ConnectionSpec.CLEARTEXT)).build() }
 
-    /**
-     * Built on first use, off the main thread: loading Conscrypt's native library and parsing the CA take a
-     * moment.
-     */
-    val clients: NextcloudClientFactory by lazy {
-        val trustManager = context.resources.openRawResource(R.raw.nextcloud_ca).use(Tls::trustManagerFor)
-        NextcloudClientFactory(
-            socketFactory = Tls.socketFactory(trustManager, conscrypt),
-            trustManager = trustManager,
-            userAgent = userAgent,
-            base = httpBase,
-        )
-    }
+    /** The CA certificates imported for Nextcloud with scripts/nextcloud-ca.sh; none means the system's. */
+    val nextcloudCa = NextcloudCaStore(File(context.filesDir, "nextcloud-ca.pem"))
+
+    /** Clients are built off the main thread: loading Conscrypt's native library and parsing the CA take a moment. */
+    val clients = NextcloudClientFactory(
+        caPem = nextcloudCa::load,
+        provider = { conscrypt },
+        userAgent = userAgent,
+        base = { httpBase },
+    )
 
     /**
      * Client for api.openai.com and auth.openai.com, built on first use off the main thread like [clients]. It
-     * trusts only the public roots those hosts chain to (res/raw/openai_roots.pem, see docs/07-ia.md), never the
+     * trusts only the public roots those hosts chain to (res/raw/openai_roots.pem, see docs/design/tls.md), never the
      * Nextcloud CA, and checks host names the standard way.
      */
     private val openAiHttp: OkHttpClient by lazy {
@@ -113,7 +111,7 @@ class AppContainer(context: Context) {
         AiAssistant(ResponsesClient(openAiHttp, chatGpt))
     }
 
-    /** What the handwriting says, page by page, for search (docs/11-busqueda.md). */
+    /** What the handwriting says, page by page, for search (docs/design/ai.md). */
     val transcripts = InkTranscriptService(notes)
     val notebookIndex = NotebookIndex(notes, inkNotes, transcripts, exists = notes::exists)
     val inkTranscriber = InkTranscriber(
@@ -125,7 +123,7 @@ class AppContainer(context: Context) {
         preferences = context.getSharedPreferences("search", Context.MODE_PRIVATE),
     )
 
-    /** Dictation (docs/07-ia.md, part 2): the service's address, token and certificate, from scripts/stt-pair.sh. */
+    /** Dictation (docs/design/ai.md): the service's address, token and certificate, from scripts/stt-pair.sh. */
     val sttSettings = SttSettingsStore(File(context.filesDir, "stt.json"))
     val stt = SttClient(sttSettings, provider = { conscrypt }, base = { httpBase })
     val sttBackground = BackgroundRunner(idleSingleThreadExecutor("libreta-stt"))

@@ -19,7 +19,7 @@ import java.io.IOException
 import java.util.Locale
 
 /**
- * Dictation (docs/07-ia.md, part 2): a tap starts recording, "Parar" sends the audio to the dictation service on
+ * Dictation (docs/design/ai.md): a tap starts recording, "Parar" sends the audio to the dictation service on
  * the server and the text comes back to [onText]. Recording stops by itself after [MAX_MILLIS]. Closing the dialog
  * or the screen throws the recording away.
  */

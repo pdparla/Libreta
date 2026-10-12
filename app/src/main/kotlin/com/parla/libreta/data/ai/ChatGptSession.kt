@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * A Sign in with ChatGPT session authorised for plan usage (docs/07-ia.md). The tokens are secrets: [toString]
+ * A Sign in with ChatGPT session authorised for plan usage (docs/design/ai.md). The tokens are secrets: [toString]
  * leaves them out so a log line can never print them.
  *
  * @param expiresAt when [accessToken] expires, in epoch milliseconds.

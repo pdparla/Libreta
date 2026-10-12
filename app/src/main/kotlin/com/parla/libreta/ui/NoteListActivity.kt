@@ -87,7 +87,7 @@ class NoteListActivity : Activity() {
         container.inkTranscriber.addListener(transcriptionListener)
         showSyncStatus(container.sync.status)
         reload()
-        // Read whatever handwriting changed, so that search finds it (docs/11-busqueda.md).
+        // Read whatever handwriting changed, so that search finds it (docs/design/ai.md).
         container.inkTranscriber.request()
     }
 

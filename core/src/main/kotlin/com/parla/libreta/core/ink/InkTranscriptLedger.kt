@@ -5,7 +5,7 @@ import com.parla.libreta.core.note.Version
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * What the background transcriber has already seen to be settled (docs/11-busqueda.md): notes with nothing left to
+ * What the background transcriber has already seen to be settled (docs/design/ai.md): notes with nothing left to
  * read. For each, the versions of the note, its strokes and its transcripts at that moment; while all of them are
  * unchanged the note need not be opened, decoded or hashed again. A missing file is a null version and is compared
  * too, so a strokes file appearing unsettles the note. Safe to use from several threads.

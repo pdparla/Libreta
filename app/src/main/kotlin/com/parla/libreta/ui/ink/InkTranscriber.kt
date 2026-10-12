@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Reads the handwriting of every handwritten note in the background, page by page, so that search finds it
- * (docs/11-busqueda.md). Only pages whose strokes changed since they were read are sent, one at a time, and each
+ * (docs/design/ai.md). Only pages whose strokes changed since they were read are sent, one at a time, and each
  * result is stored at once, so an interrupted pass loses nothing. A pass stops quietly on the first error (no
  * session, no network, the plan's usage limit): what is left waits for the next one.
  */

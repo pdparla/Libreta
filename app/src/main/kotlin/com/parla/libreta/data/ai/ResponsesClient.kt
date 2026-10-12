@@ -22,7 +22,7 @@ class TurnResult(val text: String, val output: JSONArray) {
     val calls: List<JSONObject>
         get() = items.filter { it.optString("type") == "function_call" }
 
-    /** The web pages the answer cites (`url_citation` annotations, docs/17-busqueda-web.md): title and address, once each. */
+    /** The web pages the answer cites (`url_citation` annotations, docs/design/ai.md): title and address, once each. */
     val citations: List<Pair<String, String>>
         get() = items.filter { it.optString("type") == "message" }.flatMap { message ->
             val content = message.optJSONArray("content") ?: JSONArray()
@@ -56,7 +56,7 @@ class TurnHandle {
 }
 
 /**
- * One streamed turn of the Responses API with the user's ChatGPT plan (docs/07-ia.md): `store: false` and
+ * One streamed turn of the Responses API with the user's ChatGPT plan (docs/design/ai.md): `store: false` and
  * `stream: true` always, so the caller sends the whole conversation every time. Only `response.completed` counts
  * as success.
  *

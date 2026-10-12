@@ -19,13 +19,13 @@ import javax.net.ssl.X509TrustManager
 import javax.security.auth.x500.X500Principal
 
 /**
- * TLS setup that does not depend on the tablet: the only trusted root is the CA bundled with the app, and the
- * protocol comes from the [Provider] passed in (Conscrypt on the device), because KitKat's own TLS lacks the
- * AES-GCM and ChaCha20 suites the server requires.
+ * TLS setup that does not depend on the tablet's TLS: the protocol comes from the [Provider] passed in (Conscrypt
+ * on the device), because KitKat's own TLS lacks the AES-GCM and ChaCha20 suites modern servers require. Each
+ * client chooses its roots: a CA the user imported, or the system's ([systemTrustManager]). See docs/design/tls.md.
  */
 object Tls {
 
-    /** TLS 1.2 only, with forward-secret AEAD suites; the server accepts nothing older (docs/00-diagnostico.md). */
+    /** TLS 1.2 only, with forward-secret AEAD suites; many servers accept nothing older (docs/design/tls.md). */
     val CONNECTION_SPEC: ConnectionSpec = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
         .tlsVersions(TlsVersion.TLS_1_2)
         .cipherSuites(
@@ -49,6 +49,13 @@ object Tls {
         return factory.trustManagers.filterIsInstance<X509TrustManager>().single()
     }
 
+    /** Trust manager for the roots in Android's (or, on the JVM, the JDK's) own trust store. */
+    fun systemTrustManager(): X509TrustManager {
+        val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+        factory.init(null as KeyStore?)
+        return factory.trustManagers.filterIsInstance<X509TrustManager>().single()
+    }
+
     /** Socket factory from [provider] (null for the platform default) that trusts only [trustManager]. */
     fun socketFactory(trustManager: X509TrustManager, provider: Provider?): SSLSocketFactory {
         val context = if (provider == null) SSLContext.getInstance("TLS") else SSLContext.getInstance("TLS", provider)
@@ -60,9 +67,10 @@ object Tls {
 /**
  * Accepts the server when its certificate is issued to [expectedName], whatever host or IP address was dialled.
  *
- * The tablet cannot resolve `nextcloud.local` (no mDNS on KitKat) and the certificate names no IP address, so
- * the standard check cannot pass. This is safe only together with [Tls.trustManagerFor]: when the only trusted
- * root is our own CA, a certificate for that name can only come from our server.
+ * For a server reached by IP whose certificate names no IP address, or by a `.local` name KitKat cannot resolve
+ * (it has no mDNS), the standard check cannot pass. The chain is still verified against the trusted roots, so
+ * only a certificate those roots issued to that name is accepted; with an imported private CA as the only root,
+ * that can only be the user's own server.
  */
 class CertificateNameVerifier(private val expectedName: String) : HostnameVerifier {
 

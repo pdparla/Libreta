@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Where the dictation service is and how to reach it (docs/07-ia.md, part 2): its HTTPS address, the token it
+ * Where the dictation service is and how to reach it (docs/design/ai.md): its HTTPS address, the token it
  * expects and its certificate, the only one trusted for it. `scripts/stt-pair.sh` brings them from the server.
  * [toString] leaves the token out.
  */

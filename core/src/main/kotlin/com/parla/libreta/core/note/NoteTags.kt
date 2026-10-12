@@ -1,7 +1,7 @@
 package com.parla.libreta.core.note
 
 /**
- * Tags in a note's Markdown (docs/13-indice.md): words right after a `#`, like `#compras` or `#viaje-2026`, in the
+ * Tags in a note's Markdown (docs/design/ink.md): words right after a `#`, like `#compras` or `#viaje-2026`, in the
  * managed "Etiquetas:" line of a handwritten note or anywhere in a text note. A `#` followed by a space is a heading
  * (`# Título`), and one inside a word or a link (`nota.md#2`) is not a tag.
  */

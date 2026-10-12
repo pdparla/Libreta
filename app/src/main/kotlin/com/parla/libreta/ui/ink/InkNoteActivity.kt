@@ -58,9 +58,9 @@ import java.util.concurrent.FutureTask
  * stops being visible; a new note is only created once something has been drawn.
  *
  * The select tool marks a rectangle around strokes: drag it to move them, pull its corner to resize them, change
- * their colour or thickness, copy, paste or delete them. The AI works on it too (docs/07-ia.md): "Convertir a
+ * their colour or thickness, copy, paste or delete them. The AI works on it too (docs/design/ai.md): "Convertir a
  * texto" adds the recognised text to the note, "Conversar con IA" opens a conversation about it. The paint bucket
- * fills a shape with the pen's colour (docs/15-relleno.md).
+ * fills a shape with the pen's colour (docs/design/ink.md).
  */
 class InkNoteActivity : Activity() {
 
@@ -150,7 +150,7 @@ class InkNoteActivity : Activity() {
                 return
             }
             show(InkEditor(note!!.document).apply {
-                // Opened from a search match on another page (docs/11-busqueda.md).
+                // Opened from a search match on another page (docs/design/ai.md).
                 if (savedInstanceState == null) goToPage(intent.getIntExtra(EXTRA_PAGE, 0))
             })
         } else {
@@ -166,7 +166,7 @@ class InkNoteActivity : Activity() {
         handler.removeCallbacks(autosave)
         save()
         saveToolPreferences()
-        // Read what changed in the background, for search; never while writing (docs/11-busqueda.md).
+        // Read what changed in the background, for search; never while writing (docs/design/ai.md).
         container.inkTranscriber.request()
     }
 
@@ -279,7 +279,7 @@ class InkNoteActivity : Activity() {
         }
         eraseAreaButton.setOnClickListener { inkView.eraseWholeStrokes = false; updateControls() }
         eraseStrokesButton.setOnClickListener { inkView.eraseWholeStrokes = true; updateControls() }
-        // Any size, with a slider (docs/16-grosor.md).
+        // Any size, with a slider (docs/design/ink.md).
         penSize.setOnSeekBarChangeListener(onSizeChange { inkView.penWidth = InkSizes.PEN.valueAt(it) })
         eraserSize.setOnSeekBarChangeListener(onSizeChange { inkView.eraserRadius = InkSizes.ERASER.valueAt(it) })
 
@@ -331,7 +331,7 @@ class InkNoteActivity : Activity() {
 
     /**
      * A page like the current one; but when the tablet is held the other way round from it, the choice between an
-     * upright and a landscape page (docs/10-orientacion.md).
+     * upright and a landscape page (docs/design/ink.md).
      */
     private fun addPage() {
         val editor = editor ?: return
@@ -462,7 +462,7 @@ class InkNoteActivity : Activity() {
     }
 
     /**
-     * The thickness of the selected strokes, with the pen's slider (docs/16-grosor.md); it starts at the first one's.
+     * The thickness of the selected strokes, with the pen's slider (docs/design/ink.md); it starts at the first one's.
      * Fills keep theirs: their bands are as thick as they need to be to cover the shape.
      */
     private fun chooseSelectionWidth() {
@@ -540,7 +540,7 @@ class InkNoteActivity : Activity() {
     }
 
     /**
-     * Marks the selected strokes as a title or a tag (docs/13-indice.md): the AI reads them, the user checks the
+     * Marks the selected strokes as a title or a tag (docs/design/ink.md): the AI reads them, the user checks the
      * text, and the mark goes into the page as one undo step.
      */
     private fun markSelection(kind: InkMark.Kind) = readSelection { read ->
@@ -567,7 +567,7 @@ class InkNoteActivity : Activity() {
     }
 
     /**
-     * A new text note with everything written here, in clean Markdown (docs/14-pasar-a-limpio.md). Pages already read
+     * A new text note with everything written here, in clean Markdown (docs/design/ai.md). Pages already read
      * for search are not sent again; the rest are read now, and kept for search too. Cancelling creates nothing.
      */
     private fun cleanCopy() {
@@ -881,7 +881,7 @@ class InkNoteActivity : Activity() {
         private const val DEFAULT_PEN_WIDTH = 3.5f
         private const val DEFAULT_ERASER_RADIUS = 10f
 
-        /** Contacts larger than this are a palm. Calibrated with the AmberVec stylus (see docs/06). */
+        /** Contacts larger than this are a palm. Calibrated with the AmberVec stylus (docs/design/ink.md). */
         private const val PALM_TOUCH_MAJOR = 0f
 
         /** Opens the handwritten note at [path], at page [page] (0-based). */

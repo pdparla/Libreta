@@ -12,7 +12,7 @@ import com.parla.libreta.core.note.writeText
 data class PageTranscript(val hash: String, val text: String)
 
 /**
- * What the handwriting of a note says, page by page, for search (docs/11-busqueda.md). Stored next to the strokes as
+ * What the handwriting of a note says, page by page, for search (docs/design/ai.md). Stored next to the strokes as
  * `libreta.text.json`, so it syncs and follows the note:
  *
  * ```json
@@ -27,7 +27,7 @@ object InkTranscripts {
 
     /**
      * A fingerprint of everything that can change what a page says: its strokes, size and paper, not its marks:
-     * marking a title must not read the page again (docs/13-indice.md).
+     * marking a title must not read the page again (docs/design/ink.md).
      */
     fun hashOf(page: InkPage): String = ContentHash.of(InkJson.encode(InkDocument(listOf(page.copy(marks = emptyList()))))).value
 

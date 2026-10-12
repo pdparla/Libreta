@@ -6,8 +6,8 @@ import okhttp3.HttpUrl
  * Where and how to reach the notes on Nextcloud. The app password is stored only on the tablet (see SettingsStore).
  *
  * @param certificateName name the server certificate is issued to, when it differs from the host in [serverUrl]
- *   (here: the server is reached by IP and its certificate says `nextcloud.local`). Blank means the standard
- *   host name check.
+ *   (for example, the server is reached by IP and its certificate names only `nextcloud.local`). Blank means the
+ *   standard host name check.
  */
 data class ServerConfig(
     val serverUrl: String,

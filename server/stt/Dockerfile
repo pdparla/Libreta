@@ -1,4 +1,4 @@
-# Dictation for Libreta (docs/07-ia.md, part 2): faster-whisper on the CPU behind a small HTTPS endpoint.
+# Dictation for Libreta (docs/design/ai.md): faster-whisper on the CPU behind a small HTTPS endpoint.
 FROM python:3.12-slim
 
 # faster-whisper 1.1.1 imports requests without declaring it. The app decodes WAV itself, but faster-whisper

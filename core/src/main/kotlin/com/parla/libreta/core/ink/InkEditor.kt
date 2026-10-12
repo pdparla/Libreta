@@ -46,7 +46,7 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
 
     /**
      * Removes every stroke on the current page that the eraser at ([x], [y]) touches, and the whole of any fill it
-     * touches (docs/15-relleno.md). Returns whether any did.
+     * touches (docs/design/ink.md). Returns whether any did.
      */
     fun eraseStrokesAt(x: Float, y: Float, radius: Float): Boolean {
         val strokes = page.strokes
@@ -144,7 +144,7 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
 
     /**
      * Fills the area around ([x], [y]) of the current page with [color], seen at [zoom], in one undo step
-     * (docs/15-relleno.md). The new bands go behind the ink, after the fills already at the bottom of the page, and
+     * (docs/design/ink.md). The new bands go behind the ink, after the fills already at the bottom of the page, and
      * replace the fill bands inside the area; an older band that crosses it keeps its pieces outside. Returns false when there is nothing to fill there (the point is on ink).
      */
     fun fill(x: Float, y: Float, color: Int, zoom: Float, startedAt: Long): Boolean {
@@ -183,7 +183,7 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
 
     /**
      * Adds a page after the current one, with the same paper, and moves to it. Same size as the current one unless
-     * told otherwise: an upright note can get a landscape page (docs/10-orientacion.md).
+     * told otherwise: an upright note can get a landscape page (docs/design/ink.md).
      */
     fun addPage(width: Int = page.width, height: Int = page.height) = change(newPageIndex = pageIndex + 1) { pages ->
         pages.add(pageIndex + 1, InkPage(width, height, page.paper))
@@ -220,7 +220,7 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         if (gestureStart == null) push(Snapshot(document, pageIndex))
         val pages = document.pages.toMutableList()
         edit(pages)
-        // Marks whose strokes were erased go with them (docs/13-indice.md). Only pages the edit replaced can have lost any.
+        // Marks whose strokes were erased go with them (docs/design/ink.md). Only pages the edit replaced can have lost any.
         val before = document.pages
         for (i in pages.indices) {
             val edited = pages[i]

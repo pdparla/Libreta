@@ -1,4 +1,4 @@
-"""Dictation service for Libreta (docs/07-ia.md, part 2).
+"""Dictation service for Libreta (docs/design/ai.md, docs/setup/dictation-server.md).
 
 POST /v1/transcribe   body: WAV (16-bit PCM, mono), header Authorization: Bearer <token>
                       -> {"text": "...", "duration": seconds of audio, "took": seconds}
@@ -23,7 +23,7 @@ import numpy as np
 from faster_whisper import WhisperModel
 
 MODEL = os.environ.get("STT_MODEL", "large-v3-turbo")
-THREADS = int(os.environ.get("STT_THREADS", "12"))
+THREADS = int(os.environ.get("STT_THREADS") or os.cpu_count() or 4)
 LANGUAGE = os.environ.get("STT_LANGUAGE", "es")
 PORT = int(os.environ.get("STT_PORT", "8443"))
 TOKEN = open(os.environ.get("STT_TOKEN_FILE", "/run/secrets/stt-token")).read().strip()

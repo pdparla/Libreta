@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Sign in with ChatGPT for Libreta (docs/07-ia.md), following OpenAI's flow for open-source apps
+ * Sign in with ChatGPT for Libreta (docs/setup/chatgpt.md, docs/design/ai.md), following OpenAI's flow for open-source apps
  * (developers.openai.com/siwc/token-sharing-open-source): browser sign-in with a loopback callback, plan-usage
  * scope, ID token checked against OpenAI's keys. Writes the session for the tablet to the file given as argument;
  * scripts/chatgpt-login.sh hands it over with adb.
@@ -130,7 +130,7 @@ public class ChatGptLogin {
         client.put("email", email);
         Files.createDirectories(clientFile.getParent());
         Files.writeString(clientFile, Json.write(client));
-        System.out.println("Sesión iniciada como " + email + " (cliente " + clientId + ")");
+        System.out.println("Signed in as " + email + " (client " + clientId + ")");
     }
 
     /** Opens the browser and waits for the redirect to 127.0.0.1, or for its address pasted in the terminal. */
@@ -155,7 +155,7 @@ public class ChatGptLogin {
                         result.complete(parseQuery(line.trim().substring(query + 1)));
                         return;
                     }
-                    if (!line.isBlank()) System.out.println("Pega la dirección completa que empieza por " + REDIRECT);
+                    if (!line.isBlank()) System.out.println("Paste the whole address that starts with " + REDIRECT);
                 }
             } catch (IOException ignored) {
                 // No terminal: only the browser's redirect can finish.
@@ -173,8 +173,8 @@ public class ChatGptLogin {
         } catch (Exception ignored) {
             // Headless or no browser registered: the address is printed below.
         }
-        System.out.println(opened ? "Se ha abierto el navegador para iniciar sesión con ChatGPT." : "Abre esta dirección en el navegador:\n" + url);
-        System.out.println("Si el navegador acaba en una página que no carga (" + REDIRECT + "…), pega aquí esa dirección.");
+        System.out.println(opened ? "The browser has opened to sign in with ChatGPT." : "Open this address in the browser:\n" + url);
+        System.out.println("If the browser ends on a page that does not load (" + REDIRECT + "…), paste that address here.");
         try {
             return result.get(15, TimeUnit.MINUTES);
         } finally {
@@ -238,7 +238,7 @@ public class ChatGptLogin {
     }
 
     static void fail(String message) {
-        System.err.println("No se pudo iniciar sesión con ChatGPT: " + message);
+        System.err.println("Could not sign in with ChatGPT: " + message);
         System.exit(1);
     }
 

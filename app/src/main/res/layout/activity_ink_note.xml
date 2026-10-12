@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- The page, with the zoom controls over its bottom-right corner (docs/09-zoom.md) -->
+    <!-- The page, with the zoom controls over its bottom-right corner (docs/design/ink.md) -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -141,7 +141,7 @@
                 style="@style/InkSwatch"
                 android:contentDescription="@string/ink_color" />
 
-            <!-- Pen thickness (docs/16-grosor.md) -->
+            <!-- Pen thickness (docs/design/ink.md) -->
             <com.parla.libreta.ui.ink.SizePreview
                 android:id="@+id/ink_pen_preview"
                 style="@style/InkSizePreview" />
@@ -156,7 +156,7 @@
                 style="@style/InkSizeLabel" />
         </LinearLayout>
 
-        <!-- The paint bucket (docs/15-relleno.md): the pen's colour -->
+        <!-- The paint bucket (docs/design/ink.md): the pen's colour -->
         <LinearLayout
             android:id="@+id/ink_fill_options"
             android:layout_width="match_parent"

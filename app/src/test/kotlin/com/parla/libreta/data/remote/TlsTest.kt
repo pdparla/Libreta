@@ -14,8 +14,8 @@ import javax.net.ssl.SSLHandshakeException
 import javax.net.ssl.SSLPeerUnverifiedException
 
 /**
- * The TLS policy end to end over real HTTPS on the JVM, with certificates shaped like the real server's: issued by
- * a private CA, with the name only in the CN and no subject alternative names.
+ * The TLS policy end to end over real HTTPS on the JVM, with certificates shaped like a typical home server's:
+ * issued by a private CA, with the name only in the CN and no subject alternative names.
  */
 class TlsTest {
 
@@ -38,9 +38,8 @@ class TlsTest {
     }
 
     /** A client set up exactly as in the app, with the JDK provider instead of Conscrypt. */
-    private fun remote(certificateName: String): NextcloudWebDavSync {
-        val trustManager = Tls.trustManagerFor(ourCa.certificatePem().byteInputStream())
-        val factory = NextcloudClientFactory(Tls.socketFactory(trustManager, provider = null), trustManager, "test")
+    private fun remote(certificateName: String, caPem: String? = ourCa.certificatePem()): NextcloudWebDavSync {
+        val factory = NextcloudClientFactory(caPem = { caPem }, provider = { null }, userAgent = "test")
         val config = ServerConfig(
             serverUrl = server.url("/").toString(),
             user = "alice",
@@ -62,9 +61,9 @@ class TlsTest {
 
     @Test
     fun `server certificate from our CA is accepted by its common name although we dial an IP-like host`() {
-        serve(serverCertificate("nextcloud.local", ourCa), ourCa)
+        serve(serverCertificate("nextcloud.home.arpa", ourCa), ourCa)
 
-        remote(certificateName = "nextcloud.local").checkConnection()
+        remote(certificateName = "nextcloud.home.arpa").checkConnection()
 
         val request = server.takeRequest()
         assertEquals("TLSv1.2", request.tlsVersion.javaName())
@@ -73,7 +72,7 @@ class TlsTest {
 
     @Test
     fun `without a certificate name the standard host check refuses a certificate without SAN`() {
-        serve(serverCertificate("nextcloud.local", ourCa), ourCa)
+        serve(serverCertificate("nextcloud.home.arpa", ourCa), ourCa)
 
         assertTrue(failureOf { remote(certificateName = "").checkConnection() } is SSLPeerUnverifiedException)
     }
@@ -82,15 +81,15 @@ class TlsTest {
     fun `certificate from our CA for another name is refused`() {
         serve(serverCertificate("impostor.local", ourCa), ourCa)
 
-        assertTrue(failureOf { remote(certificateName = "nextcloud.local").checkConnection() } is SSLPeerUnverifiedException)
+        assertTrue(failureOf { remote(certificateName = "nextcloud.home.arpa").checkConnection() } is SSLPeerUnverifiedException)
     }
 
     @Test
     fun `certificate with the right name from another CA is refused`() {
         val otherCa = ca("Some Other CA")
-        serve(serverCertificate("nextcloud.local", otherCa), otherCa)
+        serve(serverCertificate("nextcloud.home.arpa", otherCa), otherCa)
 
-        assertTrue(failureOf { remote(certificateName = "nextcloud.local").checkConnection() } is SSLHandshakeException)
+        assertTrue(failureOf { remote(certificateName = "nextcloud.home.arpa").checkConnection() } is SSLHandshakeException)
     }
 
     @Test
@@ -102,11 +101,22 @@ class TlsTest {
     }
 
     @Test
-    fun `bundled CA is the Nextcloud one`() {
-        val pem = javaClass.classLoader!!.getResourceAsStream("nextcloud_ca.pem")
-            ?: java.io.File("src/main/res/raw/nextcloud_ca.pem").inputStream()
-        val trustManager = Tls.trustManagerFor(pem)
+    fun `without an imported CA the system roots are used and a private CA is refused`() {
+        serve(serverCertificate("nextcloud.home.arpa", ourCa), ourCa)
 
-        assertEquals(listOf("CN=Home CA"), trustManager.acceptedIssuers.map { it.subjectX500Principal.name })
+        assertTrue(failureOf { remote(certificateName = "nextcloud.home.arpa", caPem = null).checkConnection() } is SSLHandshakeException)
+    }
+
+    @Test
+    fun `a newly imported CA takes effect on the next client`() {
+        serve(serverCertificate("nextcloud.home.arpa", ourCa), ourCa)
+        var imported: String? = null
+        val factory = NextcloudClientFactory(caPem = { imported }, provider = { null }, userAgent = "test")
+        val config = ServerConfig(server.url("/").toString(), "alice", "secret", certificateName = "nextcloud.home.arpa")
+
+        assertTrue(failureOf { factory.create(config).checkConnection() } is SSLHandshakeException)
+        imported = ourCa.certificatePem()
+        server.enqueue(MockResponse().setResponseCode(207).setBody("""<d:multistatus xmlns:d="DAV:"/>"""))
+        factory.create(config).checkConnection()
     }
 }
