@@ -86,3 +86,7 @@ Look at `git log --oneline` for the style. Each message:
 
 Open an issue with the steps to reproduce, the Android version and the tablet model. For a security problem, do not
 open a public issue. Follow [Security](SECURITY.md) instead.
+
+## License
+
+By contributing, you agree that your contributions are licensed under the [Apache License, Version 2.0](LICENSE).

@@ -86,4 +86,6 @@ The [documentation index](docs/README.md) lists every document. The main entry p
 
 ## License
 
-See [LICENSE](LICENSE).
+Copyright 2026 David Parla.
+
+Libreta is licensed under the [Apache License, Version 2.0](LICENSE).
