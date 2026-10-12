@@ -197,7 +197,7 @@ class NoteListActivity : Activity() {
         if (query.isBlank()) return adapter.submit(shown)
         val byPath = shown.associateBy { it.path }
         val hits = NoteSearch.search(shown.map { it.searchable }, query)
-        adapter.submit(hits.mapNotNull { byPath[it.path] }, hits.mapNotNull { hit -> byPath[hit.path]?.let { it to hit } }.toMap())
+        adapter.submit(hits.mapNotNull { byPath[it.path] }, hits.associateBy { it.path })
     }
 
     private fun onSyncStatus(status: SyncStatus) {

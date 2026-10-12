@@ -6,7 +6,12 @@ import java.text.Normalizer
  * What a note can be found by (docs/11-busqueda.md): its title, its text (for a handwritten note, only what the user
  * typed, not the page images) and, for a handwritten note, what each page says.
  */
-data class SearchableNote(val path: NotePath, val title: String, val text: String, val pages: List<String> = emptyList())
+data class SearchableNote(val path: NotePath, val title: String, val text: String, val pages: List<String> = emptyList()) {
+    // Normalized once, on the first search, not on every keystroke. In the body, so not part of equals/hashCode/copy.
+    internal val normalizedTitle: String by lazy { NoteSearch.normalize(title) }
+    internal val normalizedText: String by lazy { NoteSearch.normalize(text) }
+    internal val normalizedPages: List<String> by lazy { pages.map { NoteSearch.normalize(it) } }
+}
 
 /** Where a query was found: in the title, the text, or page [page] (0-based) of the handwriting. */
 data class SearchHit(val path: NotePath, val where: Where, val page: Int, val snippet: String) {
@@ -24,15 +29,21 @@ object NoteSearch {
     }
 
     private fun hitIn(note: SearchableNote, needle: String): SearchHit? {
-        snippetOf(note.title, needle)?.let { return SearchHit(note.path, SearchHit.Where.TITLE, -1, it) }
-        snippetOf(note.text, needle)?.let { return SearchHit(note.path, SearchHit.Where.TEXT, -1, it) }
-        note.pages.forEachIndexed { i, page -> snippetOf(page, needle)?.let { return SearchHit(note.path, SearchHit.Where.PAGE, i, it) } }
+        snippetOf(note.title, note.normalizedTitle, needle)?.let { return SearchHit(note.path, SearchHit.Where.TITLE, -1, it) }
+        snippetOf(note.text, note.normalizedText, needle)?.let { return SearchHit(note.path, SearchHit.Where.TEXT, -1, it) }
+        val normalizedPages = note.normalizedPages
+        note.pages.forEachIndexed { i, page ->
+            snippetOf(page, normalizedPages[i], needle)?.let { return SearchHit(note.path, SearchHit.Where.PAGE, i, it) }
+        }
         return null
     }
 
-    /** About [SNIPPET] characters of [text] around the first match of [needle], on one line; null if it is not there. */
-    private fun snippetOf(text: String, needle: String): String? {
-        val at = normalize(text).indexOf(needle)
+    /**
+     * About [SNIPPET] characters of [text] around the first match of [needle] in [normalized] (its [normalize]d form,
+     * the same length), on one line; null if it is not there.
+     */
+    private fun snippetOf(text: String, normalized: String, needle: String): String? {
+        val at = normalized.indexOf(needle)
         if (at < 0) return null
         // Widened to whole words when a word boundary is near, so a snippet does not start or end mid-word.
         var start = (at - SNIPPET / 2).coerceAtLeast(0)
@@ -45,7 +56,7 @@ object NoteSearch {
         var e = end
         while (e < latest && !text[e].isWhitespace()) e++
         if (e == text.length || text[e].isWhitespace()) end = e
-        val piece = text.substring(start, end).replace(Regex("""\s+"""), " ").trim()
+        val piece = text.substring(start, end).replace(WHITESPACE, " ").trim()
         return (if (start > 0) "…" else "") + piece + (if (end < text.length) "…" else "")
     }
 
@@ -55,13 +66,25 @@ object NoteSearch {
      */
     fun normalize(text: String): String {
         val out = StringBuilder(text.length)
-        for (c in text) {
-            // ASCII needs no decomposing; the rest loses its accent with NFD (é = e + ´).
-            val base = if (c.code < 128) c else Normalizer.normalize(c.toString(), Normalizer.Form.NFD)[0]
-            out.append(base.lowercaseChar())
-        }
+        for (c in text) out.append(if (c.code < 128) c.lowercaseChar() else folded(c))
         return out.toString()
     }
+
+    /** What a non-ASCII [c] becomes: the base of its NFD form (é = e + ´) in lower case, worked out once per character. */
+    private fun folded(c: Char): Char {
+        val table = foldedTable
+        var folded = table[c.code]
+        if (folded == NOT_YET) {
+            folded = Normalizer.normalize(c.toString(), Normalizer.Form.NFD)[0].lowercaseChar()
+            table[c.code] = folded
+        }
+        return folded
+    }
+
+    // Filled as characters turn up (a racing thread just works the same answer out twice). No NFD form starts with 0.
+    private val foldedTable: CharArray by lazy { CharArray(Char.MAX_VALUE.code + 1) }
+    private const val NOT_YET = '\u0000'
+    private val WHITESPACE = Regex("""\s+""")
 
     private const val SNIPPET = 60
     private const val WORD_REACH = 15

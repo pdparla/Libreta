@@ -1,5 +1,6 @@
 package com.parla.libreta.core.note
 
+import java.text.Normalizer
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -40,4 +41,27 @@ class NoteSearchTest {
 
     @Test
     fun `an empty query finds nothing`() = assertEquals(emptyList<SearchHit>(), NoteSearch.search(notes, "  "))
+
+    @Test
+    fun `normalize gives for every character what the NFD algorithm gave`() {
+        for (code in 0..0xFFFF) {
+            val c = code.toChar()
+            val base = if (code < 128) c else Normalizer.normalize(c.toString(), Normalizer.Form.NFD)[0]
+            val expected = base.lowercaseChar().toString()
+            assertEquals("U+%04X".format(code), expected, NoteSearch.normalize(c.toString()))
+            // Asked again, from the cache.
+            assertEquals("U+%04X".format(code), expected, NoteSearch.normalize(c.toString()))
+        }
+    }
+
+    @Test
+    fun `normalized forms do not take part in equality and a search finds the same again`() {
+        val a = SearchableNote(NotePath("A.md"), "Árbol", "Sombra")
+        val b = a.copy()
+        NoteSearch.search(listOf(a), "arbol")
+
+        assertEquals(b, a)
+        assertEquals(b.hashCode(), a.hashCode())
+        assertEquals(NoteSearch.search(listOf(b), "sombra"), NoteSearch.search(listOf(a), "sombra"))
+    }
 }
