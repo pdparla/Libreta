@@ -20,6 +20,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.PopupMenu
 import android.widget.Toast
 import com.parla.libreta.R
 import com.parla.libreta.container
@@ -39,6 +40,7 @@ import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.data.ai.TurnHandle
 import com.parla.libreta.ui.CategoryPicker
 import com.parla.libreta.ui.NoteEditorActivity
+import com.parla.libreta.data.ai.MathTask
 import com.parla.libreta.ui.ai.AiChatActivity
 import com.parla.libreta.ui.ai.AiMessages
 import com.parla.libreta.ui.dictation.Dictation
@@ -104,6 +106,7 @@ class InkNoteActivity : Activity() {
     private lateinit var pasteButton: View
     private lateinit var convertButton: View
     private lateinit var chatButton: View
+    private lateinit var mathButton: View
     private lateinit var titleButton: View
     private lateinit var tagButton: View
     private lateinit var selectionColor: View
@@ -230,6 +233,7 @@ class InkNoteActivity : Activity() {
         pasteButton = findViewById(R.id.ink_paste)
         convertButton = findViewById(R.id.ink_convert)
         chatButton = findViewById(R.id.ink_chat)
+        mathButton = findViewById(R.id.ink_math)
         titleButton = findViewById(R.id.ink_title)
         tagButton = findViewById(R.id.ink_tag)
         selectionColor = findViewById(R.id.ink_selection_color)
@@ -267,6 +271,7 @@ class InkNoteActivity : Activity() {
         tagButton.setOnClickListener { markSelection(InkMark.Kind.TAG) }
         findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
         chatButton.setOnClickListener { chatAboutSelection() }
+        mathButton.setOnClickListener { chooseMathTask() }
 
         // One colour for the pen and the bucket; picking it keeps the tool it was picked for.
         for (view in listOf(colorView, fillColorView)) {
@@ -401,6 +406,7 @@ class InkNoteActivity : Activity() {
         pasteButton.visibility = visibleIf(!InkClipboard.isEmpty)
         convertButton.isEnabled = selected
         chatButton.isEnabled = selected
+        mathButton.isEnabled = holdsInk
         titleButton.isEnabled = holdsInk
         tagButton.isEnabled = holdsInk
         selectedStrokes().firstOrNull()?.let { first ->
@@ -696,7 +702,17 @@ class InkNoteActivity : Activity() {
         }
     }
 
-    private fun chatAboutSelection() {
+    /** "Mates": solve the selected mathematics, or check the steps written (docs/guide/assistant.md). */
+    private fun chooseMathTask() {
+        val tasks = listOf(MathTask.SOLVE to R.string.ink_math_solve, MathTask.CHECK to R.string.ink_math_check)
+        val menu = PopupMenu(this, mathButton)
+        tasks.forEachIndexed { i, (_, label) -> menu.menu.add(0, i, i, label) }
+        menu.setOnMenuItemClickListener { item -> chatAboutSelection(tasks[item.itemId].first); true }
+        menu.show()
+    }
+
+    /** A chat about the selection; with [task], one that opens by solving or checking its mathematics. */
+    private fun chatAboutSelection(task: MathTask? = null) {
         if (!signedIn()) return
         val selection = selectionToRender() ?: return
         save()
@@ -705,7 +721,7 @@ class InkNoteActivity : Activity() {
         container.aiBackground.execute({ file.writeBytes(selection.image()) }) { result ->
             if (isDestroyed) return@execute
             result
-                .onSuccess { startActivity(AiChatActivity.intent(this, file, note?.path?.category ?: category)) }
+                .onSuccess { startActivity(AiChatActivity.intent(this, file, note?.path?.category ?: category, task)) }
                 .onFailure { Toast.makeText(this, R.string.error_saving, Toast.LENGTH_LONG).show() }
         }
     }

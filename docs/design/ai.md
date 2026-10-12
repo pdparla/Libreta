@@ -159,6 +159,22 @@ written as Markdown (lists, headings, line breaks) with no comments.
   precondition-checked merge as saving, so it never overwrites changes made in the meantime (`InkNoteService.addText`).
   The strokes are never touched, and the text is visible in Nextcloud Notes.
 
+## Solve or check math
+
+«Mates» opens the chat about the selection with a `MathTask`, and the chat sends its first message at once.
+
+- **Two texts per message.** The conversation shows the task's short label («Resuélvelo.» or «Comprueba mis
+  cálculos.»), and the model gets the task's request: read the mathematics and write it back in LaTeX first, so the
+  user can see a misreading, then solve step by step or review every step and point to the first wrong one without
+  redoing the exercise. `AiAssistant.send` takes the request separately (`request`), and `AiConversation` already
+  keeps a shown text and a model text for each user message.
+- **More reasoning.** The whole conversation uses `MATH_MODEL`, the chat model with `high` reasoning effort instead of
+  `medium`. A wrong step or a missed error costs more than a slower answer.
+- **Formulas everywhere.** Every chat, and "convert to text", asks for formulas in LaTeX with `$` inline and `$$` on
+  their own line, which is what the formatted view draws (see
+  [Formulas](architecture.md#formulas)). The instructions also forbid `\(` and `\[`, which Markwon does not read.
+- **Selection.** «Mates» is enabled when the selection holds ink, like «Título» and «Etiqueta».
+
 ## Notebook tools
 
 The general chat ("ask your notebook") and the chat about a selection use the same tools. The model searches, reads

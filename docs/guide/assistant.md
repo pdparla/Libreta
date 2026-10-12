@@ -88,6 +88,28 @@ The picture is sent with your first message only, and the assistant has the whol
 
 In this chat the assistant can also use the notebook tools and search the web.
 
+## Solve or check math
+
+The assistant can work on mathematics you wrote by hand: arithmetic, algebra, equations, derivatives and so on.
+
+1. In a handwritten note, select the formula or the steps with the «Seleccionar» tool.
+2. Tap «Mates» (Math) and choose one option:
+   - «Resolver» (Solve): the assistant solves it step by step, with one sentence per step, and ends with the result
+     in bold.
+   - «Comprobar mis cálculos» (Check my working): the assistant reviews your steps. If they are right, it says so. If
+     not, it points to the first wrong step, explains why, and writes the correct step, without redoing the whole
+     exercise.
+3. The chat about the selection opens and sends the request at once. Your message reads «Resuélvelo.» (Solve it.) or
+   «Comprueba mis cálculos.» (Check my working.).
+
+Either way, the answer starts with what the assistant read, as a formula, so that you can see whether it understood
+your handwriting. If it misread something, say so in the chat and it corrects itself. You can keep asking in the same
+chat, and save it as a note like any other.
+
+These chats take a little longer, because the assistant thinks harder about mathematics.
+
+Formulas in every chat are drawn, not shown as LaTeX. See [Formulas](notes.md#formulas).
+
 ## Save a chat as a note
 
 Tap «Guardar como nota» (Save as note) in the top bar of the chat.

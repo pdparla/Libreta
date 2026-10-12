@@ -35,6 +35,7 @@ import com.parla.libreta.core.note.NoteStoreException
 import com.parla.libreta.core.note.readOrNull
 import com.parla.libreta.data.ai.AiAssistant
 import com.parla.libreta.data.ai.AiConversation
+import com.parla.libreta.data.ai.MathTask
 import com.parla.libreta.data.ai.NotebookTools
 import com.parla.libreta.data.ai.TurnHandle
 import com.parla.libreta.ui.Markdown
@@ -74,6 +75,9 @@ class AiChatActivity : Activity() {
     private val markwon by lazy { Markdown.forChat(this, ::openCitation, ::showWebLink) }
     private lateinit var tools: NotebookTools
 
+    /** Set when the chat opened to solve or check mathematics; the whole conversation then thinks harder. */
+    private var task: MathTask? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ai_chat)
@@ -106,6 +110,9 @@ class AiChatActivity : Activity() {
         tools.confirm = ::askPermission
 
         send.setOnClickListener { if (turn != null) turn?.cancel() else send() }
+        // Opened to solve or check the selection's mathematics: that is the first message, sent at once.
+        task = intent.getStringExtra(EXTRA_MATH)?.let { name -> MathTask.values().firstOrNull { it.name == name } }
+        task?.let { if (savedInstanceState == null && image != null) send(it.label, it.request) }
         findViewById<View>(R.id.ai_dictate).setOnClickListener {
             // Into the field, to check before sending.
             Dictation.start(this) { text ->
@@ -137,9 +144,10 @@ class AiChatActivity : Activity() {
         return true
     }
 
-    private fun send() {
+    /** Sends what is in the field, or [typed] with [request] for the model (a [MathTask]). */
+    private fun send(typed: String? = null, request: String? = null) {
         if (container.chatGptSessions.load() == null) return AiMessages.showSignInNeeded(this)
-        val text = input.text.toString()
+        val text = typed ?: input.text.toString()
         val shown = text.trim().ifEmpty { if (conversation.messages.isEmpty() && conversation.image != null) AiAssistant.EXPLAIN_REQUEST else return }
         val question = addMessage(Speaker.USER, shown)
         val answer = addMessage(Speaker.ASSISTANT, getString(R.string.ai_thinking))
@@ -163,7 +171,8 @@ class AiChatActivity : Activity() {
             Unit
         }
         container.aiBackground.execute({
-            container.ai.send(conversation, text, handle, tools, onToolCall = onToolCall) { piece ->
+            val model = if (task != null) AiAssistant.MATH_MODEL else AiAssistant.CHAT_MODEL
+            container.ai.send(conversation, text, handle, tools, onToolCall = onToolCall, model = model, request = request) { piece ->
                 mainThread.post {
                     if (turn !== handle) return@post
                     received.append(piece)
@@ -186,7 +195,7 @@ class AiChatActivity : Activity() {
                     // The message is out of the conversation again: give it back to send later.
                     messages.removeView(question)
                     toolLines.forEach(messages::removeView)
-                    input.setText(text)
+                    if (typed == null) input.setText(text)
                     if (handle.isCancelled) {
                         messages.removeView(answer)
                     } else {
@@ -358,6 +367,7 @@ class AiChatActivity : Activity() {
         const val SELECTION_FILE = "ai-selection.png"
         private const val EXTRA_IMAGE = "image"
         private const val EXTRA_CATEGORY = "category"
+        private const val EXTRA_MATH = "math"
         private const val USER_BACKGROUND = 0xFFE8F0FE.toInt()
         private const val ASSISTANT_BACKGROUND = 0xFFF1F3F4.toInt()
         private const val ERROR_COLOR = 0xFFC5221F.toInt()
@@ -371,10 +381,14 @@ class AiChatActivity : Activity() {
         fun intentForNotebook(context: Context, category: String): Intent =
             Intent(context, AiChatActivity::class.java).putExtra(EXTRA_CATEGORY, category)
 
-        /** A conversation about [image] (PNG); "Guardar como nota" saves it in [category]. */
-        fun intent(context: Context, image: File, category: String): Intent =
+        /**
+         * A conversation about [image] (PNG); "Guardar como nota" saves it in [category]. With [task], it starts by
+         * solving or checking the image's mathematics.
+         */
+        fun intent(context: Context, image: File, category: String, task: MathTask? = null): Intent =
             Intent(context, AiChatActivity::class.java)
                 .putExtra(EXTRA_IMAGE, image.path)
                 .putExtra(EXTRA_CATEGORY, category)
+                .putExtra(EXTRA_MATH, task?.name)
     }
 }

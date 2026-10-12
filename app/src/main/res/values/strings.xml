@@ -63,6 +63,9 @@
     <string name="ink_fill_nothing">Toca dentro de la figura, no encima de la tinta.</string>
     <string name="ink_select_hint">Marca un recuadro; luego arrástralo o tira de su esquina</string>
     <string name="ink_convert">A texto</string>
+    <string name="ink_math">Mates</string>
+    <string name="ink_math_solve">Resolver</string>
+    <string name="ink_math_check">Comprobar mis cálculos</string>
     <string name="ink_chat">Chat IA</string>
     <string name="ink_selection_empty">No hay nada escrito en el recuadro.</string>
     <string name="ink_zoom_in">Ampliar</string>

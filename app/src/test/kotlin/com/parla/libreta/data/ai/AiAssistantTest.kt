@@ -71,6 +71,35 @@ class AiAssistantTest {
     }
 
     @Test
+    fun `a math task shows its label, sends its request and thinks harder`() {
+        server.enqueue(answer("\$\$x = 2\$\$"))
+        val conversation = AiConversation(byteArrayOf(1))
+
+        assistant().send(conversation, MathTask.CHECK.label, TurnHandle(), model = AiAssistant.MATH_MODEL, request = MathTask.CHECK.request) {}
+
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertEquals("high", body.getJSONObject("reasoning").getString("effort"))
+        val content = body.getJSONArray("input").getJSONObject(0).getJSONArray("content")
+        assertEquals(MathTask.CHECK.request, content.getJSONObject(0).getString("text"))
+        assertEquals("data:image/png;base64,AQ==", content.getJSONObject(1).getString("image_url"))
+        assertEquals(MathTask.CHECK.label, conversation.messages[0].text)
+    }
+
+    @Test
+    fun `every chat is asked for formulas in LaTeX with dollars`() {
+        server.enqueue(answer("Hola."))
+        server.enqueue(answer("Hola."))
+
+        assistant().send(AiConversation(byteArrayOf(1)), "Hola", TurnHandle()) {}
+        assistant().send(AiConversation(null), "Hola", TurnHandle()) {}
+
+        repeat(2) {
+            val instructions = JSONObject(server.takeRequest().body.readUtf8()).getString("instructions")
+            assertTrue(instructions, instructions.contains("LaTeX, entre $ en línea"))
+        }
+    }
+
+    @Test
     fun `a failed message is taken back out of the conversation`() {
         server.enqueue(MockResponse().setResponseCode(500))
         val conversation = AiConversation(byteArrayOf(1))

@@ -282,6 +282,11 @@
                 android:text="@string/ink_chat" />
 
             <TextView
+                android:id="@+id/ink_math"
+                style="@style/InkWidth"
+                android:text="@string/ink_math" />
+
+            <TextView
                 android:id="@+id/ink_title"
                 style="@style/InkWidth"
                 android:text="@string/ink_title" />

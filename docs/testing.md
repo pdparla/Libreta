@@ -53,11 +53,12 @@ minutes instead of hanging the build.
 | Area | Test classes | What they check |
 |---|---|---|
 | Sync over the network | `NextcloudWebDavSyncTest`, `SyncIntegrationTest`, `NotesAppSettingsTest` | WebDAV requests and ETags against a fake Nextcloud; the real adapters together (files on disk, WebDAV, state file); the Notes app folder setting |
-| TLS | `TlsTest` | Trust of a private CA only; the certificate-name verifier; certificates for another name or from another CA are refused |
+| TLS | `TlsTest`, `NextcloudCaStoreTest` | Trust of an imported private CA only, the system roots without one, and a new import taking effect; the certificate-name verifier; certificates for another name or from another CA are refused; importing, naming and removing the CA |
 | Local storage | `FileNoteRepositoryTest`, `FileSyncStateStoreTest` | Notes and sync state on disk, atomic writes |
 | ChatGPT sign-in | `ChatGptAuthTest`, `ChatGptSessionStoreTest` | Token refresh and rotation, `invalid_grant`, revocation, session storage and its cache |
-| Responses API | `ResponsesClientTest`, `AiAssistantTest` | Streaming, a retry after 401, usage limit in the middle of a stream, HTTP errors, a cut stream; only the first message carries the image; the whole conversation is resent; a failure leaves no half message; the tool loop (call, result, denied permission); web searches announced and sources added |
+| Responses API | `ResponsesClientTest`, `AiAssistantTest` | Streaming, a retry after 401, usage limit in the middle of a stream, HTTP errors, a cut stream; only the first message carries the image; the whole conversation is resent; a failure leaves no half message; the tool loop (call, result, denied permission); web searches announced and sources added; a math task shows its label, sends its request with `high` reasoning; every chat asks for LaTeX |
 | Dictation | `SttClientTest` | A real HTTPS server with a self-signed certificate: token, `401`, a different certificate is refused, not paired, WAV header |
+| Formulas | `InlineMathTest` | `$x$` with single dollars: where a formula starts and ends, prices stay text, `$$` is left to Markwon, escaped dollars, no formula across paragraphs |
 | Threads | `IdleExecutorTest` | Tasks run in order on one named thread, and the thread ends when idle |
 
 `AiTesting.kt`, `FakeNextcloud.kt` and `core/.../testing/Fakes.kt` hold the shared test helpers.
@@ -142,17 +143,20 @@ ChatGPT session for the AI and a paired dictation server for voice. Skip the sec
    (Stop) returns the question to the input field, and that an empty first message asks the model to explain the
    selection.
 4. Save the conversation as a note. Check that it syncs with the selection image.
-5. Mark a title and a tag. Check that the AI proposes the text, that the index and the tag filter show them, and
+5. Write `1+1=1`, select it, and choose «Mates» > «Comprobar mis cálculos». Check that the chat sends «Comprueba mis
+   cálculos.» on its own, that the answer starts with the formula it read, drawn rather than as LaTeX, and that it
+   points out the error. Choose «Resolver» on an equation and check the steps and the result in bold.
+6. Mark a title and a tag. Check that the AI proposes the text, that the index and the tag filter show them, and
    that the Markdown has the `## Índice` block and the `Etiquetas:` line.
-6. Open the note menu and choose «Pasar a limpio» (Clean copy) on a note with two pages. Check the progress messages,
+7. Open the note menu and choose «Pasar a limpio» (Clean copy) on a note with two pages. Check the progress messages,
    that the new note is formatted, is in the same category and ends with the source line, and that the handwritten note
    did not change.
-7. In the general chat, ask about a text note and a handwritten note. Check the gray tool lines, the note links (the link
+8. In the general chat, ask about a text note and a handwritten note. Check the gray tool lines, the note links (the link
    opens the note, on the right page for handwriting), and the permission dialog for creating a note. Decline once
    and check that nothing is written.
-8. Ask for something current. Check the "searching the web" line, the source links, the address dialog when you tap a
+9. Ask for something current. Check the "searching the web" line, the source links, the address dialog when you tap a
    link, and that a second question works after the search.
-9. Select «Cerrar sesión» (Sign out). Check that the account disappears and that AI actions ask you to sign in.
+10. Select «Cerrar sesión» (Sign out). Check that the account disappears and that AI actions ask you to sign in.
 
 ### Search over handwriting
 

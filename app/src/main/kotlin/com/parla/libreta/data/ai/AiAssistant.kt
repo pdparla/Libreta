@@ -87,6 +87,9 @@ class AiAssistant(private val responses: ResponsesClient) {
      * answers. With [webSearch] it can also search the web (docs/design/ai.md): each search is announced to
      * [onToolCall] as [WEB_SEARCH], and the pages it cites without a link in the text are added as sources. If
      * anything fails, the message and all it added are taken back out so it can be sent again.
+     *
+     * The model gets [request] instead of [text] when there is one: [text] is what the conversation shows, as for a
+     * [MathTask], whose instructions the user does not need to read.
      */
     fun send(
         conversation: AiConversation,
@@ -95,13 +98,16 @@ class AiAssistant(private val responses: ResponsesClient) {
         tools: NotebookTools? = null,
         onToolCall: (name: String, arguments: JSONObject) -> Unit = { _, _ -> },
         webSearch: Boolean = true,
+        model: AiModel = CHAT_MODEL,
+        request: String? = null,
         onText: (String) -> Unit,
     ): String {
         val trimmed = text.trim()
-        val modelText = if (trimmed.isEmpty() && conversation.messages.isEmpty() && conversation.image != null) EXPLAIN_REQUEST else trimmed
+        val modelText = request
+            ?: if (trimmed.isEmpty() && conversation.messages.isEmpty() && conversation.image != null) EXPLAIN_REQUEST else trimmed
         val mark = conversation.mark()
         conversation.addUser(trimmed.ifEmpty { modelText }, modelText)
-        val instructions = (if (conversation.image != null) CHAT_INSTRUCTIONS else NOTEBOOK_INSTRUCTIONS) +
+        val instructions = (if (conversation.image != null) CHAT_INSTRUCTIONS else NOTEBOOK_INSTRUCTIONS) + LATEX_INSTRUCTIONS +
             (if (tools != null) TOOLS_INSTRUCTIONS else "") + (if (webSearch) WEB_INSTRUCTIONS else "")
         val definitions = JSONArray()
         tools?.definitions?.let { for (i in 0 until it.length()) definitions.put(it.get(i)) }
@@ -113,7 +119,7 @@ class AiAssistant(private val responses: ResponsesClient) {
         }
         try {
             repeat(MAX_TOOL_ROUNDS) {
-                val result = responses.respond(CHAT_MODEL, instructions, conversation.input(), handle, definitions, onItem, onText)
+                val result = responses.respond(model, instructions, conversation.input(), handle, definitions, onItem, onText)
                 conversation.addOutput(result)
                 val calls = result.calls
                 if (calls.isEmpty() || tools == null) {
@@ -156,7 +162,8 @@ class AiAssistant(private val responses: ResponsesClient) {
         private const val CONVERT_INSTRUCTIONS =
             "Transcribe el texto manuscrito de la imagen a Markdown. Reproduce exactamente lo escrito, en su idioma y " +
                 "sin corregirlo: respeta los saltos de línea, usa listas de Markdown para las listas y # solo para " +
-                "títulos claros. Ignora los dibujos. Devuelve solo el Markdown, sin comentarios ni bloques de código. " +
+                "títulos claros. Escribe las fórmulas en LaTeX, entre $ en línea y entre $$ si ocupan su propia línea. " +
+                "Ignora los dibujos. Devuelve solo el Markdown, sin comentarios ni bloques de código. " +
                 "Si no hay texto legible, no devuelvas nada."
         private const val CONVERT_REQUEST = "Transcribe este recorte."
 
@@ -169,6 +176,13 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "sincronizadas con Nextcloud). Ayudas al usuario con sus notas: encontrar, resumir, relacionar y " +
                 "ordenar lo que ha apuntado. Responde en español, de forma breve y clara, en Markdown (párrafos, " +
                 "listas y negrita; tablas solo si ayudan)."
+
+        /** The formatted view and the chat draw LaTeX (docs/design/architecture.md#formulas). */
+        private const val LATEX_INSTRUCTIONS =
+            " Escribe las fórmulas en LaTeX, entre $ en línea y entre $$ si ocupan su propia línea; no uses \\( ni \\[."
+
+        /** Mathematics deserves more thought: a wrong step or a missed error is worse than a slower answer. */
+        val MATH_MODEL = AiModel("gpt-6.1-sol", "high")
 
         private const val TOOLS_INSTRUCTIONS =
             " Tienes herramientas para buscar, listar, leer, crear notas y añadir texto a una nota. Úsalas en lugar de " +
@@ -218,3 +232,23 @@ private fun inputText(text: String) = JSONObject().put("type", "input_text").put
 
 private fun inputImage(png: ByteArray) =
     JSONObject().put("type", "input_image").put("image_url", "data:image/png;base64," + ByteString.of(*png).base64())
+
+/**
+ * What to do with handwritten mathematics in a selection (docs/guide/assistant.md#solve-or-check-math): the
+ * conversation shows [label] as the user's message, and the model gets [request].
+ */
+enum class MathTask(val label: String, val request: String) {
+    SOLVE(
+        "Resuélvelo.",
+        "Lee las matemáticas del recorte. Escribe primero, en LaTeX, lo que has leído, para que pueda ver si lo has " +
+            "entendido bien. Después resuélvelo paso a paso, con una frase que explique cada paso, y termina con el " +
+            "resultado en negrita. Si el enunciado es ambiguo o falta algún dato, dilo y resuelve el caso más razonable.",
+    ),
+    CHECK(
+        "Comprueba mis cálculos.",
+        "Lee las matemáticas del recorte: son cálculos o pasos que he hecho yo. Escribe primero, en LaTeX, lo que has " +
+            "leído. Después revisa cada paso. Si todo está bien, dilo. Si hay un error, señala el primer paso " +
+            "equivocado, explica por qué está mal y escribe cómo sería el paso correcto, sin rehacer todo el " +
+            "ejercicio. Si no puedes leer algo, dilo en lugar de suponerlo.",
+    ),
+}

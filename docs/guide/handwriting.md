@@ -108,6 +108,7 @@ The text buttons in the same row are:
 
 - «A texto» (To text): converts the selection to text. See [Convert a selection to text](#convert-a-selection-to-text).
 - «Chat IA» (AI chat): opens a chat about the selection. See [The assistant](assistant.md#chat-about-a-selection).
+- «Mates» (Math): solves the selected mathematics or checks your steps. See [Solve or check math](assistant.md#solve-or-check-math).
 - «Título» (Title) and «Etiqueta» (Tag): mark the selection as a title or a tag. See [Titles, tags and the index](organize.md).
 
 ## Fill shapes
