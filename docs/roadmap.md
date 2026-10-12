@@ -31,7 +31,7 @@ conversación; el servidor no tiene GPU.
 | 13 | [Títulos, etiquetas e índice](#fase-13-títulos-etiquetas-e-índice) — **hecha**, ver [`13-indice.md`](13-indice.md) | M | 8 (selección), 11 (transcripción) |
 | 14 | [Pasar a limpio una nota entera](#fase-14-pasar-a-limpio-una-nota-entera) — **hecha**, ver [`14-pasar-a-limpio.md`](14-pasar-a-limpio.md) | S | — |
 | 15 | Rellenar figuras con un bote de pintura — **hecha**, ver [`15-relleno.md`](15-relleno.md) | M | — |
-| 16 | Grosor de la pluma y tamaño del borrador a medida — ver [`16-grosor.md`](16-grosor.md) | S | — |
+| 16 | Grosor de la pluma y tamaño del borrador a medida — **hecha**, ver [`16-grosor.md`](16-grosor.md) | S | — |
 | 17 | Búsqueda web en las conversaciones con la IA — ver [`17-busqueda-web.md`](17-busqueda-web.md) | S–M | 12 |
 | — | [Sin prioridad](#sin-prioridad) | | |
 

@@ -42,14 +42,10 @@
     <string name="ink_page_upright">Vertical</string>
     <string name="ink_page_landscape">Horizontal</string>
     <string name="ink_color">Color</string>
-    <string name="ink_width_thin">Fino</string>
-    <string name="ink_width_medium">Medio</string>
-    <string name="ink_width_thick">Grueso</string>
+    <string name="ink_pen_size">Grosor de la pluma</string>
+    <string name="ink_eraser_size">Tamaño del borrador</string>
     <string name="ink_erase_area">Donde toco</string>
     <string name="ink_erase_strokes">Trazo entero</string>
-    <string name="ink_eraser_small">Pequeño</string>
-    <string name="ink_eraser_medium">Mediano</string>
-    <string name="ink_eraser_large">Grande</string>
     <string name="ink_paper_blank">En blanco</string>
     <string name="ink_paper_lined">Pautado</string>
     <string name="ink_paper_grid">Cuadrícula</string>

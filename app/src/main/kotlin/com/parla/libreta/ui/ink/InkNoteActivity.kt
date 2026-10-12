@@ -17,6 +17,8 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import com.parla.libreta.R
@@ -26,6 +28,7 @@ import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkMark
 import com.parla.libreta.core.ink.InkOutline
 import com.parla.libreta.core.ink.InkRect
+import com.parla.libreta.core.ink.InkSizes
 import com.parla.libreta.core.ink.InkTranscripts
 import com.parla.libreta.core.ink.InkNote
 import com.parla.libreta.core.ink.Paper
@@ -64,12 +67,10 @@ class InkNoteActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val autosave = Runnable { save() }
 
-    private val widths = listOf(2f, 3.5f, 6f)
-    private val eraserRadii = listOf(5f, 10f, 22f)
     private lateinit var colorView: View
     private lateinit var fillColorView: View
-    private lateinit var widthViews: List<View>
-    private lateinit var eraserRadiusViews: List<View>
+    private lateinit var penSize: SeekBar
+    private lateinit var eraserSize: SeekBar
     private val toolPreferences by lazy { getSharedPreferences(PREFERENCES_TOOLS, MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -184,30 +185,53 @@ class InkNoteActivity : Activity() {
                 }
             }
         }
-        widthViews = listOf(R.id.ink_width_thin, R.id.ink_width_medium, R.id.ink_width_thick).map { findViewById(it) }
-        widthViews.forEachIndexed { i, view ->
-            view.setOnClickListener {
-                inkView.penWidth = widths[i]
-                selectTool(InkView.Tool.PEN)
-            }
-        }
         findViewById<View>(R.id.ink_erase_area).setOnClickListener { inkView.eraseWholeStrokes = false; updateControls() }
         findViewById<View>(R.id.ink_erase_strokes).setOnClickListener { inkView.eraseWholeStrokes = true; updateControls() }
-        eraserRadiusViews = listOf(R.id.ink_eraser_small, R.id.ink_eraser_medium, R.id.ink_eraser_large).map { findViewById(it) }
-        eraserRadiusViews.forEachIndexed { i, view ->
-            view.setOnClickListener {
-                inkView.eraserRadius = eraserRadii[i]
-                updateControls()
-            }
-        }
+        // Any size, with a slider (docs/16-grosor.md).
+        penSize = findViewById(R.id.ink_pen_size)
+        penSize.setOnSeekBarChangeListener(onSizeChange { inkView.penWidth = InkSizes.PEN.valueAt(it) })
+        eraserSize = findViewById(R.id.ink_eraser_size)
+        eraserSize.setOnSeekBarChangeListener(onSizeChange { inkView.eraserRadius = InkSizes.ERASER.valueAt(it) })
 
         // The last pen and eraser used, in any note.
         inkView.penColor = toolPreferences.getInt(PREF_PEN_COLOR, ColorPalette.defaultColor)
-        inkView.penWidth = toolPreferences.getFloat(PREF_PEN_WIDTH, widths[1]).takeIf { it in widths } ?: widths[1]
+        inkView.penWidth = InkSizes.PEN.coerce(toolPreferences.getFloat(PREF_PEN_WIDTH, DEFAULT_PEN_WIDTH))
         inkView.eraseWholeStrokes = toolPreferences.getBoolean(PREF_ERASE_STROKES, false)
-        inkView.eraserRadius = toolPreferences.getFloat(PREF_ERASER_RADIUS, eraserRadii[1]).takeIf { it in eraserRadii } ?: eraserRadii[1]
+        inkView.eraserRadius = InkSizes.ERASER.coerce(toolPreferences.getFloat(PREF_ERASER_RADIUS, DEFAULT_ERASER_RADIUS))
+        penSize.progress = InkSizes.PEN.progressOf(inkView.penWidth)
+        eraserSize.progress = InkSizes.ERASER.progressOf(inkView.eraserRadius)
         selectTool(InkView.Tool.PEN)
     }
+
+    /** Follows a size slider as it moves: [apply] gets its position, then the samples are redrawn. */
+    private fun onSizeChange(apply: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
+        override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+            if (!fromUser) return
+            apply(progress)
+            showSizes()
+        }
+
+        override fun onStartTrackingTouch(bar: SeekBar) = Unit
+
+        override fun onStopTrackingTouch(bar: SeekBar) = Unit
+    }
+
+    /** The pen and eraser samples and numbers, at their size on screen. */
+    private fun showSizes() {
+        val density = resources.displayMetrics.density
+        findViewById<SizePreview>(R.id.ink_pen_preview).apply {
+            color = inkView.penColor
+            diameter = inkView.penWidth * density
+        }
+        findViewById<TextView>(R.id.ink_pen_size_label).text = sizeLabel(inkView.penWidth)
+        findViewById<SizePreview>(R.id.ink_eraser_preview).apply {
+            outline = true
+            diameter = 2 * inkView.eraserRadius * density
+        }
+        findViewById<TextView>(R.id.ink_eraser_size_label).text = sizeLabel(inkView.eraserRadius)
+    }
+
+    private fun sizeLabel(size: Float) = String.format(Locale.getDefault(), if (size < 10f) "%.1f" else "%.0f", size)
 
     private fun selectTool(tool: InkView.Tool) {
         if (tool != InkView.Tool.SELECT) inkView.clearSelection()
@@ -294,10 +318,9 @@ class InkNoteActivity : Activity() {
         }
         colorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
         fillColorView.background = ColorPalette.swatchDrawable(inkView.penColor, false, resources.displayMetrics.density)
-        widthViews.forEachIndexed { i, view -> view.isSelected = widths[i] == inkView.penWidth }
         findViewById<View>(R.id.ink_erase_area).isSelected = !inkView.eraseWholeStrokes
         findViewById<View>(R.id.ink_erase_strokes).isSelected = inkView.eraseWholeStrokes
-        eraserRadiusViews.forEachIndexed { i, view -> view.isSelected = eraserRadii[i] == inkView.eraserRadius }
+        showSizes()
     }
 
     private fun visibleIf(visible: Boolean) = if (visible) View.VISIBLE else View.GONE
@@ -316,16 +339,7 @@ class InkNoteActivity : Activity() {
                 afterSelectionEdit()
             }
         }
-        findViewById<View>(R.id.ink_selection_width).setOnClickListener {
-            val labels = listOf(R.string.ink_width_thin, R.string.ink_width_medium, R.string.ink_width_thick).map(::getString)
-            AlertDialog.Builder(this)
-                .setTitle(R.string.ink_selection_width)
-                .setItems(labels.toTypedArray()) { _, which ->
-                    editor?.restyleStrokes(inkView.selectedStrokes, width = widths[which])
-                    afterSelectionEdit()
-                }
-                .show()
-        }
+        findViewById<View>(R.id.ink_selection_width).setOnClickListener { chooseSelectionWidth() }
         findViewById<View>(R.id.ink_selection_copy).setOnClickListener {
             InkClipboard.copy(selectedStrokes())
             Toast.makeText(this, R.string.ink_copied, Toast.LENGTH_SHORT).show()
@@ -344,6 +358,48 @@ class InkNoteActivity : Activity() {
             inkView.selectStrokes(pasted)
             afterSelectionEdit()
         }
+    }
+
+    /**
+     * The thickness of the selected strokes, with the pen's slider (docs/16-grosor.md); it starts at the first one's.
+     * Fills keep theirs: their bands are as thick as they need to be to cover the shape.
+     */
+    private fun chooseSelectionWidth() {
+        val page = editor?.page ?: return
+        val strokes = inkView.selectedStrokes.filter { page.strokes.getOrNull(it)?.fill == false }
+        val first = page.strokes.getOrNull(strokes.firstOrNull() ?: return) ?: return
+        val density = resources.displayMetrics.density
+        var width = InkSizes.PEN.coerce(first.width)
+        val preview = SizePreview(this, null).apply { color = first.color }
+        val label = TextView(this)
+        val show = {
+            // As it looks now, at this zoom.
+            preview.diameter = width * inkView.zoom * density
+            label.text = sizeLabel(width)
+        }
+        val bar = SeekBar(this).apply {
+            max = InkSizes.STEPS
+            progress = InkSizes.PEN.progressOf(width)
+            setOnSeekBarChangeListener(onSizeChange { width = InkSizes.PEN.valueAt(it); show() })
+        }
+        show()
+        val row = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            val padding = (16 * density).toInt()
+            setPadding(padding, padding, padding, padding)
+            addView(preview, LinearLayout.LayoutParams((44 * density).toInt(), (40 * density).toInt()))
+            addView(bar, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(label, LinearLayout.LayoutParams((40 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ink_selection_width)
+            .setView(row)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                editor?.restyleStrokes(strokes, width = width)
+                afterSelectionEdit()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /** After changing the selected strokes: redraw them, keep them selected (the rectangle may have grown) and save soon. */
@@ -671,6 +727,8 @@ class InkNoteActivity : Activity() {
         private const val PREF_PEN_WIDTH = "pen_width"
         private const val PREF_ERASE_STROKES = "erase_strokes"
         private const val PREF_ERASER_RADIUS = "eraser_radius"
+        private const val DEFAULT_PEN_WIDTH = 3.5f
+        private const val DEFAULT_ERASER_RADIUS = 10f
 
         /** Contacts larger than this are a palm. Calibrated with the AmberVec stylus (see docs/06). */
         private const val PALM_TOUCH_MAJOR = 0f

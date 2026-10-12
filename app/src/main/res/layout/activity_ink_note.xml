@@ -141,25 +141,19 @@
                 style="@style/InkSwatch"
                 android:contentDescription="@string/ink_color" />
 
-            <View
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1" />
+            <!-- Pen thickness (docs/16-grosor.md) -->
+            <com.parla.libreta.ui.ink.SizePreview
+                android:id="@+id/ink_pen_preview"
+                style="@style/InkSizePreview" />
+
+            <SeekBar
+                android:id="@+id/ink_pen_size"
+                style="@style/InkSizeBar"
+                android:contentDescription="@string/ink_pen_size" />
 
             <TextView
-                android:id="@+id/ink_width_thin"
-                style="@style/InkWidth"
-                android:text="@string/ink_width_thin" />
-
-            <TextView
-                android:id="@+id/ink_width_medium"
-                style="@style/InkWidth"
-                android:text="@string/ink_width_medium" />
-
-            <TextView
-                android:id="@+id/ink_width_thick"
-                style="@style/InkWidth"
-                android:text="@string/ink_width_thick" />
+                android:id="@+id/ink_pen_size_label"
+                style="@style/InkSizeLabel" />
         </LinearLayout>
 
         <!-- The paint bucket (docs/15-relleno.md): the pen's colour -->
@@ -204,25 +198,18 @@
                 style="@style/InkWidth"
                 android:text="@string/ink_erase_strokes" />
 
-            <View
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1" />
+            <com.parla.libreta.ui.ink.SizePreview
+                android:id="@+id/ink_eraser_preview"
+                style="@style/InkSizePreview" />
+
+            <SeekBar
+                android:id="@+id/ink_eraser_size"
+                style="@style/InkSizeBar"
+                android:contentDescription="@string/ink_eraser_size" />
 
             <TextView
-                android:id="@+id/ink_eraser_small"
-                style="@style/InkWidth"
-                android:text="@string/ink_eraser_small" />
-
-            <TextView
-                android:id="@+id/ink_eraser_medium"
-                style="@style/InkWidth"
-                android:text="@string/ink_eraser_medium" />
-
-            <TextView
-                android:id="@+id/ink_eraser_large"
-                style="@style/InkWidth"
-                android:text="@string/ink_eraser_large" />
+                android:id="@+id/ink_eraser_size_label"
+                style="@style/InkSizeLabel" />
         </LinearLayout>
 
         <LinearLayout

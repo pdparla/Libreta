@@ -39,6 +39,29 @@
         <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
     </style>
 
+    <!-- Pen and eraser sizes (docs/16-grosor.md): a sample, the slider and the number -->
+    <style name="InkSizePreview">
+        <item name="android:layout_width">44dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_marginStart">4dp</item>
+    </style>
+
+    <style name="InkSizeBar">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:max">1000</item>
+    </style>
+
+    <style name="InkSizeLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">40dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:gravity">end</item>
+        <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
+    </style>
+
     <!-- The zoom controls over the page -->
     <style name="InkZoom">
         <item name="android:layout_width">wrap_content</item>
