@@ -25,8 +25,8 @@ object InkRenderer : PageRenderer {
     private const val TOP_MARGIN = 64f
     private const val LEFT_MARGIN = 48f
 
-    private val linePaint = Paint().apply { color = 0xffc5d8ee.toInt(); strokeWidth = 1f }
-    private val marginPaint = Paint().apply { color = 0xffefb8b8.toInt(); strokeWidth = 1f }
+    private const val LINE_COLOR = 0xffc5d8ee.toInt()
+    private const val MARGIN_COLOR = 0xffefb8b8.toInt()
 
     fun strokePaint(color: Int, width: Float) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -36,17 +36,26 @@ object InkRenderer : PageRenderer {
         strokeWidth = width
     }
 
+    /**
+     * A paint for [drawStroke] to reconfigure for each stroke, so that drawing many strokes allocates one. It is
+     * mutable: each thread that draws (the page render runs off the UI thread) needs its own.
+     */
+    fun scratchPaint() = Paint(Paint.ANTI_ALIAS_FLAG)
+
     /** Draws [page] scaled by [scale] (view pixels per page unit) on [canvas], from its top-left corner. */
     fun draw(canvas: Canvas, page: InkPage, scale: Float) {
         drawPaper(canvas, page, scale)
-        page.strokes.forEach { drawStroke(canvas, it, scale) }
+        val paint = scratchPaint()
+        page.strokes.forEach { drawStroke(canvas, it, scale, paint) }
     }
 
     fun drawPaper(canvas: Canvas, page: InkPage, scale: Float) {
         canvas.drawColor(Color.WHITE)
+        // Local paints: the page render (background thread) and the screen (UI thread) both draw paper at once, at
+        // different scales, so a shared paint would have its width changed under one of them.
         // The ruling scales with the page: a 1-pixel line vanishes when a 2× page image is shrunk to the screen.
-        linePaint.strokeWidth = max(1f, scale)
-        marginPaint.strokeWidth = max(1f, scale)
+        val linePaint = Paint().apply { color = LINE_COLOR; strokeWidth = max(1f, scale) }
+        val marginPaint = Paint().apply { color = MARGIN_COLOR; strokeWidth = max(1f, scale) }
         val width = page.width * scale
         val height = page.height * scale
         when (page.paper) {
@@ -75,13 +84,21 @@ object InkRenderer : PageRenderer {
         }
     }
 
-    fun drawStroke(canvas: Canvas, stroke: Stroke, scale: Float) {
-        val paint = strokePaint(stroke.color, stroke.width * scale)
+    fun drawStroke(canvas: Canvas, stroke: Stroke, scale: Float) = drawStroke(canvas, stroke, scale, scratchPaint())
+
+    /** As above, configuring [paint] (from [scratchPaint]) for [stroke]: to draw many strokes without a paint each. */
+    fun drawStroke(canvas: Canvas, stroke: Stroke, scale: Float, paint: Paint) {
+        paint.isAntiAlias = true
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeJoin = Paint.Join.ROUND
+        paint.color = stroke.color
+        paint.strokeWidth = stroke.width * scale
         if (stroke.points.size == 1) {
             paint.style = Paint.Style.FILL
             val p = stroke.points[0]
             canvas.drawCircle(p.x * scale, p.y * scale, stroke.width * scale / 2, paint)
         } else {
+            paint.style = Paint.Style.STROKE
             canvas.drawPath(pathOf(stroke.points, scale), paint)
         }
     }
@@ -149,7 +166,8 @@ object InkRenderer : PageRenderer {
             val canvas = Canvas(bitmap)
             canvas.drawColor(Color.WHITE)
             canvas.translate(-area.left * scale, -area.top * scale)
-            page.strokes.forEach { drawStroke(canvas, it, scale) }
+            val paint = scratchPaint()
+            page.strokes.forEach { drawStroke(canvas, it, scale, paint) }
             return png(bitmap)
         } finally {
             bitmap.recycle()

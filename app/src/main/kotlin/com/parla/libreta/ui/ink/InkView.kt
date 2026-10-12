@@ -13,11 +13,15 @@ import android.view.View
 import com.parla.libreta.BuildConfig
 import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkMark
+import com.parla.libreta.core.ink.InkPage
 import com.parla.libreta.core.ink.InkPoint
 import com.parla.libreta.core.ink.InkRect
 import com.parla.libreta.core.ink.InkViewport
 import com.parla.libreta.core.ink.Stroke
+import java.util.Collections
+import java.util.IdentityHashMap
 import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.max
 
@@ -118,8 +122,14 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private var downX = 0f
     private var downY = 0f
     private var startedAt = 0L
-    private var livePath: Path? = null
+    // The stroke being drawn, in view-scale units from the page origin: [livePath] is its smooth path up to the latest
+    // midpoint, extended by one segment per sample; [liveTail] is the straight stretch from there to the latest point.
+    private val livePath = Path()
+    private val liveTail = Path()
+    private var liveDrawing = false
     private var livePaint: Paint? = null
+    // Reused by every redraw of the cache, which runs on the UI thread only.
+    private val strokeBrush = InkRenderer.scratchPaint()
     private var eraserX = Float.NaN
     private var lastErasedX = Float.NaN
     private var lastErasedY = 0f
@@ -221,6 +231,20 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         canvas.save()
         canvas.translate(viewport.originX, viewport.originY)
         canvas.clipRect(0f, 0f, page.width * scale, page.height * scale)
+        drawPage(canvas, page, scale, viewport.visible(), hidden)
+        canvas.restore()
+        renderedScale = scale
+        renderedOriginX = viewport.originX
+        renderedOriginY = viewport.originY
+        invalidate()
+    }
+
+    /**
+     * Paper, marks and the strokes of [page] that touch [within] (page units), leaving out the ones at [hidden], on a
+     * canvas already moved to the page origin and clipped to the part to draw. Shared by [refresh] and [refreshArea],
+     * so that a partial redraw cannot differ from a full one.
+     */
+    private fun drawPage(canvas: Canvas, page: InkPage, scale: Float, within: InkRect, hidden: Set<Int>) {
         InkRenderer.drawPaper(canvas, page, scale)
         // Titles and tags (docs/13-indice.md) behind their ink, so the page shows what is marked.
         page.marks.forEach { mark ->
@@ -230,14 +254,36 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                     if (mark.kind == InkMark.Kind.TITLE) titlePaint else tagPaint)
             }
         }
-        val visible = viewport.visible()
         page.strokes.forEachIndexed { i, stroke ->
-            if (i !in hidden && stroke.bounds.intersects(visible)) InkRenderer.drawStroke(canvas, stroke, scale)
+            if (i !in hidden && stroke.bounds.intersects(within)) InkRenderer.drawStroke(canvas, stroke, scale, strokeBrush)
         }
+    }
+
+    /**
+     * Redraws only [area] (page units) of the cache, for a change that stays inside it: erasing would otherwise
+     * redraw the whole page on every move of the stylus. Falls back to [refresh] when there is no cache or it was
+     * drawn for another viewport.
+     */
+    private fun refreshArea(area: InkRect) {
+        val page = editor?.page ?: return
+        val bitmap = cache?.takeIf { it.width == width && it.height == height }
+        val viewport = viewport
+        if (bitmap == null || viewport == null || viewport.scale != renderedScale ||
+            viewport.originX != renderedOriginX || viewport.originY != renderedOriginY
+        ) return refresh()
+        val scale = renderedScale
+        // A couple of pixels more on every side, for the antialiased edges of what was there.
+        val left = max(0f, floor(area.left * scale) - AREA_SLACK)
+        val top = max(0f, floor(area.top * scale) - AREA_SLACK)
+        val right = minOf(page.width * scale, ceil(area.right * scale) + AREA_SLACK)
+        val bottom = minOf(page.height * scale, ceil(area.bottom * scale) + AREA_SLACK)
+        if (left >= right || top >= bottom) return invalidate()
+        val canvas = Canvas(bitmap)
+        canvas.save()
+        canvas.translate(renderedOriginX, renderedOriginY)
+        canvas.clipRect(left, top, right, bottom)
+        drawPage(canvas, page, scale, InkRect(left / scale, top / scale, right / scale, bottom / scale), emptySet())
         canvas.restore()
-        renderedScale = scale
-        renderedOriginX = viewport.originX
-        renderedOriginY = viewport.originY
         invalidate()
     }
 
@@ -274,10 +320,11 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         }
         if (!eraserX.isNaN()) canvas.drawCircle(eraserX, eraserY, eraserRadius / zoom * scale, eraserPaint)
         selection?.let { area -> drawSelection(canvas, area) }
-        val path = livePath ?: return
+        if (!liveDrawing) return
         canvas.save()
         canvas.translate(originX, originY)
-        canvas.drawPath(path, livePaint!!)
+        canvas.drawPath(livePath, livePaint!!)
+        canvas.drawPath(liveTail, livePaint!!)
         canvas.restore()
     }
 
@@ -385,7 +432,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
             }
         }
         points.clear()
-        livePath = null
+        clearLive()
         invalidate()
     }
 
@@ -496,12 +543,12 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
             cache?.let { bitmap ->
                 val canvas = Canvas(bitmap)
                 canvas.translate(renderedOriginX, renderedOriginY)
-                InkRenderer.drawStroke(canvas, stroke, renderedScale)
+                InkRenderer.drawStroke(canvas, stroke, renderedScale, strokeBrush)
             }
             onChange()
         }
         points.clear()
-        livePath = null
+        clearLive()
         invalidate()
     }
 
@@ -516,7 +563,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         editor?.endGesture()
         eraserX = Float.NaN
         points.clear()
-        livePath = null
+        clearLive()
         invalidate()
     }
 
@@ -528,9 +575,43 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         val last = points.lastOrNull()
         // Skip samples closer than a fraction of a unit (on screen): they add size, not shape.
         if (last != null && hypot(x - last.x, y - last.y) < MIN_DISTANCE / zoom) return
-        points += InkPoint(x, y, (eventTime - downTime).toInt())
-        livePath = InkRenderer.pathOf(points, scale)
+        val point = InkPoint(x, y, (eventTime - downTime).toInt())
+        points += point
+        extendLive(last, point)
         invalidate()
+    }
+
+    /**
+     * Adds [point], which follows [previous] (null for the first), to the live stroke, with the geometry of
+     * [InkRenderer.pathOf]. Its curve up to a midpoint never changes when a point is added, so only the new segment
+     * is appended to [livePath] and just the final straight stretch, [liveTail], is rebuilt.
+     */
+    private fun extendLive(previous: InkPoint?, point: InkPoint) {
+        val scale = scale
+        val x = point.x * scale
+        val y = point.y * scale
+        if (previous == null) {
+            livePath.rewind()
+            livePath.moveTo(x, y)
+            liveDrawing = true
+            // A zero-length line, which the round cap draws as a dot.
+            liveTail.rewind()
+            liveTail.moveTo(x, y)
+            liveTail.lineTo(x, y)
+            return
+        }
+        val midX = (previous.x + point.x) / 2 * scale
+        val midY = (previous.y + point.y) / 2 * scale
+        if (points.size == 2) livePath.lineTo(midX, midY) else livePath.quadTo(previous.x * scale, previous.y * scale, midX, midY)
+        liveTail.rewind()
+        liveTail.moveTo(midX, midY)
+        liveTail.lineTo(x, y)
+    }
+
+    private fun clearLive() {
+        liveDrawing = false
+        livePath.rewind()
+        liveTail.rewind()
     }
 
     private fun select(editor: InkEditor, event: MotionEvent, index: Int) {
@@ -600,15 +681,44 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         onChange()
     }
 
-    /** Erases at every sample of the event, then redraws the page once. */
+    /** Erases at every sample of the event, then redraws what changed once. */
     private fun eraseAlong(editor: InkEditor, event: MotionEvent, index: Int) {
+        val before = editor.page
         var erased = false
         for (h in 0 until event.historySize) erased = erase(editor, event.getHistoricalX(index, h), event.getHistoricalY(index, h)) || erased
         erased = erase(editor, event.getX(index), event.getY(index)) || erased
         eraserX = event.getX(index)
         eraserY = event.getY(index)
-        if (erased) refresh() else invalidate()
+        if (erased) refreshChanged(before, editor.page) else invalidate()
     }
+
+    /**
+     * Redraws the area where [after] differs from [before], two versions of a page whose untouched strokes are the
+     * same objects (compared by identity: a stroke's equality walks all its points).
+     */
+    private fun refreshChanged(before: InkPage, after: InkPage) {
+        val old = Collections.newSetFromMap(IdentityHashMap<Stroke, Boolean>())
+        before.strokes.forEach { old += it }
+        val kept = Collections.newSetFromMap(IdentityHashMap<Stroke, Boolean>())
+        after.strokes.forEach { kept += it }
+        var area: InkRect? = null
+        // The strokes that went, and the pieces the eraser left in their place.
+        val changed = HashSet<Long>()
+        before.strokes.forEach { if (it !in kept) { area = area.union(it.bounds); changed += it.startedAt } }
+        after.strokes.forEach { if (it !in old) { area = area.union(it.bounds); changed += it.startedAt } }
+        // A mark's highlight follows its strokes: it can shrink, or go, beyond the bounds of the ones erased.
+        val pad = MARK_PADDING
+        for (page in listOf(before, after)) {
+            page.marks.filter { mark -> mark.strokes.any { it in changed } }.forEach { mark ->
+                page.boundsOf(mark)?.let { r -> area = area.union(InkRect(r.left - pad, r.top - pad, r.right + pad, r.bottom + pad)) }
+            }
+        }
+        val dirty = area
+        if (dirty == null) invalidate() else refreshArea(dirty)
+    }
+
+    private fun InkRect?.union(other: InkRect) =
+        if (this == null) other else InkRect(minOf(left, other.left), minOf(top, other.top), maxOf(right, other.right), maxOf(bottom, other.bottom))
 
     /** Erases from the previous sample to this one, in steps of half the eraser so a quick rub leaves no gaps. */
     private fun erase(editor: InkEditor, viewX: Float, viewY: Float): Boolean {
@@ -652,5 +762,8 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
         /** Space around a mark's ink, in page units. */
         const val MARK_PADDING = 4f
+
+        /** Pixels added around an area redrawn on its own, for antialiased edges. */
+        const val AREA_SLACK = 2f
     }
 }
