@@ -86,6 +86,34 @@ class InkNoteActivity : Activity() {
 
     private class PendingSave(val snapshot: InkDocument, val result: Future<InkNote>)
 
+    // The toolbar's views, looked up once: updateControls runs after every stroke.
+    private lateinit var toolPen: View
+    private lateinit var toolEraser: View
+    private lateinit var toolSelect: View
+    private lateinit var toolFill: View
+    private lateinit var undoButton: View
+    private lateinit var redoButton: View
+    private lateinit var prevButton: View
+    private lateinit var nextButton: View
+    private lateinit var penOptions: View
+    private lateinit var eraserOptions: View
+    private lateinit var selectOptions: View
+    private lateinit var fillOptions: View
+    private lateinit var selectHint: View
+    private lateinit var selectionEdit: View
+    private lateinit var pasteButton: View
+    private lateinit var convertButton: View
+    private lateinit var chatButton: View
+    private lateinit var titleButton: View
+    private lateinit var tagButton: View
+    private lateinit var selectionColor: View
+    private lateinit var eraseAreaButton: View
+    private lateinit var eraseStrokesButton: View
+    private lateinit var zoomLevel: TextView
+    private lateinit var penPreview: SizePreview
+    private lateinit var eraserPreview: SizePreview
+    private lateinit var penSizeLabel: TextView
+    private lateinit var eraserSizeLabel: TextView
     private lateinit var colorView: View
     private lateinit var fillColorView: View
     private lateinit var penSize: SeekBar
@@ -100,8 +128,7 @@ class InkNoteActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ink_note)
         actionBar?.setDisplayHomeAsUpEnabled(true)
-        inkView = findViewById(R.id.ink_view)
-        pageLabel = findViewById(R.id.ink_page)
+        bindViews()
         inkView.maxTouchMajor = PALM_TOUCH_MAJOR
         inkView.onChange = ::updateControls
         // Autosave: once the page has been left alone for a moment, not while writing.
@@ -183,30 +210,64 @@ class InkNoteActivity : Activity() {
         updateControls()
     }
 
+    private fun bindViews() {
+        inkView = findViewById(R.id.ink_view)
+        pageLabel = findViewById(R.id.ink_page)
+        toolPen = findViewById(R.id.ink_pen)
+        toolEraser = findViewById(R.id.ink_eraser)
+        toolSelect = findViewById(R.id.ink_select)
+        toolFill = findViewById(R.id.ink_fill)
+        undoButton = findViewById(R.id.ink_undo)
+        redoButton = findViewById(R.id.ink_redo)
+        prevButton = findViewById(R.id.ink_prev)
+        nextButton = findViewById(R.id.ink_next)
+        penOptions = findViewById(R.id.ink_pen_options)
+        eraserOptions = findViewById(R.id.ink_eraser_options)
+        selectOptions = findViewById(R.id.ink_select_options)
+        fillOptions = findViewById(R.id.ink_fill_options)
+        selectHint = findViewById(R.id.ink_select_hint)
+        selectionEdit = findViewById(R.id.ink_selection_edit)
+        pasteButton = findViewById(R.id.ink_paste)
+        convertButton = findViewById(R.id.ink_convert)
+        chatButton = findViewById(R.id.ink_chat)
+        titleButton = findViewById(R.id.ink_title)
+        tagButton = findViewById(R.id.ink_tag)
+        selectionColor = findViewById(R.id.ink_selection_color)
+        eraseAreaButton = findViewById(R.id.ink_erase_area)
+        eraseStrokesButton = findViewById(R.id.ink_erase_strokes)
+        zoomLevel = findViewById(R.id.ink_zoom_level)
+        penPreview = findViewById(R.id.ink_pen_preview)
+        eraserPreview = findViewById(R.id.ink_eraser_preview)
+        penSizeLabel = findViewById(R.id.ink_pen_size_label)
+        eraserSizeLabel = findViewById(R.id.ink_eraser_size_label)
+        colorView = findViewById(R.id.ink_color)
+        fillColorView = findViewById(R.id.ink_fill_color)
+        penSize = findViewById(R.id.ink_pen_size)
+        eraserSize = findViewById(R.id.ink_eraser_size)
+    }
+
     private fun setUpToolbar() {
-        findViewById<View>(R.id.ink_pen).setOnClickListener { selectTool(InkView.Tool.PEN) }
-        findViewById<View>(R.id.ink_eraser).setOnClickListener { selectTool(InkView.Tool.ERASER) }
-        findViewById<View>(R.id.ink_select).setOnClickListener { selectTool(InkView.Tool.SELECT) }
-        findViewById<View>(R.id.ink_fill).setOnClickListener { selectTool(InkView.Tool.FILL) }
+        toolPen.setOnClickListener { selectTool(InkView.Tool.PEN) }
+        toolEraser.setOnClickListener { selectTool(InkView.Tool.ERASER) }
+        toolSelect.setOnClickListener { selectTool(InkView.Tool.SELECT) }
+        toolFill.setOnClickListener { selectTool(InkView.Tool.FILL) }
         // Undo and redo can change which strokes exist, and a selection belongs to the page it was marked on.
-        findViewById<View>(R.id.ink_undo).setOnClickListener { editor?.undo(); inkView.clearSelection(); afterEdit() }
-        findViewById<View>(R.id.ink_redo).setOnClickListener { editor?.redo(); inkView.clearSelection(); afterEdit() }
-        findViewById<View>(R.id.ink_prev).setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; afterPageChange() }
-        findViewById<View>(R.id.ink_next).setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; afterPageChange() }
+        undoButton.setOnClickListener { editor?.undo(); inkView.clearSelection(); afterEdit() }
+        redoButton.setOnClickListener { editor?.redo(); inkView.clearSelection(); afterEdit() }
+        prevButton.setOnClickListener { editor?.let { it.goToPage(it.pageIndex - 1) }; afterPageChange() }
+        nextButton.setOnClickListener { editor?.let { it.goToPage(it.pageIndex + 1) }; afterPageChange() }
         findViewById<View>(R.id.ink_add_page).setOnClickListener { addPage() }
         findViewById<View>(R.id.ink_zoom_in).setOnClickListener { inkView.zoomStep(up = true) }
         findViewById<View>(R.id.ink_zoom_out).setOnClickListener { inkView.zoomStep(up = false) }
-        findViewById<View>(R.id.ink_zoom_level).setOnClickListener { inkView.resetZoom() }
+        zoomLevel.setOnClickListener { inkView.resetZoom() }
         showZoom()
         setUpSelectionTools()
-        findViewById<View>(R.id.ink_convert).setOnClickListener { convertSelection() }
-        findViewById<View>(R.id.ink_title).setOnClickListener { markSelection(InkMark.Kind.TITLE) }
-        findViewById<View>(R.id.ink_tag).setOnClickListener { markSelection(InkMark.Kind.TAG) }
+        convertButton.setOnClickListener { convertSelection() }
+        titleButton.setOnClickListener { markSelection(InkMark.Kind.TITLE) }
+        tagButton.setOnClickListener { markSelection(InkMark.Kind.TAG) }
         findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
-        findViewById<View>(R.id.ink_chat).setOnClickListener { chatAboutSelection() }
+        chatButton.setOnClickListener { chatAboutSelection() }
 
-        colorView = findViewById(R.id.ink_color)
-        fillColorView = findViewById(R.id.ink_fill_color)
         // One colour for the pen and the bucket; picking it keeps the tool it was picked for.
         for (view in listOf(colorView, fillColorView)) {
             view.setOnClickListener {
@@ -216,12 +277,10 @@ class InkNoteActivity : Activity() {
                 }
             }
         }
-        findViewById<View>(R.id.ink_erase_area).setOnClickListener { inkView.eraseWholeStrokes = false; updateControls() }
-        findViewById<View>(R.id.ink_erase_strokes).setOnClickListener { inkView.eraseWholeStrokes = true; updateControls() }
+        eraseAreaButton.setOnClickListener { inkView.eraseWholeStrokes = false; updateControls() }
+        eraseStrokesButton.setOnClickListener { inkView.eraseWholeStrokes = true; updateControls() }
         // Any size, with a slider (docs/16-grosor.md).
-        penSize = findViewById(R.id.ink_pen_size)
         penSize.setOnSeekBarChangeListener(onSizeChange { inkView.penWidth = InkSizes.PEN.valueAt(it) })
-        eraserSize = findViewById(R.id.ink_eraser_size)
         eraserSize.setOnSeekBarChangeListener(onSizeChange { inkView.eraserRadius = InkSizes.ERASER.valueAt(it) })
 
         // The last pen and eraser used, in any note.
@@ -250,16 +309,16 @@ class InkNoteActivity : Activity() {
     /** The pen and eraser samples and numbers, at their size on screen. */
     private fun showSizes() {
         val density = resources.displayMetrics.density
-        findViewById<SizePreview>(R.id.ink_pen_preview).apply {
+        penPreview.apply {
             color = inkView.penColor
             diameter = inkView.penWidth * density
         }
-        setTextIfChanged(findViewById(R.id.ink_pen_size_label), sizeLabel(inkView.penWidth))
-        findViewById<SizePreview>(R.id.ink_eraser_preview).apply {
+        setTextIfChanged(penSizeLabel, sizeLabel(inkView.penWidth))
+        eraserPreview.apply {
             outline = true
             diameter = 2 * inkView.eraserRadius * density
         }
-        setTextIfChanged(findViewById(R.id.ink_eraser_size_label), sizeLabel(inkView.eraserRadius))
+        setTextIfChanged(eraserSizeLabel, sizeLabel(inkView.eraserRadius))
     }
 
     private fun sizeLabel(size: Float) = String.format(Locale.getDefault(), if (size < 10f) "%.1f" else "%.0f", size)
@@ -305,11 +364,11 @@ class InkNoteActivity : Activity() {
     private fun showZoom() {
         val zoom = inkView.zoom
         val label = if (zoom % 1f == 0f) zoom.toInt().toString() else String.format(Locale.getDefault(), "%.1f", zoom)
-        findViewById<TextView>(R.id.ink_zoom_level).text = getString(R.string.ink_zoom_level, label)
+        zoomLevel.text = getString(R.string.ink_zoom_level, label)
     }
 
     private fun afterEdit() {
-        inkView.refresh()
+        inkView.refreshAfter()
         updateControls()
         scheduleAutosave()
     }
@@ -322,33 +381,33 @@ class InkNoteActivity : Activity() {
 
     private fun updateControls() {
         val editor = editor
-        findViewById<View>(R.id.ink_pen).isSelected = inkView.tool == InkView.Tool.PEN
-        findViewById<View>(R.id.ink_eraser).isSelected = inkView.tool == InkView.Tool.ERASER
-        findViewById<View>(R.id.ink_select).isSelected = inkView.tool == InkView.Tool.SELECT
-        findViewById<View>(R.id.ink_fill).isSelected = inkView.tool == InkView.Tool.FILL
-        findViewById<View>(R.id.ink_undo).isEnabled = editor?.canUndo == true
-        findViewById<View>(R.id.ink_redo).isEnabled = editor?.canRedo == true
-        findViewById<View>(R.id.ink_prev).isEnabled = editor != null && editor.pageIndex > 0
-        findViewById<View>(R.id.ink_next).isEnabled = editor != null && editor.pageIndex < editor.pageCount - 1
+        toolPen.isSelected = inkView.tool == InkView.Tool.PEN
+        toolEraser.isSelected = inkView.tool == InkView.Tool.ERASER
+        toolSelect.isSelected = inkView.tool == InkView.Tool.SELECT
+        toolFill.isSelected = inkView.tool == InkView.Tool.FILL
+        undoButton.isEnabled = editor?.canUndo == true
+        redoButton.isEnabled = editor?.canRedo == true
+        prevButton.isEnabled = editor != null && editor.pageIndex > 0
+        nextButton.isEnabled = editor != null && editor.pageIndex < editor.pageCount - 1
         setTextIfChanged(pageLabel, editor?.let { getString(R.string.ink_page, it.pageIndex + 1, it.pageCount) }.orEmpty())
-        findViewById<View>(R.id.ink_pen_options).visibility = visibleIf(inkView.tool == InkView.Tool.PEN)
-        findViewById<View>(R.id.ink_eraser_options).visibility = visibleIf(inkView.tool == InkView.Tool.ERASER)
-        findViewById<View>(R.id.ink_select_options).visibility = visibleIf(inkView.tool == InkView.Tool.SELECT)
-        findViewById<View>(R.id.ink_fill_options).visibility = visibleIf(inkView.tool == InkView.Tool.FILL)
+        penOptions.visibility = visibleIf(inkView.tool == InkView.Tool.PEN)
+        eraserOptions.visibility = visibleIf(inkView.tool == InkView.Tool.ERASER)
+        selectOptions.visibility = visibleIf(inkView.tool == InkView.Tool.SELECT)
+        fillOptions.visibility = visibleIf(inkView.tool == InkView.Tool.FILL)
         val selected = inkView.selection != null
         val holdsInk = inkView.selectedStrokes.isNotEmpty()
-        findViewById<View>(R.id.ink_select_hint).visibility = if (holdsInk) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.ink_selection_edit).visibility = visibleIf(holdsInk)
-        findViewById<View>(R.id.ink_paste).visibility = visibleIf(!InkClipboard.isEmpty)
-        findViewById<View>(R.id.ink_convert).isEnabled = selected
-        findViewById<View>(R.id.ink_chat).isEnabled = selected
-        findViewById<View>(R.id.ink_title).isEnabled = holdsInk
-        findViewById<View>(R.id.ink_tag).isEnabled = holdsInk
+        selectHint.visibility = if (holdsInk) View.GONE else View.VISIBLE
+        selectionEdit.visibility = visibleIf(holdsInk)
+        pasteButton.visibility = visibleIf(!InkClipboard.isEmpty)
+        convertButton.isEnabled = selected
+        chatButton.isEnabled = selected
+        titleButton.isEnabled = holdsInk
+        tagButton.isEnabled = holdsInk
         selectedStrokes().firstOrNull()?.let { first ->
             // The swatches are rebuilt only when their colour changes: this runs after every stroke.
             if (first.color != selectionSwatch) {
                 selectionSwatch = first.color
-                findViewById<View>(R.id.ink_selection_color).background = ColorPalette.swatchDrawable(first.color, false, resources.displayMetrics.density)
+                selectionColor.background = ColorPalette.swatchDrawable(first.color, false, resources.displayMetrics.density)
             }
         }
         val penColor = inkView.penColor
@@ -357,8 +416,8 @@ class InkNoteActivity : Activity() {
             colorView.background = ColorPalette.swatchDrawable(penColor, false, resources.displayMetrics.density)
             fillColorView.background = ColorPalette.swatchDrawable(penColor, false, resources.displayMetrics.density)
         }
-        findViewById<View>(R.id.ink_erase_area).isSelected = !inkView.eraseWholeStrokes
-        findViewById<View>(R.id.ink_erase_strokes).isSelected = inkView.eraseWholeStrokes
+        eraseAreaButton.isSelected = !inkView.eraseWholeStrokes
+        eraseStrokesButton.isSelected = inkView.eraseWholeStrokes
         showSizes()
     }
 
@@ -375,10 +434,9 @@ class InkNoteActivity : Activity() {
     }
 
     private fun setUpSelectionTools() {
-        val colorView = findViewById<View>(R.id.ink_selection_color)
-        colorView.setOnClickListener {
+        selectionColor.setOnClickListener {
             val current = selectedStrokes().firstOrNull()?.color ?: inkView.penColor
-            ColorPalette.show(colorView, current) { color ->
+            ColorPalette.show(selectionColor, current) { color ->
                 editor?.restyleStrokes(inkView.selectedStrokes, color = color)
                 afterSelectionEdit()
             }
@@ -394,11 +452,10 @@ class InkNoteActivity : Activity() {
             inkView.clearSelection()
             afterEdit()
         }
-        findViewById<View>(R.id.ink_paste).setOnClickListener {
+        pasteButton.setOnClickListener {
             val editor = editor ?: return@setOnClickListener
             // The pasted strokes come selected, ready to be moved where they belong.
             val pasted = editor.insertStrokes(InkClipboard.placedOn(editor.page))
-            inkView.refresh()
             inkView.selectStrokes(pasted)
             afterSelectionEdit()
         }
@@ -448,7 +505,7 @@ class InkNoteActivity : Activity() {
 
     /** After changing the selected strokes: redraw them, keep them selected (the rectangle may have grown) and save soon. */
     private fun afterSelectionEdit() {
-        inkView.refresh()
+        inkView.refreshAfter()
         inkView.selectStrokes(inkView.selectedStrokes)
         updateControls()
         scheduleAutosave()
