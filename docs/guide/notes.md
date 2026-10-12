@@ -102,6 +102,8 @@ In the formatted view, a link looks like any other link:
 At the end of the formatted view, «Enlazada desde» (Linked from) lists the notes that link to this one. Tap one to open
 it. The list appears a moment after the note, because Libreta checks every note the first time.
 
+A link to a YouTube video shows a card with a QR code to watch it on your phone. See [YouTube videos](assistant.md#youtube-videos).
+
 Links inside code (`` `[[…]]` `` or a code block) are text. In Nextcloud Notes, links show as `[[…]]` text. When the
 assistant writes a note for you, it links other notes the same way. See [Ask your notebook](assistant.md#ask-your-notebook).
 

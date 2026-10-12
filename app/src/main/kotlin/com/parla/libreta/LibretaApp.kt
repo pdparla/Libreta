@@ -18,6 +18,7 @@ import com.parla.libreta.data.ai.ChatGptSessionStore
 import com.parla.libreta.data.ai.ResponsesClient
 import com.parla.libreta.data.local.FileNoteRepository
 import com.parla.libreta.data.stt.SttClient
+import com.parla.libreta.data.web.YouTubeClient
 import com.parla.libreta.data.stt.SttSettingsStore
 import com.parla.libreta.data.local.FileSyncStateStore
 import com.parla.libreta.data.remote.NextcloudCaStore
@@ -88,21 +89,32 @@ class AppContainer(context: Context) {
     )
 
     /**
-     * Client for api.openai.com and auth.openai.com, built on first use off the main thread like [clients]. It
-     * trusts only the public roots those hosts chain to (res/raw/openai_roots.pem, see docs/design/tls.md), never the
-     * Nextcloud CA, and checks host names the standard way.
+     * Base for the clients of public services (OpenAI and YouTube), built on first use off the main thread like
+     * [clients]. It trusts only the public roots those hosts chain to (res/raw/public_roots.pem, see
+     * docs/design/tls.md), never the Nextcloud CA, and checks host names the standard way.
      */
-    private val openAiHttp: OkHttpClient by lazy {
-        val trustManager = context.resources.openRawResource(R.raw.openai_roots).use(Tls::trustManagerFor)
+    private val publicHttp: OkHttpClient by lazy {
+        val trustManager = context.resources.openRawResource(R.raw.public_roots).use(Tls::trustManagerFor)
         httpBase.newBuilder()
-            .connectTimeout(20, TimeUnit.SECONDS)
-            // Between streamed events; reasoning can keep the stream quiet for a while before the answer.
-            .readTimeout(180, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
             .sslSocketFactory(Tls.socketFactory(trustManager, conscrypt), trustManager)
             .connectionSpecs(listOf(Tls.CONNECTION_SPEC))
             .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
             .build()
+    }
+
+    /** For api.openai.com and auth.openai.com. */
+    private val openAiHttp: OkHttpClient by lazy {
+        publicHttp.newBuilder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            // Between streamed events; reasoning can keep the stream quiet for a while before the answer.
+            .readTimeout(180, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /** A YouTube link's title, channel and thumbnail (docs/design/ai.md#youtube-videos); quick or not at all. */
+    val youTube: YouTubeClient by lazy {
+        YouTubeClient(publicHttp.newBuilder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build())
     }
 
     val chatGpt: ChatGptAuth by lazy { ChatGptAuth(openAiHttp, chatGptSessions) }

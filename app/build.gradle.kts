@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.markwon.tables)
     implementation(libs.markwon.latex)
     implementation(libs.markwon.inline.parser)
+    implementation(libs.qrcodegen)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

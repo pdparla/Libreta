@@ -324,6 +324,24 @@ note does not change.
 - **Errors.** If a request fails, the app shows the usual AI message and creates nothing. The pages read so far stay
   saved for next time. Cancelling creates nothing.
 
+## YouTube videos
+
+The model often cites YouTube videos, and notes can link to them, but the tablet can't play them. The KitKat WebView
+(Chromium 33) can't run YouTube's player, the YouTube app and Chrome are usually hidden, and playing streams directly
+would mean chasing YouTube's changing internals. A link to a video therefore opens a card (`ui/YouTubeCard.kt`):
+
+- **Which links.** `YouTubeLinks.videoId` accepts `youtube.com/watch?v=`, `youtu.be/`, `/shorts/`, `/live/`,
+  `/embed/` and `/v/` on the YouTube hosts, with an 11-character id. Channels, playlists and other sites are left to
+  the usual handling. The chat's web-link dialog and the formatted view's link resolver both check it first.
+- **QR code.** Drawn at once on the tablet from the short address (`https://youtu.be/<id>`) with Nayuki's
+  `qrcodegen` (MIT, 38 KB, plain Java with only API 19 classes), at medium error correction, about 4 dp per module,
+  with the standard quiet zone.
+- **Title, channel and thumbnail.** `YouTubeClient` asks YouTube's public oEmbed endpoint
+  (`/oembed?url=…&format=json`) and fetches the 320×180 `mqdefault.jpg`, decoded as RGB 565. Neither needs an account
+  or a key. A 4xx from oEmbed means a private or removed video, which the card says. The requests use the public-roots
+  client (see [TLS](tls.md)) with 10-second timeouts, on the shared background thread, and only when you tap a link.
+- **Open.** The card offers «Abrir» only when an activity resolves the link, which on a debloated tablet is rare.
+
 ## Dictation service
 
 Dictation records on the tablet and transcribes on a server you run. Deployment steps are in

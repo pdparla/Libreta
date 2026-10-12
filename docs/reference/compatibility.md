@@ -83,6 +83,7 @@ Every dependency must work on API 19. Don't upgrade past these limits without ve
 | Conscrypt (`conscrypt-android`) | 2.5.3 | Version 2.6 and later need `minSdk` 21. It brings TLS 1.2 with AES-GCM and ChaCha20-Poly1305. |
 | Markwon | 4.6.2 | `minSdk` 16. Markdown becomes native spans, with no WebView. Its parser, commonmark-java 0.13.0, is Java 7 bytecode. |
 | Markwon `ext-latex` (JLaTeXMath for Android 0.2.0) | 4.6.2 | Draws formulas as Android drawables, so it needs no WebView. Its fonts add about 550 KB to the APK. |
+| `qrcodegen` (Nayuki) | 1.8.0 | QR codes for YouTube cards. Java 8 bytecode with no lambdas, using only classes present in API 19 (`BitSet`, `Objects`, `StandardCharsets`). 38 KB. |
 | `org.json` (tests only) | 20240303 | Android has its own `org.json`. In JVM tests, `android.jar` has only stubs of it. |
 
 Notes:

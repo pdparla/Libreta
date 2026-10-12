@@ -59,6 +59,7 @@ minutes instead of hanging the build.
 | ChatGPT sign-in | `ChatGptAuthTest`, `ChatGptSessionStoreTest` | Token refresh and rotation, `invalid_grant`, revocation, session storage and its cache |
 | Responses API | `ResponsesClientTest`, `AiAssistantTest` | Streaming, a retry after 401, usage limit in the middle of a stream, HTTP errors, a cut stream; only the first message carries the image; the whole conversation is resent; a failure leaves no half message; the tool loop (call, result, denied permission); web searches announced and sources added; a math task shows its label, sends its request with `high` reasoning; every chat asks for LaTeX |
 | Dictation | `SttClientTest` | A real HTTPS server with a self-signed certificate: token, `401`, a different certificate is refused, not paired, WAV header |
+| YouTube | `YouTubeTest` | Video ids from every address form, and what is not a video; title and channel from oEmbed; a private video; a server error; the thumbnail address |
 | Formulas | `InlineMathTest` | `$x$` with single dollars: where a formula starts and ends, prices stay text, `$$` is left to Markwon, escaped dollars, no formula across paragraphs |
 | Threads | `IdleExecutorTest` | Tasks run in order on one named thread, and the thread ends when idle |
 
@@ -163,6 +164,8 @@ ChatGPT session for the AI and a paired dictation server for voice. Skip the sec
 9. Ask for something current. Check the "searching the web" line, the source links, the address dialog when you tap a
    link, and that a second question works after the search.
 10. Select «Cerrar sesión» (Sign out). Check that the account disappears and that AI actions ask you to sign in.
+11. Tap a link to a YouTube video in a chat answer and in a note. Check the card: the QR code at once, then the
+   thumbnail, title and channel; scan the code with a phone; «Copiar enlace»; and, offline, «Sin conexión con YouTube.».
 
 ### Search over handwriting
 

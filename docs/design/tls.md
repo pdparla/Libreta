@@ -37,7 +37,7 @@ native library. If that fails, a sync reports a failure instead of crashing.
 A server that offers only older protocols, CBC suites or non-ECDHE key exchange can't connect. That is deliberate:
 it keeps weak configurations out of the app. If you must support such a server, change the spec in `Tls.kt`.
 
-## Three clients, three trust configurations
+## Three trust configurations
 
 All clients derive from one shared base client (see [Architecture](architecture.md#composition-root)). Because
 OkHttp keys connections by address including the socket factory, a connection made under one trust configuration
@@ -46,7 +46,7 @@ is never reused by another.
 | Client | Talks to | Trusts | Host-name check |
 |---|---|---|---|
 | Nextcloud | Your server | Your imported CA certificates only; if you imported none, Android's system certificates | Standard, or the certificate-name check if you set one |
-| OpenAI | `api.openai.com`, `auth.openai.com` | Only the roots in `res/raw/openai_roots.pem` | Standard |
+| Public services | `api.openai.com`, `auth.openai.com`, `www.youtube.com`, `i.ytimg.com` | Only the roots in `res/raw/public_roots.pem` | Standard |
 | Dictation | Your dictation service | Only its own certificate, which you pair | Standard |
 
 ### Nextcloud
@@ -115,23 +115,24 @@ trusted CA is accepted by its name although the app dials another host, and that
 standard check on a certificate with no subject alternative names, a certificate from the trusted CA for another
 name, and a certificate with the right name from another CA.
 
-### OpenAI
+### Public services
 
-The ChatGPT sign-in and the model calls use a separate client. It trusts only the roots in
-`res/raw/openai_roots.pem`, which hold the public roots that `api.openai.com` and `auth.openai.com` chain to: the
+The ChatGPT sign-in, the model calls and the YouTube cards use a separate client. It trusts only the roots in
+`res/raw/public_roots.pem`, which hold the public roots that `api.openai.com`, `auth.openai.com`, `www.youtube.com`
+and `i.ytimg.com` chain to: the
 Google Trust Services roots GTS Root R1 and R4, and the Let's Encrypt roots ISRG Root X1 and X2. It checks host
 names the standard way.
 
 Why a bundled list instead of the system store:
 
 - The system store of a 2017 device lacks some of these roots, so the system store alone can't verify the hosts.
-- The bundle is small and holds only what these two hosts need.
+- The bundle is small and holds only what these hosts need.
 - It never includes your Nextcloud CA, and the Nextcloud client never trusts these roots. A bad certificate for one
   service can't be used against the other.
 
-The cost is maintenance. If OpenAI changes the root its hosts chain to, the list in `openai_roots.pem` needs an
-update, and the app needs a new release. This client uses the same Conscrypt and connection spec as the others. Its
-timeouts are longer, because a model can keep a stream quiet for a while before it answers. See
+The cost is maintenance. If OpenAI or Google changes the root its hosts chain to, the list in `public_roots.pem` needs an
+update, and the app needs a new release. This client uses the same Conscrypt and connection spec as the others. The OpenAI
+client's timeouts are longer, because a model can keep a stream quiet for a while before it answers. See
 [AI design](ai.md) for the protocol.
 
 ### Dictation service

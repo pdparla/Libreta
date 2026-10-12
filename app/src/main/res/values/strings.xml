@@ -123,6 +123,16 @@
     <string name="ai_permission_append">La IA quiere añadir texto a «%1$s».</string>
     <string name="ai_permission_allow">Permitir</string>
     <string name="ai_permission_deny">No</string>
+    <string name="youtube_video">Vídeo de YouTube</string>
+    <string name="youtube_loading">Buscando el título…</string>
+    <string name="youtube_unknown">YouTube no da el título: puede ser privado o estar borrado.</string>
+    <string name="youtube_offline">Sin conexión con YouTube.</string>
+    <string name="youtube_thumbnail">Miniatura del vídeo</string>
+    <string name="youtube_qr">Código QR del vídeo</string>
+    <string name="youtube_hint">La tablet no puede reproducirlo. Escanea el código con el móvil para verlo: %1$s</string>
+    <string name="youtube_close">Cerrar</string>
+    <string name="youtube_copy">Copiar enlace</string>
+    <string name="youtube_open">Abrir</string>
     <string name="link_missing_title">Enlace a una nota</string>
     <string name="link_missing">No hay ninguna nota «%1$s». ¿Crearla?</string>
     <string name="link_create">Crear</string>

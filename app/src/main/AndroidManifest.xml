@@ -5,6 +5,14 @@
     <!-- Dictation (docs/design/ai.md). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- To offer «Abrir» on a YouTube card only when something can open web links (needed from Android 11). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:name=".LibretaApp"
         android:allowBackup="false"

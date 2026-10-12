@@ -136,6 +136,21 @@ In both kinds of chat, the assistant searches the web when your question needs c
 - The answer cites the pages it used as links. Tap a link to see the address in a box titled «Página citada» (Cited page). Tap «Abrir» (Open) to open it in the tablet's browser, or «Copiar» (Copy) to copy the address. If the tablet has no browser, a message says so.
 - A search uses your ChatGPT plan, like any turn. The assistant prefers your notes for anything about you.
 
+## YouTube videos
+
+The tablet can't play YouTube videos: its built-in browser engine is too old for the YouTube player. When you tap a
+link to a YouTube video, in a chat or in a note, a card shows instead:
+
+- The video's thumbnail, title and channel, which take a moment to arrive. If YouTube doesn't describe the video
+  (private or removed), the card says so. Without a connection, it says «Sin conexión con YouTube.» (No connection to
+  YouTube.).
+- A QR code with the video's short address. Scan it with your phone to watch the video there.
+- «Copiar enlace» (Copy link) copies the short address. «Abrir» (Open) appears only if something on the tablet can
+  open the link.
+
+Links to channels and playlists open like any other link. Showing the card sends one request to YouTube for the title
+and one for the thumbnail. It doesn't need a ChatGPT session.
+
 ## Errors
 
 | Message | Meaning |

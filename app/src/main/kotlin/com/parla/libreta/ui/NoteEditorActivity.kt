@@ -186,7 +186,7 @@ class NoteEditorActivity : Activity() {
             // Images are linked relative to the note's folder, i.e. its category as saved.
             val folder = File(container.notesDir, draft.origin?.path?.category ?: draft.category)
             val markwon = noteMarkwon?.takeIf { noteFolder == folder }
-                ?: Markdown.forNote(this, folder) { target -> followNoteLink(target, draft.origin?.path) }.also {
+                ?: Markdown.forNote(this, folder, { target -> followNoteLink(target, draft.origin?.path) }, ::showYouTubeCard).also {
                     noteMarkwon = it
                     noteFolder = folder
                 }

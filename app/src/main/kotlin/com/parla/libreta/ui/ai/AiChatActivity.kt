@@ -38,9 +38,11 @@ import com.parla.libreta.data.ai.AiConversation
 import com.parla.libreta.data.ai.MathTask
 import com.parla.libreta.data.ai.NotebookTools
 import com.parla.libreta.data.ai.TurnHandle
+import com.parla.libreta.data.web.YouTubeLinks
 import com.parla.libreta.ui.Markdown
 import com.parla.libreta.ui.dictation.Dictation
 import com.parla.libreta.ui.openNote
+import com.parla.libreta.ui.showYouTubeCard
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -296,9 +298,10 @@ class AiChatActivity : Activity() {
 
     /**
      * A page the AI cites (docs/design/ai.md): its address, to open in the tablet's browser if there is one, or
-     * to copy.
+     * to copy. A YouTube video gets its card instead.
      */
     private fun showWebLink(url: String) {
+        if (YouTubeLinks.videoId(url) != null) return showYouTubeCard(url)
         AlertDialog.Builder(this)
             .setTitle(R.string.ai_web_link)
             .setMessage(url)

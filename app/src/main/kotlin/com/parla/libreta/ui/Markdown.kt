@@ -23,6 +23,7 @@ import android.text.Spanned
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import com.parla.libreta.core.note.NoteLinks
+import com.parla.libreta.data.web.YouTubeLinks
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.LinkResolverDef
 import io.noties.markwon.Markwon
@@ -97,9 +98,9 @@ object Markdown {
     /**
      * For a note stored in [folder]: also shows its images, whose links are relative to the note (for example a
      * handwritten note's `.attachments.k3/pagina-1.png`). Only local files are loaded. `[[…]]` links between notes
-     * ([NoteLinks]) go to [onNoteLink] with what is inside; other links open as usual.
+     * ([NoteLinks]) go to [onNoteLink] with what is inside, YouTube videos to [onVideoLink]; other links open as usual.
      */
-    fun forNote(context: Context, folder: File, onNoteLink: (String) -> Unit): Markwon =
+    fun forNote(context: Context, folder: File, onNoteLink: (String) -> Unit, onVideoLink: (String) -> Unit): Markwon =
         builder(context, NOTE_TEXT_SP)
             .usePlugin(object : AbstractMarkwonPlugin() {
                 override fun processMarkdown(markdown: String): String = NoteLinks.toMarkdownLinks(markdown, WIKI_LINK)
@@ -107,7 +108,11 @@ object Markdown {
                 override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
                     val usual = LinkResolverDef()
                     builder.linkResolver { view, link ->
-                        if (link.startsWith(WIKI_LINK)) onNoteLink(link.removePrefix(WIKI_LINK)) else usual.resolve(view, link)
+                        when {
+                            link.startsWith(WIKI_LINK) -> onNoteLink(link.removePrefix(WIKI_LINK))
+                            YouTubeLinks.videoId(link) != null -> onVideoLink(link)
+                            else -> usual.resolve(view, link)
+                        }
                     }
                 }
             })
