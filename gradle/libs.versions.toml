@@ -10,6 +10,7 @@ conscrypt = "2.5.3"
 junit = "4.13.2"
 # Markdown rendered with Android spans, no WebView. 4.6.2 (the last release) has minSdk 16 and its parser,
 # commonmark-java 0.13.0, is Java 7 bytecode; the only other dependency is androidx.annotation (annotations only).
+# ext-latex draws formulas with JLaTeXMath for Android 0.2.0 (drawables, no WebView); its fonts add about 550 KB.
 markwon = "4.6.2"
 # Tests only: Android has its own org.json, and in JVM tests android.jar only has stubs of it.
 orgjson = "20240303"
@@ -27,6 +28,8 @@ markwon-editor = { module = "io.noties.markwon:editor", version.ref = "markwon" 
 markwon-image = { module = "io.noties.markwon:image", version.ref = "markwon" }
 markwon-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }
 markwon-tables = { module = "io.noties.markwon:ext-tables", version.ref = "markwon" }
+markwon-latex = { module = "io.noties.markwon:ext-latex", version.ref = "markwon" }
+markwon-inline-parser = { module = "io.noties.markwon:inline-parser", version.ref = "markwon" }
 org-json = { module = "org.json:json", version.ref = "orgjson" }
 
 [plugins]

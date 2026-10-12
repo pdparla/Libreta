@@ -300,8 +300,8 @@ note does not change.
 - **New note.** `NoteService.create` creates a text note titled "*Title* (clean copy)" in the same category (in
   Spanish, "(a limpio)"), numbered if the title exists. It syncs like any note. The note ends with a line saying which
   handwritten note it comes from and when.
-- **Formulas.** The model writes formulas in LaTeX (`$…$`), and they stay as text. Markwon's `ext-latex` module is
-  compatible with API 19, but it adds about 650 KB of fonts to an app of about 1 MB, so the app does not include it.
+- **Formulas.** The model writes formulas in LaTeX (`$…$`), which the formatted view and the chat draw. See
+  [Formulas](architecture.md#formulas).
 - **Errors.** If a request fails, the app shows the usual AI message and creates nothing. The pages read so far stay
   saved for next time. Cancelling creates nothing.
 

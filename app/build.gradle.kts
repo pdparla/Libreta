@@ -63,6 +63,8 @@ dependencies {
     implementation(libs.markwon.image)
     implementation(libs.markwon.strikethrough)
     implementation(libs.markwon.tables)
+    implementation(libs.markwon.latex)
+    implementation(libs.markwon.inline.parser)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

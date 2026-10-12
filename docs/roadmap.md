@@ -21,7 +21,6 @@ From most to least interesting:
 | **Annotate PDFs from Nextcloud** | Write on top of a PDF | `PdfRenderer` needs API 21, so a server would have to convert the pages to images |
 | **Handwritten math** | Solve or check formulas | Worth it only for study or formula-heavy work |
 | **Links between notes** | `[[note]]` links | Easier now that the notebook tools can resolve notes |
-| **Rendered formulas** | Show the LaTeX that "clean copy" writes | Markwon's `ext-latex` module works on API 19 but adds about 650 KB of fonts to a roughly 1 MB app |
 
 ## Known gaps
 

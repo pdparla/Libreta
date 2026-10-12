@@ -43,6 +43,19 @@ An existing note that has text opens in the formatted view. A new note, an empty
 
 The formatted view also shows the images that a note links to. A handwritten note therefore shows its pages in this view.
 
+#### Formulas
+
+The formatted view and the chat draw LaTeX formulas:
+
+| You write | You see |
+|---|---|
+| `$x^2 + y^2 = r^2$` or `$$x^2$$` inside a sentence | The formula in line with the text |
+| `$$` on its own line, the formula, and `$$` on its own line again | The formula centered on its own line |
+
+Prices are not formulas: in `5 $ y 10 $` and `$5 y $10`, the dollar signs stay as text. A single `$` opens a formula only when the next character is not a space, and closes it only when the previous character is not a space and the next one is not a digit. To write a literal dollar sign inside a formula, use `\$`.
+
+A formula that LaTeX can't read is shown as its source in grey. In Nextcloud Notes, formulas show as their LaTeX text.
+
 The top bar of the editor also has these buttons:
 
 - The microphone dictates text at the cursor. See [Voice dictation](dictation.md).

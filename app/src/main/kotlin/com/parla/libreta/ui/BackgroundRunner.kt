@@ -3,6 +3,7 @@ package com.parla.libreta.ui
 import android.os.Handler
 import android.os.Looper
 import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -25,6 +26,6 @@ class BackgroundRunner(private val executor: Executor) {
  * `Executors.newSingleThreadExecutor()`, but whose thread ends after 30 s without work and is created again on
  * demand, so an idle screen does not keep a thread (and its stack) alive per executor.
  */
-fun idleSingleThreadExecutor(threadName: String): Executor =
+fun idleSingleThreadExecutor(threadName: String): ExecutorService =
     ThreadPoolExecutor(1, 1, 30, TimeUnit.SECONDS, LinkedBlockingQueue<Runnable>()) { task -> Thread(task, threadName) }
         .apply { allowCoreThreadTimeOut(true) }

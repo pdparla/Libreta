@@ -3,6 +3,8 @@ package com.parla.libreta.data.remote
 import com.parla.libreta.data.local.writeAtomically
 import java.io.File
 import java.security.cert.CertificateException
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 import javax.security.auth.x500.X500Principal
 
 /**
@@ -35,14 +37,15 @@ class NextcloudCaStore(private val file: File) {
     companion object {
         private val COMMON_NAME = Regex("""(?:^|,)CN=((?:\\.|[^,\\])+)""")
 
-        /** @throws IllegalArgumentException if [pem] holds no readable certificate. */
+        /** In the file's order. @throws IllegalArgumentException if [pem] holds no readable certificate. */
         fun subjectsOf(pem: String): List<String> {
-            val issuers = try {
-                Tls.trustManagerFor(pem.byteInputStream()).acceptedIssuers
+            val certificates = try {
+                CertificateFactory.getInstance("X.509").generateCertificates(pem.byteInputStream())
             } catch (e: CertificateException) {
                 throw IllegalArgumentException("Not a PEM certificate", e)
             }
-            return issuers.map { certificate ->
+            require(certificates.isNotEmpty()) { "No CA certificate found" }
+            return certificates.filterIsInstance<X509Certificate>().map { certificate ->
                 val subject = certificate.subjectX500Principal.getName(X500Principal.RFC2253)
                 COMMON_NAME.find(subject)?.groupValues?.get(1)?.replace("\\", "") ?: subject
             }

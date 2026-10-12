@@ -69,7 +69,7 @@ The new note:
 - is called «Title (a limpio)» and is in the same category as the original;
 - contains everything written, as Markdown with headings, lists and tables where the original has them. The assistant joins the pages without repeating text or cutting sentences, and it adds nothing that is not written;
 - uses the titles you marked as headings. See [Titles, tags and the index](organize.md);
-- writes formulas as LaTeX between `$` signs, shown as plain text;
+- writes formulas as LaTeX between `$` signs, which the formatted view draws (see [Formulas](notes.md#formulas));
 - ends with a line that says which handwritten note it comes from and when;
 - syncs with Nextcloud like any other text note.
 

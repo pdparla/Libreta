@@ -134,6 +134,23 @@ else writes into the private folder. A sync with no local changes doesn't read t
 
 Deleting a file removes its folder if it was the last file in it, as Nextcloud Notes does with categories.
 
+## Formulas
+
+The formatted view and the chat draw LaTeX with Markwon's `ext-latex` module, which uses JLaTeXMath for Android. It
+draws each formula as a drawable, so no WebView is needed: the KitKat WebView is too old for KaTeX or MathJax.
+`ui/Markdown.kt` sets it up:
+
+- **Two syntaxes.** Markwon's own parsers handle `$$` blocks and `$$x$$` inline. The model and "clean copy" write
+  `$x$` with single dollars, so a second inline processor, `SingleDollarLatex`, handles those. `InlineMath` decides
+  where such a formula starts and ends, with Pandoc's rule, so that prices stay text. It is plain Kotlin, tested on
+  the JVM in `InlineMathTest`.
+- **Off the main thread.** Formulas are laid out on one idle-timeout thread (`libreta-latex`) and appear when ready.
+- **Size.** Formulas are drawn at 1.2 times the size of the text. Computer Modern looks smaller than the system
+  font, and at 160 dpi a smaller `+` loses its horizontal bar.
+- **Errors.** A formula that JLaTeXMath can't parse is shown as its source in grey.
+- **The editor stays plain.** Markdown highlighting while you type uses a Markwon without formulas, so typing never
+  waits for LaTeX.
+
 ## The editor's save model
 
 ### Text notes

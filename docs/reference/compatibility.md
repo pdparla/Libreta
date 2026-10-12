@@ -82,6 +82,7 @@ Every dependency must work on API 19. Don't upgrade past these limits without ve
 | OkHttp | 3.12.13 | The last branch that supports Android below 5. Version 4 and later need API 21. |
 | Conscrypt (`conscrypt-android`) | 2.5.3 | Version 2.6 and later need `minSdk` 21. It brings TLS 1.2 with AES-GCM and ChaCha20-Poly1305. |
 | Markwon | 4.6.2 | `minSdk` 16. Markdown becomes native spans, with no WebView. Its parser, commonmark-java 0.13.0, is Java 7 bytecode. |
+| Markwon `ext-latex` (JLaTeXMath for Android 0.2.0) | 4.6.2 | Draws formulas as Android drawables, so it needs no WebView. Its fonts add about 550 KB to the APK. |
 | `org.json` (tests only) | 20240303 | Android has its own `org.json`. In JVM tests, `android.jar` has only stubs of it. |
 
 Notes:
@@ -95,7 +96,7 @@ Notes:
 ## Method count
 
 A single `classes.dex` can hold 65,536 method references. A recent debug build, which isn't minified, has about
-24,000 in one `classes.dex`, with OkHttp, Okio, Conscrypt and Markwon. There's no need for multidex. R8 shrinks the
+26,000 in one `classes.dex`, with OkHttp, Okio, Conscrypt, Markwon and JLaTeXMath. There's no need for multidex. R8 shrinks the
 release build (`isMinifyEnabled` and `isShrinkResources`). `app/proguard-rules.pro` has only the rules the
 dependencies don't ship: `-dontwarn` for Conscrypt classes that exist only on the device, and for Markwon's optional
 image decoders.

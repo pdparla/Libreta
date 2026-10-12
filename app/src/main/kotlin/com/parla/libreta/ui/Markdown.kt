@@ -3,6 +3,18 @@ package com.parla.libreta.ui
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.text.TextPaint
+import android.util.TypedValue
+import io.noties.markwon.ext.latex.JLatexMathNode
+import io.noties.markwon.ext.latex.JLatexMathPlugin
+import io.noties.markwon.inlineparser.InlineProcessor
+import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
+import org.commonmark.node.Node
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -30,18 +42,38 @@ import java.io.InputStream
 
 /**
  * Markdown shown formatted, with Markwon: CommonMark plus GitHub's tables and strikethrough, the Markdown that
- * Nextcloud Notes writes and that the model answers in.
+ * Nextcloud Notes writes and that the model answers in, and LaTeX formulas (docs/design/architecture.md#formulas):
+ * `$x$` and `$$x$$` inline, and `$$` blocks.
  */
 object Markdown {
+
+    /** Formulas are drawn one at a time off the main thread; a note full of them never holds up the screen. */
+    private val latexExecutor by lazy { idleSingleThreadExecutor("libreta-latex") }
+
+    /** CommonMark with tables, strikethrough and formulas, sized for text of [textSizeSp]. */
+    private fun builder(context: Context, textSizeSp: Float): Markwon.Builder {
+        // Computer Modern looks smaller than the body text, and at 160 dpi a smaller `+` loses its bar.
+        val textSize = LATEX_SCALE * TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, textSizeSp, context.resources.displayMetrics)
+        return Markwon.builder(context)
+            .usePlugin(StrikethroughPlugin.create())
+            .usePlugin(TablePlugin.create(context))
+            .usePlugin(MarkwonInlineParserPlugin.create { it.addInlineProcessor(SingleDollarLatex()) })
+            .usePlugin(
+                JLatexMathPlugin.create(textSize) { latex ->
+                    latex.inlinesEnabled(true)
+                    latex.executorService(latexExecutor)
+                    // Mistyped LaTeX shows as its source rather than as nothing.
+                    latex.errorHandler { source, _ -> LatexSourceDrawable(source, textSize) }
+                },
+            )
+    }
 
     /**
      * For the AI's answers: text only. With [onNoteLink], links to `nota:<path>` (the AI's citations,
      * docs/design/ai.md) go there, with what follows `nota:`; other links do nothing, as the tablet has no browser.
      */
     fun forChat(context: Context, onNoteLink: ((String) -> Unit)? = null, onWebLink: ((String) -> Unit)? = null): Markwon =
-        Markwon.builder(context)
-            .usePlugin(StrikethroughPlugin.create())
-            .usePlugin(TablePlugin.create(context))
+        builder(context, CHAT_TEXT_SP)
             .usePlugin(object : AbstractMarkwonPlugin() {
                 override fun configureConfiguration(builder: MarkwonConfiguration.Builder) {
                     builder.linkResolver { _, link ->
@@ -62,9 +94,7 @@ object Markdown {
      * handwritten note's `.attachments.k3/pagina-1.png`). Only local files are loaded.
      */
     fun forNote(context: Context, folder: File): Markwon =
-        Markwon.builder(context)
-            .usePlugin(StrikethroughPlugin.create())
-            .usePlugin(TablePlugin.create(context))
+        builder(context, NOTE_TEXT_SP)
             .usePlugin(
                 ImagesPlugin.create { plugin ->
                     plugin.addSchemeHandler(FileSchemeHandler.create())
@@ -83,7 +113,7 @@ object Markdown {
      * The text itself does not change.
      */
     fun editor(context: Context): MarkwonEditor =
-        MarkwonEditor.builder(forChat(context))
+        MarkwonEditor.builder(Markwon.builder(context).usePlugin(StrikethroughPlugin.create()).build())
             .useEditHandler(StrongEmphasisEditHandler())
             .useEditHandler(EmphasisEditHandler())
             .useEditHandler(HeadingEditHandler())
@@ -134,5 +164,44 @@ object Markdown {
         override fun supportedTypes(): Collection<String> = emptySet()
     }
 
+    /**
+     * `$x$` with single dollars, as "clean copy" and the AI write formulas ([InlineMath] decides what counts).
+     * Markwon's own processor, tried as well, handles `$$x$$`.
+     */
+    private class SingleDollarLatex : InlineProcessor() {
+
+        override fun specialCharacter() = '$'
+
+        override fun parse(): Node? {
+            val (latex, end) = InlineMath.at(input, index) ?: return null
+            index = end
+            return JLatexMathNode().apply { latex(latex) }
+        }
+    }
+
+    /** A formula that could not be drawn, as its LaTeX source in grey. */
+    private class LatexSourceDrawable(private val source: String, textSize: Float) : Drawable() {
+
+        private val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.textSize = textSize
+            color = Color.GRAY
+            typeface = Typeface.MONOSPACE
+        }
+
+        init {
+            setBounds(0, 0, paint.measureText(source).toInt(), (paint.fontSpacing).toInt())
+        }
+
+        override fun draw(canvas: Canvas) = canvas.drawText(source, 0f, -paint.ascent(), paint)
+        override fun setAlpha(alpha: Int) = Unit
+        override fun setColorFilter(colorFilter: ColorFilter?) = Unit
+        override fun getOpacity() = PixelFormat.TRANSLUCENT
+    }
+
     private const val HEADING_SIZE = 1.25f
+
+    /** The text sizes of the note's formatted view (activity_note_editor.xml) and of the chat. */
+    private const val NOTE_TEXT_SP = 18f
+    private const val CHAT_TEXT_SP = 16f
+    private const val LATEX_SCALE = 1.2f
 }
