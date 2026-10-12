@@ -154,5 +154,5 @@ class NoteService(
         )
     }
 
-    private fun exists(path: NotePath): Boolean = notes.readOrNull(path) != null
+    private fun exists(path: NotePath): Boolean = notes.exists(path)
 }

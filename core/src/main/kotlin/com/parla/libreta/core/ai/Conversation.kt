@@ -4,7 +4,6 @@ import com.parla.libreta.core.note.NoteNaming
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteRepository
 import com.parla.libreta.core.note.WritePrecondition
-import com.parla.libreta.core.note.readOrNull
 import com.parla.libreta.core.note.writeText
 
 /** Who wrote a message of a conversation with the AI. */
@@ -35,7 +34,7 @@ class ConversationNotes(
      * PNG) as an attachment when given. The image goes first, so the note never points at a missing file.
      */
     fun save(category: String, title: String, image: ByteArray?, messages: List<ChatMessage>): NotePath {
-        val path = NoteNaming.uniquePath(title, category, isTaken = { notes.readOrNull(it) != null })
+        val path = NoteNaming.uniquePath(title, category, isTaken = { notes.exists(it) })
         val folder = image?.let {
             val folder = NotePath.ATTACHMENTS_FOLDER_PREFIX + newFolderId()
             val target = path.resolveSibling("$folder/$IMAGE_NAME") ?: throw IllegalArgumentException("Bad folder $folder")

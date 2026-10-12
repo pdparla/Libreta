@@ -7,6 +7,7 @@ import android.util.Log
 import com.parla.libreta.core.ink.InkNote
 import com.parla.libreta.core.ink.InkNoteService
 import com.parla.libreta.core.ink.InkRect
+import com.parla.libreta.core.ink.InkTranscriptLedger
 import com.parla.libreta.core.ink.InkTranscriptService
 import com.parla.libreta.core.ink.InkTranscripts
 import com.parla.libreta.core.note.NoteRepository
@@ -32,6 +33,7 @@ class InkTranscriber(
     private val preferences: SharedPreferences,
 ) {
 
+    private val ledger = InkTranscriptLedger()
     private val executor = Executors.newSingleThreadExecutor()
     private val running = AtomicBoolean(false)
     private val mainThread = Handler(Looper.getMainLooper())
@@ -67,13 +69,13 @@ class InkTranscriber(
         }
     }
 
-    /** Pages waiting to be read, in every handwritten note. Reads the notes: call it off the main thread. */
-    fun countPending(): Int = handwrittenNotes().sumOf { transcripts.pending(it).size }
+    /** Pages waiting to be read, in every handwritten note. Reads the notes that changed: call it off the main thread. */
+    fun countPending(): Int = unsettledNotes().sumOf { it.pending.size }
 
     private fun pass(): Int {
         var read = 0
-        for (note in handwrittenNotes()) {
-            for (index in transcripts.pending(note)) {
+        for ((note, pending) in unsettledNotes()) {
+            for (index in pending) {
                 val page = note.document.pages[index]
                 val text = if (page.isEmpty) {
                     // Nothing to read: no need to ask the model.
@@ -96,21 +98,45 @@ class InkTranscriber(
                 }
                 if (!page.isEmpty) read++
             }
+            // Not recorded as settled here: saving changed its transcripts file. The next pass finds nothing
+            // pending (cheap, one note) and records it.
         }
         if (read > 0) Log.i(TAG, "pass read $read pages")
         return read
     }
 
-    /** Every handwritten note, opened one at a time as the sequence is walked. */
-    private fun handwrittenNotes(): Sequence<InkNote> =
-        notes.list().asSequence().map { it.path }.filter { it.isNote }.mapNotNull { path ->
+    private data class Unsettled(val note: InkNote, val pending: List<Int>)
+
+    /**
+     * The handwritten notes with pages to read, opened one at a time as the sequence is walked. The versions of all
+     * files come from one listing; a note whose Markdown, strokes and transcripts are all as when it was last found
+     * complete is skipped without being read, and one found complete now (or not handwritten) is recorded.
+     */
+    private fun unsettledNotes(): Sequence<Unsettled> {
+        val versions = notes.list().associate { it.path to it.version }
+        val paths = versions.keys.filter { it.isNote }
+        ledger.retainOnly(paths.toSet())
+        return paths.asSequence().mapNotNull { path ->
             try {
+                if (ledger.isSettled(path, versions)) return@mapNotNull null
                 val markdown = notes.readOrNull(path)?.text ?: return@mapNotNull null
-                if (!inkNotes.isInkNote(path, markdown) { notes.readOrNull(it) != null }) null else inkNotes.open(path)
+                if (!inkNotes.isInkNote(path, markdown, notes::exists)) {
+                    ledger.markSettled(path, markdown, versions)
+                    return@mapNotNull null
+                }
+                val note = inkNotes.open(path)
+                val pending = transcripts.pending(note)
+                if (pending.isEmpty()) {
+                    ledger.markSettled(path, markdown, versions)
+                    null
+                } else {
+                    Unsettled(note, pending)
+                }
             } catch (e: Exception) {
                 null
             }
         }
+    }
 
     private companion object {
         const val TAG = "LibretaSearch"

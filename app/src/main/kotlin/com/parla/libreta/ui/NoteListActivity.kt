@@ -19,7 +19,6 @@ import com.parla.libreta.R
 import com.parla.libreta.container
 import com.parla.libreta.core.note.NoteSearch
 import com.parla.libreta.core.note.NoteStoreException
-import com.parla.libreta.core.note.NoteTags
 import com.parla.libreta.core.note.SearchHit
 import com.parla.libreta.ui.ai.AiChatActivity
 import com.parla.libreta.ui.ink.InkNoteActivity
@@ -220,19 +219,23 @@ class NoteListActivity : Activity() {
 
     /**
      * Every note, newest first, marking the handwritten ones, with what search can find it by: the title, the text
-     * and, for handwriting, what each page says (a note's Markdown and transcript are a few KB to read).
+     * and, for handwriting, what each page says. The index reads only the notes that changed since the last time.
      */
-    private fun listNotes(): List<ListedNote> =
-        container.notes.summaries().sortedByDescending { it.modifiedAt }.map { summary ->
-            val path = summary.path
-            val markdown = try {
-                container.notes.read(path).text
-            } catch (e: NoteStoreException) {
-                ""
+    private fun listNotes(): List<ListedNote> {
+        val entries = container.notebookIndex.entries(container.notes.list()).associateBy { it.path }
+        return container.notes.summaries().sortedByDescending { it.modifiedAt }.map { summary ->
+            val entry = entries[summary.path] ?: run {
+                // Created or changed between the two listings: read it now.
+                val markdown = try {
+                    container.notes.read(summary.path).text
+                } catch (e: NoteStoreException) {
+                    ""
+                }
+                container.notebookIndex.entry(summary.path, markdown)
             }
-            val entry = container.notebookIndex.entry(path, markdown)
-            ListedNote(summary, entry.isInk, entry.searchable, NoteTags.of(markdown))
+            ListedNote(summary, entry.isInk, entry.searchable, entry.tags)
         }
+    }
 
     private fun open(note: ListedNote) {
         // A match in the handwriting opens the note at its page.

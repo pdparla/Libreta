@@ -51,6 +51,11 @@ lista no tenía buscador y lo escrito a mano solo existía como trazos e imágen
 
 - Un hilo propio. Recorre las notas a mano, transcribe las páginas pendientes **de una en una** y guarda cada
   resultado al momento: si la app se cierra a medias, lo hecho no se pierde y el resto queda pendiente.
+- Cada pasada hace un único `list()` y se salta, sin abrirlas, las notas que ya estaban completas: se recuerda en
+  memoria (`InkTranscriptLedger`, en `:core`) por nota las versiones de su Markdown, sus trazos y sus transcripciones
+  cuando no quedaba nada pendiente (también para las notas que no son a mano). Si alguna versión cambia, o aparece o
+  desaparece uno de esos ficheros, la nota se vuelve a examinar. La comprobación de existencia no lee los trazos. El
+  recuento de páginas pendientes de Ajustes usa el mismo registro.
 - Se lanza al salir de una nota a mano (cuando ya se ha guardado) y al abrir la lista. Nunca hay dos pasadas a la
   vez.
 - Se detiene sin avisar si no hay sesión de ChatGPT, si no hay red o si se alcanza el límite de uso del plan; lo
@@ -62,8 +67,10 @@ lista no tenía buscador y lo escrito a mano solo existía como trazos e imágen
 - `NoteSearch` (`:core`, con tests): normaliza (minúsculas y sin acentos, con `java.text.Normalizer`) y busca la
   consulta en el título, el texto y el texto de cada página, en ese orden. Devuelve dónde la encontró (título, texto
   o página *n*) y un fragmento de unos 60 caracteres alrededor.
-- El índice se arma al cargar la lista, en segundo plano: la lista ya lee cada nota para saber si es a mano, y ahora
-  lee además su `libreta.text.json`. Para cientos de notas basta un índice en memoria.
+- El índice se arma al cargar la lista, en segundo plano, y lo comparten la lista y las herramientas de la IA
+  (`NotebookIndex`). Guarda en memoria la entrada de cada nota junto con las versiones de lo que leyó (su Markdown, sus
+  posibles trazos y su `libreta.text.json`, o su ausencia): con un único `list()` del repositorio, solo vuelve a leer las
+  notas cuyas versiones cambiaron y descarta las que ya no existen. Para cientos de notas basta un índice en memoria.
 - En las notas a mano no se busca en el Markdown de las líneas gestionadas (imágenes y referencia de los trazos),
   solo en el título, el texto del usuario y la transcripción.
 - Los fragmentos se ajustan a palabras enteras cuando hay un espacio a menos de 15 caracteres, para no empezar ni
