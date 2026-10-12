@@ -4,6 +4,8 @@ Libreta is an offline notebook for old Android tablets. It keeps text notes in M
 by hand, and syncs with the Notes app of your own Nextcloud server over WebDAV. It runs on Android 4.4 (API 19),
 so a tablet that no longer gets updates can still be a useful notebook.
 
+https://github.com/user-attachments/assets/ce0b2972-2157-4eea-9ae0-f0371e548a88
+
 The app was built for a Samsung Galaxy Tab 3 Lite (SM-T113). Its interface is in Spanish.
 
 ## Features
