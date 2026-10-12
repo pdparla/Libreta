@@ -307,27 +307,19 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
             viewport.originX != renderedOriginX || viewport.originY != renderedOriginY
         ) return refresh(hidden)
         val scale = renderedScale
-        // Android 4.4's Skia disagrees on the edge pixels of a fractional clip between solid fills (the paper) and
-        // antialiased paths (the ink), so ink gets painted twice over pixels the paper did not clear. Hence the area is
-        // worked out in device pixels and aligned to whole ones. A couple of pixels more on every side, for the
-        // antialiased edges of what was there; and no further than the bitmap and the page go (rounded outwards), so
-        // that zoomed in only what is on screen is drawn.
-        val slack = AREA_SLACK.toInt()
-        val left = max(max(0, floor(renderedOriginX).toInt()), floor(renderedOriginX + area.left * scale).toInt() - slack)
-        val top = max(max(0, floor(renderedOriginY).toInt()), floor(renderedOriginY + area.top * scale).toInt() - slack)
-        val right = minOf(width, ceil(renderedOriginX + page.width * scale).toInt(), ceil(renderedOriginX + area.right * scale).toInt() + slack)
-        val bottom = minOf(height, ceil(renderedOriginY + page.height * scale).toInt(), ceil(renderedOriginY + area.bottom * scale).toInt() + slack)
+        // A couple of pixels more on every side, for the antialiased edges of what was there; and no further than the
+        // bitmap goes, so that zoomed in only what is on screen is drawn.
+        val left = max(max(0f, -renderedOriginX), floor(area.left * scale) - AREA_SLACK)
+        val top = max(max(0f, -renderedOriginY), floor(area.top * scale) - AREA_SLACK)
+        val right = minOf(page.width * scale, width - renderedOriginX, ceil(area.right * scale) + AREA_SLACK)
+        val bottom = minOf(page.height * scale, height - renderedOriginY, ceil(area.bottom * scale) + AREA_SLACK)
         shown(page, hidden)
         if (left >= right || top >= bottom) return invalidate()
         val canvas = Canvas(bitmap)
         canvas.save()
-        canvas.clipRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
         canvas.translate(renderedOriginX, renderedOriginY)
-        // The same page clip as [refresh], so that what lies outside the page comes out identical.
-        canvas.clipRect(0f, 0f, page.width * scale, page.height * scale)
-        val within = InkRect((left - renderedOriginX) / scale, (top - renderedOriginY) / scale,
-            (right - renderedOriginX) / scale, (bottom - renderedOriginY) / scale)
-        drawPage(canvas, page, scale, within, hidden)
+        canvas.clipRect(left, top, right, bottom)
+        drawPage(canvas, page, scale, InkRect(left / scale, top / scale, right / scale, bottom / scale), hidden)
         canvas.restore()
         invalidate()
     }
