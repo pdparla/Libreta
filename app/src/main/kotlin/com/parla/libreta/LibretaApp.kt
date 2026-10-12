@@ -29,6 +29,7 @@ import com.parla.libreta.ui.BackgroundRunner
 import com.parla.libreta.ui.idleSingleThreadExecutor
 import com.parla.libreta.ui.ink.InkRenderer
 import com.parla.libreta.ui.ink.InkTranscriber
+import okhttp3.ConnectionSpec
 import okhttp3.OkHttpClient
 import org.conscrypt.Conscrypt
 import java.io.File
@@ -69,8 +70,10 @@ class AppContainer(context: Context) {
      * The base of every HTTP client: they derive from it with `newBuilder()`, so all share one connection pool and
      * dispatcher (and its threads). Connections are keyed by address, including the socket factory, host name
      * verifier and connection specs, so a client never reuses a connection made under another trust configuration.
+     * Cleartext-only by itself: with a TLS spec and no socket factory, OkHttp would load the system's trust store
+     * just to build a factory every client replaces with its own.
      */
-    private val httpBase: OkHttpClient by lazy { OkHttpClient() }
+    private val httpBase: OkHttpClient by lazy { OkHttpClient.Builder().connectionSpecs(listOf(ConnectionSpec.CLEARTEXT)).build() }
 
     /**
      * Built on first use, off the main thread: loading Conscrypt's native library and parsing the CA take a
