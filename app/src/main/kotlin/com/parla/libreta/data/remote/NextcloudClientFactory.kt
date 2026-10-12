@@ -3,6 +3,7 @@ package com.parla.libreta.data.remote
 import okhttp3.Credentials
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.X509TrustManager
@@ -24,10 +25,13 @@ class NextcloudClientFactory(
         .followRedirects(false)
         .build()
 
+    // One listing cache per notes URL (i.e. per account), kept across syncs: each sync builds a new client.
+    private val listingCaches = ConcurrentHashMap<String, ListingCache>()
+
     /** @throws IllegalArgumentException if the configuration has no valid HTTPS URL or user. */
     fun create(config: ServerConfig): NextcloudWebDavSync {
         val notesUrl = requireNotNull(config.notesUrl()) { "Invalid server configuration: $config" }
-        return NextcloudWebDavSync(clientFor(config), notesUrl)
+        return NextcloudWebDavSync(clientFor(config), notesUrl, listingCaches.getOrPut(notesUrl.toString()) { ListingCache() })
     }
 
     /** @throws IllegalArgumentException if the configuration has no valid HTTPS URL. */

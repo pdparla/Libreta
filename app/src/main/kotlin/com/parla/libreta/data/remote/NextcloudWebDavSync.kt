@@ -30,11 +30,15 @@ class HttpStatusException(val code: Int, val method: String, url: HttpUrl) :
  * - Preconditions travel as `If-Match` / `If-None-Match: *`, so the server rejects a write that lost a race.
  * - Categories are folders; they are created with MKCOL when a note is written into a new one.
  *
+ * Listing is incremental: see [list] and [ListingCache].
+ *
  * @param notesUrl collection holding the notes, e.g. `https://host/remote.php/dav/files/USER/Notes/`.
  */
 class NextcloudWebDavSync(
     private val client: OkHttpClient,
     private val notesUrl: HttpUrl,
+    /** Listings of folders by ETag; shared by the syncs of one account so it survives from one run to the next. */
+    private val cache: ListingCache = ListingCache(),
 ) : SyncStrategy {
 
     override val name = "Nextcloud WebDAV"
@@ -53,32 +57,62 @@ class NextcloudWebDavSync(
         propfind(folderUrl(""), depth = 0) ?: throw notesFolderMissing()
     }
 
-    /** Walks the folder tree one level at a time; Nextcloud may refuse `Depth: infinity`. */
+    /**
+     * Walks the folder tree one level at a time; Nextcloud may refuse `Depth: infinity`. The root is always read.
+     * A child folder whose collection ETag equals the one cached from a previous complete listing is not read again:
+     * Nextcloud changes a collection's ETag whenever anything below it changes, so its cached subtree is still valid.
+     */
     override fun list(): List<NoteEntry> {
+        val snapshot = cache.snapshot()
+        val fresh = mutableMapOf<String, ListingCache.Subtree>()
+        // A missing notes folder must never look like "every note was deleted".
+        val tree = walk("", snapshot.folders, fresh) ?: throw notesFolderMissing()
+        knownFolders += tree.folders
+        // Only a walk that finished replaces the cache; an exception above leaves the previous one untouched.
+        cache.replace(snapshot.version, fresh)
+        return tree.notes
+    }
+
+    /** The subtree at [folder] read from the server (children reused from [old] when unchanged), or null if gone. */
+    private fun walk(
+        folder: String,
+        old: Map<String, ListingCache.Subtree>,
+        fresh: MutableMap<String, ListingCache.Subtree>,
+    ): ListingCache.Subtree? {
+        // A category missing here was deleted while we were walking, and its notes are gone indeed.
+        val resources = propfind(folderUrl(folder), depth = 1) ?: return null
+        val ownEtag = resources.firstOrNull { it.isCollection && relativePathOf(it.href) == folder }?.etag
         val notes = mutableListOf<NoteEntry>()
-        val pending = ArrayDeque(listOf(""))
-        while (pending.isNotEmpty()) {
-            val folder = pending.removeFirst()
-            // A missing notes folder must never look like "every note was deleted". A missing category was
-            // deleted while we were walking, and its notes are gone indeed.
-            val resources = propfind(folderUrl(folder), depth = 1)
-                ?: if (folder.isEmpty()) throw notesFolderMissing() else continue
-            for (resource in resources) {
-                val relative = relativePathOf(resource.href) ?: continue
-                if (relative == folder) continue
-                if (resource.isCollection) {
-                    // Categories and `.attachments.*` folders; other hidden folders are not part of the notes tree.
-                    if (!NotePath.isSyncedFolder(relative)) continue
-                    knownFolders += relative
-                    pending += relative
+        val folders = mutableListOf<String>()
+        var cacheable = ownEtag != null
+        for (resource in resources) {
+            val relative = relativePathOf(resource.href) ?: continue
+            if (relative == folder) continue
+            if (resource.isCollection) {
+                // Categories and `.attachments.*` folders; other hidden folders are not part of the notes tree.
+                if (!NotePath.isSyncedFolder(relative)) continue
+                val cached = old[relative]
+                val child = if (resource.etag != null && cached != null && cached.etag == resource.etag) {
+                    // Unchanged: reuse the subtree and keep the cache entries of everything below it.
+                    fresh[relative] = cached
+                    for (below in cached.folders) old[below]?.let { fresh[below] = it }
+                    cached
                 } else {
-                    val path = NotePath.parseOrNull(relative) ?: continue
-                    val etag = resource.etag ?: throw StoreUnavailableException("No ETag for $relative")
-                    notes += NoteEntry(path, Version(etag))
+                    walk(relative, old, fresh) ?: continue
                 }
+                folders += relative
+                folders += child.folders
+                notes += child.notes
+                if (!child.cacheable) cacheable = false
+            } else {
+                val path = NotePath.parseOrNull(relative) ?: continue
+                val etag = resource.etag ?: throw StoreUnavailableException("No ETag for $relative")
+                notes += NoteEntry(path, Version(etag))
             }
         }
-        return notes
+        return ListingCache.Subtree(ownEtag, notes, folders, cacheable).also {
+            if (folder.isNotEmpty() && it.cacheable) fresh[folder] = it
+        }
     }
 
     override fun read(path: NotePath): VersionedContent {
@@ -94,6 +128,15 @@ class NextcloudWebDavSync(
     }
 
     override fun write(path: NotePath, content: ByteArray, precondition: WritePrecondition): Version {
+        try {
+            return writeNote(path, content, precondition)
+        } finally {
+            // Whatever happened, the folder (and so its ancestors) may have changed on the server.
+            cache.invalidate(path.category)
+        }
+    }
+
+    private fun writeNote(path: NotePath, content: ByteArray, precondition: WritePrecondition): Version {
         ensureFolder(path.category)
         var result = put(path, content, precondition)
         if (result is PutResult.FolderMissing && path.category.isNotEmpty()) {
@@ -109,6 +152,14 @@ class NextcloudWebDavSync(
     }
 
     override fun delete(path: NotePath, precondition: WritePrecondition) {
+        try {
+            deleteNote(path, precondition)
+        } finally {
+            cache.invalidate(path.category)
+        }
+    }
+
+    private fun deleteNote(path: NotePath, precondition: WritePrecondition) {
         val request = Request.Builder().url(noteUrl(path)).delete().precondition(precondition).build()
         execute(request) { response ->
             when (response.code()) {

@@ -22,7 +22,17 @@ class FakeNextcloud(
 
     private val files = TreeMap<String, StoredFile>()
     private val folders = TreeSet(listOf(""))
+    private val folderEtags = HashMap<String, String>().apply { put("", "\"folder-0\"") }
     private var nextEtag = 1
+
+    /** Set to false to imitate a server that sends no ETag for collections. */
+    var sendCollectionEtags = true
+
+    /** PROPFIND of this folder answers 500, imitating a failure in the middle of a walk. */
+    var failPropfindOf: String? = null
+
+    /** Folders (relative, "" for the notes folder) listed by each PROPFIND received, in order. */
+    val propfinds = java.util.Collections.synchronizedList(mutableListOf<String>())
 
     /** Set to false to imitate a server that sends no ETag header on PUT. */
     var sendEtagOnWrite = true
@@ -46,16 +56,23 @@ class FakeNextcloud(
     fun putBytes(relative: String, content: ByteArray) {
         relative.substringBeforeLast('/', "").let { if (it.isNotEmpty()) addFolders(it) }
         files[relative] = StoredFile(content, newEtag())
+        touchParents(relative)
     }
 
     fun remove(relative: String) {
         files.remove(relative)
+        touchParents(relative)
     }
 
     fun removeFolder(relative: String) {
         folders.removeAll { it == relative || it.startsWith("$relative/") }
         files.keys.removeAll { it.startsWith("$relative/") }
+        folderEtags.keys.removeAll { it == relative || it.startsWith("$relative/") }
+        touchParents(relative)
     }
+
+    /** Current ETag of a folder, "" being the notes folder. */
+    fun folderEtagOf(relative: String): String? = folderEtags[relative]
 
     fun contentOf(relative: String): String? = files[relative]?.content?.let { String(it, Charsets.UTF_8) }
 
@@ -76,7 +93,7 @@ class FakeNextcloud(
         if (!notesFolderExists) return MockResponse().setResponseCode(404)
         val relative = segments.drop(baseSegments.size).joinToString("/")
         return when (request.method) {
-            "PROPFIND" -> propfind(relative, request.getHeader("Depth"))
+            "PROPFIND" -> propfind(relative.also { propfinds += it },request.getHeader("Depth"))
             "GET" -> files[relative]?.let { MockResponse().setBody(Buffer().write(it.content)).setHeader("ETag", it.etag) } ?: status(404)
             "PUT" -> put(relative, request)
             "DELETE" -> delete(relative, request)
@@ -86,6 +103,7 @@ class FakeNextcloud(
     }
 
     private fun propfind(relative: String, depth: String?): MockResponse {
+        if (relative == failPropfindOf) return status(500)
         val file = files[relative]
         val body = StringBuilder("""<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">""")
         when {
@@ -111,6 +129,7 @@ class FakeNextcloud(
         if (!preconditionHolds(current, request)) return status(412)
         val stored = StoredFile(request.body.readByteArray(), newEtag())
         files[relative] = stored
+        touchParents(relative)
         val response = status(if (current == null) 201 else 204)
         return if (sendEtagOnWrite) response.setHeader("ETag", stored.etag) else response
     }
@@ -120,6 +139,7 @@ class FakeNextcloud(
         if (relative in locked) return status(423)
         if (!preconditionHolds(current, request)) return status(412)
         files.remove(relative)
+        touchParents(relative)
         return status(204)
     }
 
@@ -127,7 +147,7 @@ class FakeNextcloud(
         relative in folders || relative in files -> status(405)
         parentOf(relative) !in folders -> status(409)
         else -> {
-            folders += relative
+            addFolders(relative)
             status(201)
         }
     }
@@ -152,7 +172,8 @@ class FakeNextcloud(
 
     private fun folderResponse(relative: String) =
         "<d:response><d:href>${hrefOf(relative, folder = true)}</d:href><d:propstat><d:prop>" +
-            "<d:getetag>\"folder-${relative.hashCode()}\"</d:getetag><d:resourcetype><d:collection/></d:resourcetype>" +
+            (if (sendCollectionEtags) "<d:getetag>${folderEtags[relative]}</d:getetag>" else "") +
+            "<d:resourcetype><d:collection/></d:resourcetype>" +
             "</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"
 
     private fun hrefOf(relative: String, folder: Boolean): String {
@@ -164,8 +185,26 @@ class FakeNextcloud(
 
     private fun addFolders(relative: String) {
         val levels = relative.split('/')
-        for (n in 1..levels.size) folders += levels.take(n).joinToString("/")
+        for (n in 1..levels.size) {
+            val folder = levels.take(n).joinToString("/")
+            if (folders.add(folder)) {
+                folderEtags[folder] = newFolderEtag()
+                touchParents(folder)
+            }
+        }
     }
+
+    /** Gives every ancestor of [relative], up to the notes folder, a new ETag, as Nextcloud's ETag propagation does. */
+    private fun touchParents(relative: String) {
+        var folder = parentOf(relative)
+        while (true) {
+            folderEtags[folder] = newFolderEtag()
+            if (folder.isEmpty()) break
+            folder = parentOf(folder)
+        }
+    }
+
+    private fun newFolderEtag() = "\"folder-${nextEtag++}\""
 
     private fun parentOf(relative: String) = relative.substringBeforeLast('/', "")
 

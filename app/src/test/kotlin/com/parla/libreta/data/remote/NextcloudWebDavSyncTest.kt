@@ -38,13 +38,16 @@ class NextcloudWebDavSyncTest {
     @After
     fun tearDown() = server.shutdown()
 
-    private fun remoteWithPassword(password: String): NextcloudWebDavSync {
+    /** A new instance sharing [cache], as each sync gets one from the factory. */
+    private fun newSync(cache: ListingCache): NextcloudWebDavSync = remoteWithPassword("app-password", cache)
+
+    private fun remoteWithPassword(password: String, cache: ListingCache = ListingCache()): NextcloudWebDavSync {
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
                 chain.proceed(chain.request().newBuilder().header("Authorization", Credentials.basic("alice", password)).build())
             }
             .build()
-        return NextcloudWebDavSync(client, server.url(nextcloud.basePath))
+        return NextcloudWebDavSync(client, server.url(nextcloud.basePath), cache)
     }
 
     private var consumedRequests = 0
@@ -132,6 +135,135 @@ class NextcloudWebDavSyncTest {
         val put = requests().last()
         assertEquals("image/png", put.getHeader("Content-Type"))
         assertTrue(png.contentEquals(remote.read(NotePath("Dibujos/.attachments.k3/pagina-1.png")).bytes))
+    }
+
+    private fun notesOf(sync: NextcloudWebDavSync) = sync.list().map { it.path.value to it.version.value }.sortedBy { it.first }
+
+    private fun handwrittenNotebook(count: Int = 5) {
+        nextcloud.put("Ideas.md", "ideas")
+        for (n in 1..count) {
+            nextcloud.put("Cuaderno/Nota $n.md", "![](.attachments.k$n/pagina.png)")
+            nextcloud.putBytes("Cuaderno/.attachments.k$n/pagina.png", byteArrayOf(n.toByte()))
+            nextcloud.put("Cuaderno/.attachments.k$n/libreta.ink.json", "{}")
+        }
+    }
+
+    @Test
+    fun `a second listing with nothing changed reads only the notes folder`() {
+        handwrittenNotebook()
+        val cache = ListingCache()
+        val first = notesOf(newSync(cache))
+        assertEquals(1 + 1 + 5, nextcloud.propfinds.size)
+        nextcloud.propfinds.clear()
+
+        val second = notesOf(newSync(cache))
+
+        assertEquals(first, second)
+        assertEquals(listOf(""), nextcloud.propfinds.toList())
+    }
+
+    @Test
+    fun `a change inside one attachments folder rereads only that folder chain`() {
+        handwrittenNotebook()
+        val cache = ListingCache()
+        notesOf(newSync(cache))
+        nextcloud.propfinds.clear()
+        // Another device redraws page 3.
+        nextcloud.putBytes("Cuaderno/.attachments.k3/pagina.png", byteArrayOf(9, 9))
+        nextcloud.put("Cuaderno/.attachments.k3/pagina-2.png", "nueva")
+
+        val notes = notesOf(newSync(cache))
+
+        assertEquals(listOf("", "Cuaderno", "Cuaderno/.attachments.k3"), nextcloud.propfinds.toList())
+        val expected = (nextcloud.snapshot().keys).map { it to nextcloud.etagOf(it)!! }.sortedBy { it.first }
+        assertEquals(expected, notes)
+        assertTrue(notes.any { it.first == "Cuaderno/.attachments.k3/pagina-2.png" })
+    }
+
+    @Test
+    fun `a note changed in a cached folder is seen after its ETag changes`() {
+        nextcloud.put("Recetas/Postres/Flan.md", "v1")
+        val cache = ListingCache()
+        notesOf(newSync(cache))
+        nextcloud.put("Recetas/Postres/Flan.md", "v2")
+        nextcloud.propfinds.clear()
+
+        val notes = newSync(cache).list()
+
+        assertEquals(listOf("", "Recetas", "Recetas/Postres"), nextcloud.propfinds.toList())
+        assertEquals(listOf(Version(nextcloud.etagOf("Recetas/Postres/Flan.md")!!)), notes.map { it.version })
+    }
+
+    @Test
+    fun `a deleted folder disappears from the listing and from the cache`() {
+        handwrittenNotebook(2)
+        nextcloud.put("Otra/Nota.md", "x")
+        val cache = ListingCache()
+        notesOf(newSync(cache))
+
+        nextcloud.removeFolder("Cuaderno/.attachments.k1")
+        nextcloud.remove("Cuaderno/Nota 1.md")
+        val afterSubfolder = newSync(cache).list().map { it.path.value }
+        nextcloud.removeFolder("Cuaderno")
+        val afterFolder = newSync(cache).list().map { it.path.value }
+        nextcloud.propfinds.clear()
+        val again = newSync(cache).list().map { it.path.value }
+
+        assertFalse(afterSubfolder.any { it.startsWith("Cuaderno/.attachments.k1") || it == "Cuaderno/Nota 1.md" })
+        assertTrue("Cuaderno/.attachments.k2/pagina.png" in afterSubfolder)
+        assertEquals(listOf("Ideas.md", "Otra/Nota.md"), afterFolder.sorted())
+        assertEquals(afterFolder, again)
+        assertEquals(listOf(""), nextcloud.propfinds.toList())
+    }
+
+    @Test
+    fun `a server without collection ETags is listed completely every time`() {
+        nextcloud.sendCollectionEtags = false
+        handwrittenNotebook(3)
+        val cache = ListingCache()
+        val first = notesOf(newSync(cache))
+        nextcloud.propfinds.clear()
+        nextcloud.putBytes("Cuaderno/.attachments.k2/pagina.png", byteArrayOf(7))
+
+        val second = notesOf(newSync(cache))
+
+        assertEquals(1 + 1 + 3, nextcloud.propfinds.size)
+        assertEquals(first.size, second.size)
+        assertEquals(nextcloud.etagOf("Cuaderno/.attachments.k2/pagina.png"), second.first { it.first == "Cuaderno/.attachments.k2/pagina.png" }.second)
+    }
+
+    @Test
+    fun `a failed walk does not hide changes in the next listing`() {
+        handwrittenNotebook(3)
+        val cache = ListingCache()
+        notesOf(newSync(cache))
+        nextcloud.putBytes("Cuaderno/.attachments.k1/pagina.png", byteArrayOf(5, 5))
+        nextcloud.putBytes("Cuaderno/.attachments.k3/pagina.png", byteArrayOf(6, 6))
+        nextcloud.failPropfindOf = "Cuaderno/.attachments.k3"
+
+        assertThrows<StoreUnavailableException> { newSync(cache).list() }
+        nextcloud.failPropfindOf = null
+        val notes = notesOf(newSync(cache))
+
+        assertEquals(nextcloud.snapshot().keys.map { it to nextcloud.etagOf(it)!! }.sortedBy { it.first }, notes)
+    }
+
+    @Test
+    fun `writes and deletes made by the app show up in the next listing`() {
+        nextcloud.put("Cuaderno/Nota.md", "v1")
+        val cache = ListingCache()
+        val sync = newSync(cache)
+        sync.list()
+
+        val etag = sync.write(NotePath("Cuaderno/.attachments.k1/pagina.png"), byteArrayOf(1), WritePrecondition.MustNotExist)
+        sync.write(NotePath("Nueva/Otra.md"), "x".toByteArray(), WritePrecondition.MustNotExist)
+        val afterWrite = newSync(cache).list()
+        sync.delete(NotePath("Cuaderno/Nota.md"), WritePrecondition.None)
+        val afterDelete = newSync(cache).list().map { it.path.value }.sorted()
+
+        assertTrue(NoteEntry(NotePath("Cuaderno/.attachments.k1/pagina.png"), etag) in afterWrite)
+        assertTrue(afterWrite.any { it.path.value == "Nueva/Otra.md" })
+        assertEquals(listOf("Cuaderno/.attachments.k1/pagina.png", "Nueva/Otra.md"), afterDelete)
     }
 
     @Test

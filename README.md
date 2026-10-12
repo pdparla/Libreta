@@ -59,6 +59,16 @@ nada.
 - **Listado:** `PROPFIND` con `Depth: 1` carpeta a carpeta (Nextcloud puede rechazar `Depth: infinity`). Se
   sincronizan las notas (`.md`, `.txt`) y los adjuntos de las carpetas `.attachments.*` de Notes; las demás
   carpetas ocultas y los otros ficheros se ignoran.
+- **Listado incremental:** cada cuaderno manuscrito tiene su carpeta `.attachments.<id>/`, así que recorrer todo
+  costaría un `PROPFIND` por carpeta en cada sincronización. Nextcloud cambia el ETag de una carpeta cuando
+  cambia cualquier cosa dentro (a cualquier profundidad). `NextcloudClientFactory` guarda en memoria, por cuenta
+  (URL de notas) y entre sincronizaciones, un `ListingCache` con el listado de cada carpeta y su ETag. La raíz se
+  lee siempre; de cada subcarpeta cuyo ETag no cambió se reutiliza el listado guardado sin pedir nada, y solo se
+  vuelven a leer las que cambiaron (con su cadena de carpetas padre). Una sincronización sin cambios remotos hace
+  un solo `PROPFIND`. La caché solo se renueva cuando el recorrido termina entero (un fallo a mitad no deja
+  datos a medias), las carpetas borradas desaparecen de ella, las carpetas sin ETag nunca se guardan (un servidor
+  que no los envía simplemente se lista entero) y cada escritura o borrado propio invalida su carpeta y sus
+  padres. Al reiniciar la app la caché está vacía y el primer listado es completo.
 - **Versiones:** ETag de `getetag` y de las cabeceras `ETag` de `GET` y `PUT`, con `PROPFIND` de respaldo si el
   servidor no la envía.
 - **Escrituras:** `PUT` con `If-None-Match: *` (crear) o `If-Match` (actualizar); `DELETE` con `If-Match`. Un 412
