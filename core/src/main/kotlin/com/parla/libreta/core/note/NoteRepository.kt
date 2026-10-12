@@ -16,6 +16,9 @@ interface NoteRepository {
     /** @throws NoteNotFoundException if there is no file at [path]. */
     fun read(path: NotePath): VersionedContent
 
+    /** Whether there is a file at [path]. Stores should override this when they can tell without reading the content. */
+    fun exists(path: NotePath): Boolean = readOrNull(path) != null
+
     /**
      * Creates or replaces the file at [path] and returns its new version.
      *

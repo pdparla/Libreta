@@ -35,6 +35,11 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         saved = document
     }
 
+    /** [document], an earlier snapshot of this one, is now the saved one; edits made since still count as modified. */
+    fun markSaved(document: InkDocument) {
+        saved = document
+    }
+
     fun addStroke(stroke: Stroke) = change { pages ->
         pages[pageIndex] = page.copy(strokes = page.strokes + stroke)
     }

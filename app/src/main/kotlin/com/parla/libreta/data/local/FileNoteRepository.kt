@@ -42,7 +42,7 @@ class FileNoteRepository(private val root: File) : NoteRepository {
     }
 
     /** Whether there is a file at [path], without reading or hashing it. */
-    fun exists(path: NotePath): Boolean = synchronized(lock) { fileOf(path).isFile }
+    override fun exists(path: NotePath): Boolean = synchronized(lock) { fileOf(path).isFile }
 
     override fun list(): List<NoteEntry> = synchronized(lock) {
         val found = files()
@@ -54,7 +54,7 @@ class FileNoteRepository(private val root: File) : NoteRepository {
         val file = fileOf(path)
         if (!file.isFile) throw NoteNotFoundException(path)
         val bytes = readBytes(file)
-        VersionedContent(bytes, ContentHash.of(bytes))
+        VersionedContent(bytes, versionOfRead(path, file, bytes))
     }
 
     override fun write(path: NotePath, content: ByteArray, precondition: WritePrecondition): Version = synchronized(lock) {
@@ -81,10 +81,23 @@ class FileNoteRepository(private val root: File) : NoteRepository {
         if (!precondition.isSatisfiedBy(current)) throw PreconditionFailedException(path)
     }
 
-    private fun versionOf(path: NotePath, file: File): Version {
-        val cached = hashes[path]
-        if (cached != null && cached.modifiedAt == file.lastModified() && cached.size == file.length()) return cached.version
-        val version = ContentHash.of(readBytes(file))
+    private fun versionOf(path: NotePath, file: File): Version = cachedVersion(path, file) ?: hashAndCache(path, file, readBytes(file))
+
+    /** The cached version of [path], or null if there is none or [file] changed since. */
+    private fun cachedVersion(path: NotePath, file: File): Version? {
+        val cached = hashes[path] ?: return null
+        return if (cached.modifiedAt == file.lastModified() && cached.size == file.length()) cached.version else null
+    }
+
+    /**
+     * The version of [bytes], just read from [file]: the cached one if the file looks unchanged, otherwise the hash,
+     * which is cached. Reading a note therefore hashes it only the first time after a change.
+     */
+    private fun versionOfRead(path: NotePath, file: File, bytes: ByteArray): Version =
+        cachedVersion(path, file) ?: hashAndCache(path, file, bytes)
+
+    private fun hashAndCache(path: NotePath, file: File, bytes: ByteArray): Version {
+        val version = ContentHash.of(bytes)
         hashes[path] = CachedHash(file.lastModified(), file.length(), version)
         return version
     }

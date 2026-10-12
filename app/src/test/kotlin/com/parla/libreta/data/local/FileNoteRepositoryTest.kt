@@ -161,6 +161,65 @@ class FileNoteRepositoryTest {
         assertTrue(root.isDirectory)
     }
 
+    @Test
+    fun `read after write returns the version the write returned`() {
+        val path = NotePath("a.md")
+        val written = repository.writeText(path, "uno")
+
+        assertEquals(written, repository.read(path).version)
+
+        val rewritten = repository.writeText(path, "dos, más largo")
+
+        assertEquals(ContentHash.of("dos, más largo"), rewritten)
+        assertEquals(rewritten, repository.read(path).version)
+    }
+
+    @Test
+    fun `read hashes a file that changed behind the cache`() {
+        val path = NotePath("a.md")
+        repository.writeText(path, "uno")
+        repository.read(path)
+
+        file("a.md").writeText("dos, más largo")
+
+        assertEquals(ContentHash.of("dos, más largo"), repository.read(path).version)
+    }
+
+    @Test
+    fun `read reuses the cached version while modification time and size match`() {
+        val path = NotePath("a.md")
+        val written = repository.writeText(path, "uno")
+        val modifiedAt = file("a.md").lastModified()
+
+        // Same size and time: the cache is trusted, so the content is not hashed again.
+        file("a.md").writeText("dos")
+        file("a.md").setLastModified(modifiedAt)
+
+        val read = repository.read(path)
+        assertEquals("dos", read.text)
+        assertEquals(written, read.version)
+    }
+
+    @Test
+    fun `read of a file not written through the repository hashes it and list agrees`() {
+        file("Cocina/b.md").apply { parentFile.mkdirs() }.writeText("hola")
+
+        val read = repository.read(NotePath("Cocina/b.md"))
+
+        assertEquals(ContentHash.of("hola"), read.version)
+        assertEquals(read.version, repository.list().single().version)
+    }
+
+    @Test
+    fun `exists tells whether a file is there`() {
+        val path = NotePath("a.md")
+        assertFalse(repository.exists(path))
+
+        repository.writeText(path, "uno")
+
+        assertTrue(repository.exists(path))
+    }
+
     private inline fun <reified T : Throwable> assertThrows(block: () -> Unit) {
         try {
             block()

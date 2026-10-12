@@ -46,6 +46,12 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.FutureTask
 
 /**
  * Handwritten note: write or draw with the stylus, page by page. Like the text editor, it saves on its own when it
@@ -65,7 +71,20 @@ class InkNoteActivity : Activity() {
     private var category = ""
     private var deleted = false
     private val handler = Handler(Looper.getMainLooper())
-    private val autosave = Runnable { save() }
+    private val autosave = Runnable { autosave() }
+
+    /**
+     * Autosave renders and compresses the pages, which janks the UI on this tablet, so it runs on [saver]. The
+     * document is immutable: the snapshot taken on the UI thread is what gets saved. At most one background save
+     * is [pending] at a time, and it is only ever touched on the UI thread, which also owns [note]: the task gets
+     * the note to save from and returns the new one. Every other save (pause, rename, move, AI actions, delete)
+     * first calls [awaitPending], so saves never overlap and none starts from a stale note or path.
+     */
+    private val saver: ExecutorService = Executors.newSingleThreadExecutor()
+    private var pending: PendingSave? = null
+    private var destroyed = false
+
+    private class PendingSave(val snapshot: InkDocument, val result: Future<InkNote>)
 
     private lateinit var colorView: View
     private lateinit var fillColorView: View
@@ -118,6 +137,14 @@ class InkNoteActivity : Activity() {
         saveToolPreferences()
         // Read what changed in the background, for search; never while writing (docs/11-busqueda.md).
         container.inkTranscriber.request()
+    }
+
+    override fun onDestroy() {
+        destroyed = true
+        handler.removeCallbacks(autosave)
+        // A save still running finishes; its completion sees `destroyed` and leaves the views alone.
+        saver.shutdown()
+        super.onDestroy()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -611,7 +638,49 @@ class InkNoteActivity : Activity() {
             .apply()
     }
 
+    /** The autosave: the first save of a new note is done now, later ones in the background. */
+    private fun autosave() {
+        val editor = editor ?: return
+        if (deleted || destroyed) return
+        val current = note
+        if (current == null) return save()
+        // The running save schedules the next one when it ends, if there is anything left to save.
+        if (!editor.isModified || pending != null) return
+        val snapshot = editor.document
+        val task = FutureTask(Callable { container.inkNotes.save(current, snapshot) })
+        val running = PendingSave(snapshot, task)
+        pending = running
+        saver.execute {
+            task.run()
+            handler.post {
+                // Not if another save took it over meanwhile, or the screen is gone.
+                if (pending === running && !destroyed && awaitPending()) scheduleAutosave()
+            }
+        }
+    }
+
+    /**
+     * Waits for the background save, if any, and takes its result: the note, and the document it saved as saved.
+     * Returns false if there was none or it failed.
+     */
+    private fun awaitPending(): Boolean {
+        val running = pending ?: return false
+        pending = null
+        try {
+            note = running.result.get()
+            editor?.markSaved(running.snapshot)
+            updateTitle()
+            return true
+        } catch (e: ExecutionException) {
+            val cause = e.cause
+            if (cause !is NoteStoreException) throw cause ?: e
+            Toast.makeText(this, R.string.error_saving, Toast.LENGTH_LONG).show()
+            return false
+        }
+    }
+
     private fun save() {
+        awaitPending()
         val editor = editor ?: return
         if (deleted) return
         try {
@@ -696,6 +765,7 @@ class InkNoteActivity : Activity() {
             .setMessage(getString(R.string.delete_confirm, current.path.baseName))
             .setPositiveButton(R.string.action_delete) { _, _ ->
                 deleted = true
+                awaitPending()
                 runCatchingStore { container.noteService.delete(current.path) }
                 finish()
             }

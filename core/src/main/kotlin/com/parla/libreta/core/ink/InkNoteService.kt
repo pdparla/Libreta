@@ -34,7 +34,7 @@ class InkNoteService(
 
     fun create(category: String, title: String, document: InkDocument): InkNote {
         val folder = NotePath.ATTACHMENTS_FOLDER_PREFIX + newFolderId()
-        val path = NoteNaming.uniquePath(title, category, isTaken = { notes.readOrNull(it) != null })
+        val path = NoteNaming.uniquePath(title, category, isTaken = notes::exists)
         writeAttachments(path, folder, document, previous = null)
         notes.writeText(path, InkNoteFormat.compose(title.trim(), folder, document.pages.size, InkOutline.of(document)), WritePrecondition.MustNotExist)
         return InkNote(path, document, folder)
@@ -115,7 +115,7 @@ class InkNoteService(
             val image = inFolder(InkNoteFormat.pageImageName(i))
             // Marks are not drawn, so marking a title does not render the page again.
             val unchanged = previous?.pages?.getOrNull(i)?.copy(marks = emptyList()) == page.copy(marks = emptyList()) &&
-                notes.readOrNull(image) != null
+                notes.exists(image)
             if (!unchanged) notes.write(image, renderer.render(page))
         }
         // Pages that no longer exist.

@@ -25,7 +25,10 @@ grosor y borrador, también entre notas distintas.
 **Guardado.** Se guarda al salir de la nota o al apagar la pantalla, y además **3 s después de dejar de tocar
 la pantalla** si hubo cambios. Mientras se escribe no se guarda: guardar renderiza la página, y eso se notaría en
 el trazo. Si la app se cierra de golpe, como mucho se pierden los trazos de los últimos 3 s; está comprobado
-matando la app con `am force-stop`.
+matando la app con `am force-stop`. El autoguardado se hace **en un hilo aparte** (con una copia del documento, que
+es inmutable) para no trabar la pantalla; los demás guardados (salir, renombrar, mover, acciones de IA, borrar)
+esperan primero a que termine el que esté en marcha y guardan en el momento, así nunca se pisan entre sí. La primera
+vez de una nota nueva también se guarda en el momento.
 
 ## Formato en Nextcloud
 
