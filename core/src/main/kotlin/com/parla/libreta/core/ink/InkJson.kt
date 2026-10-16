@@ -6,31 +6,43 @@ package com.parla.libreta.core.ink
  * ```json
  * {"format":"libreta-ink","version":2,"pages":[{"width":600,"height":900,"paper":"lined","strokes":[
  *   {"color":"#ff202124","width":3.5,"start":1760197500000,"points":[12.5,40,0, 13,41.5,16, ...]},
- *   {"color":"#ffffeb3b","width":7.5,"start":1760197600000,"fill":true,"points":[100,201,0, 180,201,0]}],
+ *   {"color":"#ffffeb3b","width":7.5,"start":1760197600000,"fill":true,"points":[100,201,0, 180,201,0]},
+ *   {"color":"#ff202124","width":24,"start":1760197700000,"text":"Hola, ¿qué tal?","points":[60,300,0, 230,328,0]}],
  *   "marks":[{"kind":"title","text":"Viaje","strokes":[1760197500000]}]}]}
  * ```
  *
  * Points are a flat array of `x, y, t` triples to keep files small; coordinates are rounded to 0.1 units. `fill`
- * (docs/design/ink.md) is only written when true, so pages without fills keep their fingerprint. A
+ * (docs/design/ink.md) is only written when true, so pages without fills keep their fingerprint, and `text` only for
+ * typed text. A
  * hand-written codec, because org.json is only a stub in JVM tests and bundling another copy would clash with the
  * one in Android itself.
  */
 object InkJson {
 
     const val FORMAT = "libreta-ink"
-    const val VERSION = 2
+    const val VERSION = 3
 
     /** Without marks a document is written exactly as before marks existed, so its fingerprints do not change. */
     private const val VERSION_WITHOUT_MARKS = 1
+
+    /**
+     * With marks but no typed text: as before typed text existed. An older app refuses a document with typed text
+     * (version 3) rather than open it and lose the text, which it would save as a bare line.
+     */
+    private const val VERSION_WITH_MARKS = 2
 
     fun encode(document: InkDocument): String {
         var estimate = 64
         for (page in document.pages) {
             estimate += 96
-            for (stroke in page.strokes) estimate += 96 + stroke.points.size * CHARS_PER_POINT
+            for (stroke in page.strokes) estimate += 96 + stroke.points.size * CHARS_PER_POINT + (stroke.text?.length ?: 0)
         }
         val out = StringBuilder(estimate)
-        val version = if (document.pages.any { it.marks.isNotEmpty() }) VERSION else VERSION_WITHOUT_MARKS
+        val version = when {
+            document.pages.any { page -> page.strokes.any { it.isText } } -> VERSION
+            document.pages.any { it.marks.isNotEmpty() } -> VERSION_WITH_MARKS
+            else -> VERSION_WITHOUT_MARKS
+        }
         out.append("{\"format\":\"").append(FORMAT).append("\",\"version\":").append(version).append(",\"pages\":[")
         for ((p, page) in document.pages.withIndex()) {
             if (p > 0) out.append(',')
@@ -44,6 +56,7 @@ object InkJson {
                 appendNumber(out, stroke.width)
                 out.append(",\"start\":").append(stroke.startedAt).append(',')
                 if (stroke.fill) out.append("\"fill\":true,")
+                stroke.text?.let { out.append("\"text\":").append(jsonString(it)).append(',') }
                 out.append("\"points\":[")
                 var first = true
                 for (point in stroke.points) {
@@ -125,6 +138,7 @@ object InkJson {
             startedAt = number(stroke, "start").toLong(),
             points = points,
             fill = stroke["fill"] == true,
+            text = (stroke["text"] as? String)?.also { if (points.size != 2) invalid("typed text needs the two corners of its box") },
         )
     }
 

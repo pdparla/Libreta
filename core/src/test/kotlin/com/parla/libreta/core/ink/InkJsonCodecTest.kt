@@ -8,7 +8,7 @@ import java.util.Random
 /** The codec as it was before unboxed reading and digit-by-digit writing, kept to prove the new one is identical. */
 private object OldInkJson {
     fun encode(document: InkDocument): String = buildString {
-        val version = if (document.pages.any { it.marks.isNotEmpty() }) InkJson.VERSION else 1
+        val version = if (document.pages.any { it.marks.isNotEmpty() }) 2 else 1
         append("""{"format":"${InkJson.FORMAT}","version":$version,"pages":[""")
         document.pages.forEachIndexed { p, page ->
             if (p > 0) append(',')

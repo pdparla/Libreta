@@ -263,16 +263,33 @@ class AiAssistantTest {
     }
 
     @Test
-    fun `a clean copy sends every page in order, with the marked titles, and returns plain Markdown`() {
+    fun `a clean copy sends every page's image in order, with its hint and the marked titles, at high effort`() {
         server.enqueue(answer("```markdown\n## Viaje\n\n- Lisboa\n- Oporto\n```"))
+        val pages = listOf(CleanCopyPage(1, byteArrayOf(1), "Viaje\n- Lisboa"), CleanCopyPage(3, byteArrayOf(3), null))
 
-        val text = assistant().cleanCopy(listOf("Viaje\n- Lisboa", "- Oporto"), listOf("Viaje"), TurnHandle())
+        val text = assistant().cleanCopy(pages, listOf("Viaje"), TurnHandle())
 
         assertEquals("## Viaje\n\n- Lisboa\n- Oporto", text)
         val body = JSONObject(server.takeRequest().body.readUtf8())
-        assertEquals(AiAssistant.CHAT_MODEL.name, body.getString("model"))
-        val sent = body.getJSONArray("input").getJSONObject(0).getJSONArray("content").getJSONObject(0).getString("text")
-        assertEquals("Títulos marcados por el usuario: Viaje\n\nPágina 1:\nViaje\n- Lisboa\n\nPágina 2:\n- Oporto\n\n", sent)
+        assertEquals(AiAssistant.DOC_MODEL.name, body.getString("model"))
+        assertEquals("high", body.getJSONObject("reasoning").getString("effort"))
+        val content = body.getJSONArray("input").getJSONObject(0).getJSONArray("content")
+        val parts = (0 until content.length()).map { content.getJSONObject(it) }
+        assertEquals(listOf("input_text", "input_text", "input_image", "input_text", "input_image"), parts.map { it.getString("type") })
+        assertEquals("Páginas de la nota: 2. Títulos marcados por el usuario: Viaje.", parts[0].getString("text"))
+        assertEquals("Página 1. Transcripción de apoyo:\nViaje\n- Lisboa", parts[1].getString("text"))
+        assertEquals("data:image/png;base64,AQ==", parts[2].getString("image_url"))
+        assertEquals("Página 3.", parts[3].getString("text"))
+    }
+
+    @Test
+    fun `typing reads the selection as plain text`() {
+        server.enqueue(answer("Hola, ¿qué tal?\n"))
+
+        val text = assistant().transcribeForTyping(byteArrayOf(5), TurnHandle())
+
+        assertEquals("Hola, ¿qué tal?", text)
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertTrue(body.getString("instructions").contains("texto plano"))
     }
 }
-

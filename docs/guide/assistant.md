@@ -3,7 +3,7 @@
 Libreta has an AI assistant that works on your notes. It can:
 
 - answer questions about all your notes ([Ask your notebook](#ask-your-notebook));
-- turn a whole handwritten note into a clean text note ([Make a clean copy of a note](#make-a-clean-copy-of-a-note));
+- turn a whole handwritten note into organised notes, with pictures of its drawings ([Make a clean copy of a note](#make-a-clean-copy-of-a-note));
 - talk about a part of a handwritten page ([Chat about a selection](#chat-about-a-selection));
 - search the web when a question needs it ([Web search](#web-search)).
 
@@ -59,25 +59,30 @@ The assistant never edits or deletes existing text. It only creates notes and ad
 
 ## Make a clean copy of a note
 
-«Pasar a limpio» turns a whole handwritten note into a readable text note. The handwritten note does not change.
+«Pasar a limpio» turns a whole handwritten note into a text note that reads like well-kept notes: organised by topic, written out in full sentences, and with pictures of the drawings. The handwritten note does not change.
 
 1. Open the handwritten note.
 2. Open the menu and tap «Pasar a limpio».
-3. Wait. A progress message shows «Leyendo la página 2 de 3…» (Reading page 2 of 3…) and then «Ordenando el texto…» (Putting the text in order…). Press the back button to cancel; nothing is created.
+3. Wait. A progress message shows «Preparando las páginas…» (Preparing the pages…), then «Leyendo la nota y redactando los apuntes…» (Reading the note and writing the notes…), and «Recortando los dibujos…» (Cutting out the drawings…) if there are drawings. It takes from a few seconds to a minute or two, depending on the number of pages. Press the back button to cancel; nothing is created.
 4. The new note opens, formatted.
 
-The new note:
+The assistant looks at every page as an image, so it sees the layout, the arrows and the drawings, not only the words. The new note:
 
 - is called «Title (a limpio)» and is in the same category as the original;
-- contains everything written, as Markdown with headings, lists and tables where the original has them. The assistant joins the pages without repeating text or cutting sentences, and it adds nothing that is not written;
-- uses the titles you marked as headings. See [Titles, tags and the index](organize.md);
+- starts with a summary of one or two sentences in italics;
+- is organised in sections and subsections by topic. What belongs together is joined, even if it is on different pages, and nothing is repeated. The titles you marked are the main sections. See [Titles, tags and the index](organize.md);
+- writes out notes and abbreviations as clear sentences, and uses lists, numbered steps, tables and bold for the key ideas;
+- keeps every fact, name, date, number, example and formula. The assistant corrects spelling mistakes but does not add information that is not in the note. What it cannot read appears as «[ilegible]»;
+- shows each drawing, diagram or chart as a picture where it belongs, with a sentence that explains it. The picture shows the strokes of the drawing on white, with whole words: a word at the edge is either in the picture or out of it;
 - writes formulas as LaTeX between `$` signs, which the formatted view draws (see [Formulas](notes.md#formulas));
 - ends with a line that says which handwritten note it comes from and when;
-- syncs with Nextcloud like any other text note.
+- syncs with Nextcloud like any other text note, with its pictures.
 
-Pages that Libreta already read for search are not sent again. Empty pages are skipped. If nothing is written, a message says «No hay nada escrito en esta nota.» (There is nothing written in this note.)
+Empty pages are skipped. If nothing is written, a message says «No hay nada escrito en esta nota.» (There is nothing written in this note.)
 
-If a request fails, you see the error and nothing is created. The pages already read are kept for next time.
+The picture of a drawing is cut as a rectangle. If you wrote a line of text beside a drawing, at the same height, the picture includes that line too.
+
+If a request fails, you see the error and nothing is created.
 
 ## Chat about a selection
 

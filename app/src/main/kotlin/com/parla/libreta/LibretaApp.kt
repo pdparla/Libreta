@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import com.parla.libreta.core.ai.ConversationNotes
+import com.parla.libreta.core.ink.CleanCopyNotes
 import com.parla.libreta.core.ink.InkNoteService
 import com.parla.libreta.core.ink.InkTranscriptService
 import com.parla.libreta.core.note.ConflictNamer
@@ -50,6 +51,7 @@ class AppContainer(context: Context) {
     val noteService = NoteService(notes, conflictNamer)
     val inkNotes = InkNoteService(notes, noteService, InkRenderer, newFolderId = ::randomFolderId)
     val conversationNotes = ConversationNotes(notes, newFolderId = ::randomFolderId)
+    val cleanCopyNotes = CleanCopyNotes(notes, newFolderId = ::randomFolderId)
     val settings = SettingsStore(context)
     val background = BackgroundRunner(idleSingleThreadExecutor("libreta-background"))
 

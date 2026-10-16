@@ -155,17 +155,22 @@ ChatGPT session for the AI and a paired dictation server for voice. Skip the sec
    points out the error. Choose «Resolver» on an equation and check the steps and the result in bold.
 6. Mark a title and a tag. Check that the AI proposes the text, that the index and the tag filter show them, and
    that the Markdown has the `## Índice` block and the `Etiquetas:` line.
-7. Open the note menu and choose «Pasar a limpio» (Clean copy) on a note with two pages. Check the progress messages,
-   that the new note is formatted, is in the same category and ends with the source line, and that the handwritten note
-   did not change.
-8. In the general chat, ask about a text note and a handwritten note. Check the gray tool lines, the note links (the link
+7. Open the note menu and choose «Pasar a limpio» (Clean copy) on a note with two pages and a drawing. Check the progress
+   messages, that the new note is organised in sections with a summary in italics, that the drawing appears as a
+   picture of its strokes, without cut words, next to a sentence about it, that the note is in the same category and
+   ends with the source line, and that the handwritten note did not change.
+8. Write «Hola que tal», select it and choose «A texto» > «Pasar a letra». Check that typed text replaces the
+   handwriting, in its place and colour, about as large as it was, and stays selected. Move it, resize it, recolour
+   it, undo and redo. Choose «A texto» > «Corregir el texto», make it longer, and check that it stays on the page.
+   Erase it with each eraser mode, and fill around it. Leave the note and open it again.
+9. In the general chat, ask about a text note and a handwritten note. Check the gray tool lines, the note links (the link
    opens the note, on the right page for handwriting), and the permission dialog for creating a note. Decline once
    and check that nothing is written.
-9. Ask for something current. Check the "searching the web" line, the source links, the address dialog when you tap a
-   link, and that a second question works after the search.
-10. Select «Cerrar sesión» (Sign out). Check that the account disappears and that AI actions ask you to sign in.
-11. Tap a link to a YouTube video in a chat answer and in a note. Check the card: the QR code at once, then the
-   thumbnail, title and channel; scan the code with a phone; «Copiar enlace»; and, offline, «Sin conexión con YouTube.».
+10. Ask for something current. Check the "searching the web" line, the source links, the address dialog when you tap a
+    link, and that a second question works after the search.
+11. Select «Cerrar sesión» (Sign out). Check that the account disappears and that AI actions ask you to sign in.
+12. Tap a link to a YouTube video in a chat answer and in a note. Check the card: the QR code at once, then the
+    thumbnail, title and channel; scan the code with a phone; «Copiar enlace»; and, offline, «Sin conexión con YouTube.».
 
 ### Search over handwriting
 

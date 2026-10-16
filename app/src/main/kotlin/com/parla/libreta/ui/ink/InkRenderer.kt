@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.util.Log
 import com.parla.libreta.BuildConfig
+import com.parla.libreta.core.ink.InkFrame
 import com.parla.libreta.core.ink.InkPage
 import com.parla.libreta.core.ink.InkPoint
 import com.parla.libreta.core.ink.InkRect
@@ -14,7 +15,6 @@ import com.parla.libreta.core.ink.PageRenderer
 import com.parla.libreta.core.ink.Paper
 import com.parla.libreta.core.ink.Stroke
 import java.io.ByteArrayOutputStream
-import kotlin.math.ceil
 import kotlin.math.max
 
 /** Draws pages: the paper, then the strokes smoothed with quadratic curves through the midpoints of the samples. */
@@ -88,6 +88,7 @@ object InkRenderer : PageRenderer {
 
     /** As above, configuring [paint] (from [scratchPaint]) for [stroke]: to draw many strokes without a paint each. */
     fun drawStroke(canvas: Canvas, stroke: Stroke, scale: Float, paint: Paint) {
+        if (stroke.isText) return InkText.draw(canvas, stroke, scale, paint)
         paint.isAntiAlias = true
         paint.strokeCap = Paint.Cap.ROUND
         paint.strokeJoin = Paint.Join.ROUND
@@ -105,6 +106,7 @@ object InkRenderer : PageRenderer {
 
     /** [stroke] as a path and its paint at [scale], to draw it many times (while it is being moved) without rebuilding it. */
     fun strokePath(stroke: Stroke, scale: Float): Pair<Path, Paint> {
+        if (stroke.isText) return InkText.path(stroke, scale)
         val paint = strokePaint(stroke.color, stroke.width * scale)
         if (stroke.points.size > 1) return pathOf(stroke.points, scale) to paint
         paint.style = Paint.Style.FILL
@@ -148,28 +150,24 @@ object InkRenderer : PageRenderer {
 
     /**
      * The ink inside [selected] of [page], with a margin, as a PNG for the model: strokes only, on white, without the
-     * paper's lines, which add nothing and can be mistaken for writing. [SELECTION_SCALE] pixels per unit, or fewer
-     * to keep the longer side within [SELECTION_MAX_SIDE]. RGB 565 like [render], because the image is opaque (white
-     * under the strokes): at up to 1600 pixels a side that halves the 6.8 MB the bitmap would take, and anti-aliased
-     * ink on white reads as well for recognition. Heavy (render and compress): call it off the UI thread.
+     * paper's lines, which add nothing and can be mistaken for writing. See [InkFrame.around] for the margin and size.
+     * Heavy (render and compress): call it off the UI thread.
      */
-    fun renderSelection(page: InkPage, selected: InkRect): ByteArray {
-        // A white margin around the ink: a selection snapped to its strokes (Fase 8) leaves letters touching the
-        // edges, and the model then reads nothing.
-        val margin = max(SELECTION_MARGIN, max(selected.width, selected.height) * 0.1f)
-        val area = InkRect(selected.left - margin, selected.top - margin, selected.right + margin, selected.bottom + margin)
-        val scale = area.renderScale(SELECTION_SCALE, SELECTION_MAX_SIDE)
-        val bitmap = Bitmap.createBitmap(
-            ceil(area.width * scale).toInt().coerceAtLeast(1),
-            ceil(area.height * scale).toInt().coerceAtLeast(1),
-            Bitmap.Config.RGB_565,
-        )
+    fun renderSelection(page: InkPage, selected: InkRect): ByteArray = renderFrame(page, InkFrame.around(selected))
+
+    /**
+     * The ink of [page] inside [frame], as a PNG: as [renderSelection]. RGB 565 like [render], because the image is
+     * opaque (white under the strokes): at up to 1600 pixels a side that halves the 6.8 MB the bitmap would take, and
+     * anti-aliased ink on white reads as well for recognition.
+     */
+    fun renderFrame(page: InkPage, frame: InkFrame): ByteArray {
+        val bitmap = Bitmap.createBitmap(frame.pixelWidth, frame.pixelHeight, Bitmap.Config.RGB_565)
         try {
             val canvas = Canvas(bitmap)
             canvas.drawColor(Color.WHITE)
-            canvas.translate(-area.left * scale, -area.top * scale)
+            canvas.translate(-frame.area.left * frame.scale, -frame.area.top * frame.scale)
             val paint = scratchPaint()
-            page.strokes.forEach { drawStroke(canvas, it, scale, paint) }
+            page.strokes.forEach { drawStroke(canvas, it, frame.scale, paint) }
             return png(bitmap)
         } finally {
             bitmap.recycle()
@@ -182,7 +180,4 @@ object InkRenderer : PageRenderer {
     }
 
     private const val PAGE_IMAGE_SCALE = 2
-    private const val SELECTION_SCALE = 2f
-    private const val SELECTION_MARGIN = 16f
-    private const val SELECTION_MAX_SIDE = 1600
 }

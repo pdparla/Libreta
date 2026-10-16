@@ -26,6 +26,8 @@ import com.parla.libreta.R
 import com.parla.libreta.container
 import com.parla.libreta.core.ink.InkDocument
 import com.parla.libreta.core.ink.InkEditor
+import com.parla.libreta.core.ink.InkFigures
+import com.parla.libreta.core.ink.InkFrame
 import com.parla.libreta.core.ink.InkMark
 import com.parla.libreta.core.ink.InkOutline
 import com.parla.libreta.core.ink.InkPage
@@ -37,6 +39,7 @@ import com.parla.libreta.core.ink.Paper
 import com.parla.libreta.core.ink.Stroke
 import com.parla.libreta.core.note.NotePath
 import com.parla.libreta.core.note.NoteStoreException
+import com.parla.libreta.data.ai.CleanCopyPage
 import com.parla.libreta.data.ai.TurnHandle
 import com.parla.libreta.ui.CategoryPicker
 import com.parla.libreta.ui.NoteEditorActivity
@@ -60,8 +63,9 @@ import java.util.concurrent.FutureTask
  * stops being visible; a new note is only created once something has been drawn.
  *
  * The select tool marks a rectangle around strokes: drag it to move them, pull its corner to resize them, change
- * their colour or thickness, copy, paste or delete them. The AI works on it too (docs/design/ai.md): "Convertir a
- * texto" adds the recognised text to the note, "Conversar con IA" opens a conversation about it. The paint bucket
+ * their colour or thickness, copy, paste or delete them. The AI works on it too (docs/design/ai.md): "Pasar a letra"
+ * replaces the handwriting with typed text, "Añadir a la nota como texto" adds the recognised text to the note,
+ * "Conversar con IA" opens a conversation about it. The paint bucket
  * fills a shape with the pen's colour (docs/design/ink.md).
  */
 class InkNoteActivity : Activity() {
@@ -266,7 +270,7 @@ class InkNoteActivity : Activity() {
         zoomLevel.setOnClickListener { inkView.resetZoom() }
         showZoom()
         setUpSelectionTools()
-        convertButton.setOnClickListener { convertSelection() }
+        convertButton.setOnClickListener { chooseTextAction() }
         titleButton.setOnClickListener { markSelection(InkMark.Kind.TITLE) }
         tagButton.setOnClickListener { markSelection(InkMark.Kind.TAG) }
         findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
@@ -469,11 +473,12 @@ class InkNoteActivity : Activity() {
 
     /**
      * The thickness of the selected strokes, with the pen's slider (docs/design/ink.md); it starts at the first one's.
-     * Fills keep theirs: their bands are as thick as they need to be to cover the shape.
+     * Fills keep theirs: their bands are as thick as they need to be to cover the shape. Typed text keeps its size:
+     * its width is its font size, which resizing the selection changes.
      */
     private fun chooseSelectionWidth() {
         val page = editor?.page ?: return
-        val strokes = inkView.selectedStrokes.filter { page.strokes.getOrNull(it)?.fill == false }
+        val strokes = inkView.selectedStrokes.filter { i -> page.strokes.getOrNull(i)?.let { !it.fill && !it.isText } == true }
         val first = page.strokes.getOrNull(strokes.firstOrNull() ?: return) ?: return
         val density = resources.displayMetrics.density
         var width = InkSizes.PEN.coerce(first.width)
@@ -541,6 +546,70 @@ class InkNoteActivity : Activity() {
         return signedIn
     }
 
+    /**
+     * «A texto»: replace the handwriting with typed text, or add what it says to the note; with one typed text
+     * selected, also correct it.
+     */
+    private fun chooseTextAction() {
+        val actions = ArrayList<Pair<Int, () -> Unit>>()
+        val typed = selectedStrokes().singleOrNull()?.takeIf { it.isText }
+        if (typed != null) actions += R.string.ink_edit_typed to { editTyped() }
+        if (inkView.selectedStrokes.isNotEmpty()) actions += R.string.ink_typeset to { typesetSelection() }
+        actions += R.string.ink_add_as_text to { convertSelection() }
+        val menu = PopupMenu(this, convertButton)
+        actions.forEachIndexed { i, (label, _) -> menu.menu.add(0, i, i, label) }
+        menu.setOnMenuItemClickListener { item -> actions[item.itemId].second(); true }
+        menu.show()
+    }
+
+    /**
+     * «Pasar a letra»: the AI reads the selected handwriting and typed text takes its place, as large as fits where
+     * it was and in its colour, in one undo step (docs/design/ink.md). The text stays selected, to move or resize it.
+     */
+    private fun typesetSelection() {
+        val editor = editor ?: return
+        val page = editor.page
+        val indexes = inkView.selectedStrokes.toList()
+        val strokes = indexes.mapNotNull { page.strokes.getOrNull(it) }
+        val area = InkRect.around(strokes) ?: return
+        readSelection(read = container.ai::transcribeForTyping) { text ->
+            // The wait is modal, but the page must still be the one that was read.
+            if (editor !== this.editor || editor.page !== page) return@readSelection
+            if (text.isBlank()) return@readSelection Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show()
+            val color = strokes.firstOrNull { !it.fill }?.color ?: strokes.first().color
+            val typed = InkText.fitted(text.trim(), area, color, System.currentTimeMillis())
+            inkView.selectStrokes(editor.replaceStrokes(indexes, listOf(typed)))
+            afterSelectionEdit()
+        }
+    }
+
+    /** Corrects the selected typed text, keeping its place, size and colour, as long as it stays on the page. */
+    private fun editTyped() {
+        val index = inkView.selectedStrokes.singleOrNull() ?: return
+        val typed = editor?.page?.strokes?.getOrNull(index)?.takeIf { it.isText } ?: return
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            gravity = Gravity.TOP or Gravity.START
+            setText(typed.text)
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ink_edit_typed)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val text = input.text.toString().trimEnd()
+                val editor = editor ?: return@setPositiveButton
+                if (text.isBlank()) return@setPositiveButton Toast.makeText(this, R.string.ink_typed_empty, Toast.LENGTH_LONG).show()
+                if (editor.page.strokes.getOrNull(index) !== typed || text == typed.text) return@setPositiveButton
+                val box = typed.bounds
+                val corrected = InkText.typedOn(editor.page, text, box.left, box.top, typed.width, typed.color, typed.startedAt)
+                inkView.selectStrokes(editor.replaceStrokes(listOf(index), listOf(corrected)))
+                afterSelectionEdit()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun convertSelection() = readSelection { text ->
         if (text.isBlank()) Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show() else showRecognized(text, R.string.ai_convert_title)
     }
@@ -573,8 +642,9 @@ class InkNoteActivity : Activity() {
     }
 
     /**
-     * A new text note with everything written here, in clean Markdown (docs/design/ai.md). Pages already read
-     * for search are not sent again; the rest are read now, and kept for search too. Cancelling creates nothing.
+     * A new text note with everything written here, as documentation (docs/design/ai.md#clean-copy): the AI sees
+     * every page, organises what it says, and points at the drawings, which go into the note as pictures of their
+     * strokes. Pages already read for search send that reading along as a hint. Cancelling creates nothing.
      */
     private fun cleanCopy() {
         if (!signedIn()) return
@@ -584,7 +654,7 @@ class InkNoteActivity : Activity() {
         val handle = TurnHandle()
         @Suppress("DEPRECATION") // ProgressDialog is the progress dialog API 19 has.
         val progress = ProgressDialog(this).apply {
-            setMessage(getString(R.string.ink_clean_ordering))
+            setMessage(getString(R.string.ink_clean_preparing))
             setCancelable(true)
             setCanceledOnTouchOutside(false)
             setOnCancelListener { handle.cancel() }
@@ -592,31 +662,33 @@ class InkNoteActivity : Activity() {
         }
         val tell = { text: String -> handler.post { if (progress.isShowing) progress.setMessage(text) } }
         val date = SimpleDateFormat("yyyy-MM-dd HH.mm", Locale.ROOT).format(Date())
+        val newTitle = getString(R.string.ink_clean_title, title)
+        val footer = getString(R.string.ink_clean_footer, title, date)
+        val reading = getString(R.string.ink_clean_ordering)
+        val cropping = getString(R.string.ink_clean_drawings)
         container.aiBackground.execute({
             val pages = current.document.pages
             val stored = container.transcripts.read(current)
-            val texts = pages.mapIndexed { i, page ->
-                val hash = InkTranscripts.hashOf(page)
-                when {
-                    page.isEmpty -> ""
-                    stored.getOrNull(i)?.hash == hash -> stored[i].text
-                    else -> {
-                        tell(getString(R.string.ink_clean_reading, i + 1, pages.size))
-                        val image = InkRenderer.renderSelection(page, InkRect(0f, 0f, page.width.toFloat(), page.height.toFloat()))
-                        container.ai.convertToText(image, handle).also { container.transcripts.save(current, i, hash, it) }
-                    }
-                }
-            }.filter { it.isNotBlank() }
-            if (texts.isEmpty()) return@execute null
-            val body = if (texts.size == 1) {
-                texts.single()
-            } else {
-                tell(getString(R.string.ink_clean_ordering))
-                container.ai.cleanCopy(texts, InkOutline.of(current.document).titles.map { it.first }, handle)
+            // One page at a time, so that only the compressed images stay in memory.
+            val inputs = pages.mapIndexedNotNull { i, page ->
+                if (page.isEmpty) return@mapIndexedNotNull null
+                val hint = stored.getOrNull(i)?.takeIf { it.hash == InkTranscripts.hashOf(page) }?.text
+                CleanCopyPage(i + 1, InkRenderer.renderFrame(page, InkFrame.ofPage(page)), hint)
             }
+            if (inputs.isEmpty() || handle.isCancelled) return@execute null
+            tell(reading)
+            val body = container.ai.cleanCopy(inputs, InkOutline.of(current.document).titles.map { it.first }, handle)
             if (handle.isCancelled) return@execute null
-            val content = "# ${getString(R.string.ink_clean_title, title)}\n\n$body\n\n${getString(R.string.ink_clean_footer, title, date)}\n"
-            container.noteService.create(content, current.path.category).path
+            val placeholders = InkFigures.placeholders(body)
+            if (placeholders.isNotEmpty()) tell(cropping)
+            val figures = placeholders.map { figure ->
+                val page = pages.getOrNull(figure.page)?.takeUnless { it.isEmpty } ?: return@map null
+                val area = InkFrame.ofPage(page).fromThousandths(figure.x1, figure.y1, figure.x2, figure.y2)
+                val strokes = InkFigures.strokesIn(page, area).map { page.strokes[it] }
+                // Only the drawing's own strokes: the writing around it stays out of the picture.
+                InkRect.around(strokes)?.let { InkRenderer.renderSelection(page.copy(strokes = strokes, marks = emptyList()), it) }
+            }
+            container.cleanCopyNotes.save(current.path.category, newTitle, body, footer, figures)
         }) { result ->
             if (isDestroyed) return@execute
             progress.dismiss()
@@ -649,8 +721,11 @@ class InkNoteActivity : Activity() {
             .show()
     }
 
-    /** Has the AI read the selected handwriting, then hands the text to [onText]; a cancellable wait meanwhile. */
-    private fun readSelection(onText: (String) -> Unit) {
+    /**
+     * Has the AI read the selected handwriting, with [read] (as Markdown, unless told otherwise), then hands the text
+     * to [onText]; a cancellable wait meanwhile.
+     */
+    private fun readSelection(read: (ByteArray, TurnHandle) -> String = container.ai::convertToText, onText: (String) -> Unit) {
         if (!signedIn()) return
         val selection = selectionToRender() ?: return
         val handle = TurnHandle()
@@ -662,7 +737,7 @@ class InkNoteActivity : Activity() {
             setOnCancelListener { handle.cancel() }
             show()
         }
-        container.aiBackground.execute({ container.ai.convertToText(selection.image(), handle) }) { result ->
+        container.aiBackground.execute({ read(selection.image(), handle) }) { result ->
             if (isDestroyed) return@execute
             progress.dismiss()
             if (handle.isCancelled) return@execute

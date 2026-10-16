@@ -22,7 +22,7 @@ The first row has the tools and the page controls:
 |---|---|
 | Pen («Pluma») | Draws. |
 | Eraser («Borrador») | Erases. |
-| Select («Seleccionar») | Selects ink to move, resize, recolour, copy, delete or send to the AI. |
+| Select («Seleccionar») | Selects ink to move, resize, recolour, copy, delete, turn into typed text or send to the AI. |
 | Fill («Rellenar») | Fills a closed shape with colour. |
 | Undo («Deshacer») and redo («Rehacer») | Go back and forward through your changes. |
 | Microphone | Dictates text. See [Voice dictation](dictation.md). |
@@ -40,7 +40,7 @@ The menu (three dots) has these items:
 | «Categoría» (Category) | Moves the note to another category. |
 | «Índice» (Index) | Lists the titles you marked. See [Titles, tags and the index](organize.md). |
 | «Papel» (Paper) | Sets the paper of the current page. |
-| «Pasar a limpio» (Make a clean copy) | Creates a text note from the whole handwritten note. See [The assistant](assistant.md#make-a-clean-copy-of-a-note). |
+| «Pasar a limpio» (Make a clean copy) | Creates organised notes, with pictures of the drawings, from the whole handwritten note. See [The assistant](assistant.md#make-a-clean-copy-of-a-note). |
 | «Editar el texto» (Edit the text) | Opens the note's Markdown in the text editor. |
 | Trash icon | Deletes the note after you confirm. |
 
@@ -95,7 +95,7 @@ Then:
 | Drag the blue handle | Resizes the strokes in proportion, from the upper-left corner. The stroke width scales too. |
 | Drag outside the box | Starts a new selection. |
 | Colour swatch («Color de lo seleccionado») | Opens the palette and recolours the selection. |
-| Width button («Grosor de lo seleccionado») | Opens the width slider, starting at the width of the first selected stroke. Fills keep their own width. |
+| Width button («Grosor de lo seleccionado») | Opens the width slider, starting at the width of the first selected stroke. Fills and typed text keep their own width. |
 | Copy («Copiar lo seleccionado») | Copies the strokes. A message says «Copiado. Pégalo en esta u otra página con «Pegar».» |
 | Trash («Borrar lo seleccionado») | Deletes the selection. |
 | Paste («Pegar») | Appears when something is copied. It pastes slightly below and to the right of the original, inside the page, and selects the copy so you can place it. |
@@ -106,7 +106,7 @@ If the box holds no ink, it stays as you drew it. Only the AI buttons work.
 
 The text buttons in the same row are:
 
-- «A texto» (To text): converts the selection to text. See [Convert a selection to text](#convert-a-selection-to-text).
+- «A texto» (To text): a menu to turn the selection into typed text on the page or to add its text to the note. See [Turn handwriting into typed text](#turn-handwriting-into-typed-text) and [Convert a selection to text](#convert-a-selection-to-text).
 - «Chat IA» (AI chat): opens a chat about the selection. See [The assistant](assistant.md#chat-about-a-selection).
 - «Mates» (Math): solves the selected mathematics or checks your steps. See [Solve or check math](assistant.md#solve-or-check-math).
 - «Título» (Title) and «Etiqueta» (Tag): mark the selection as a title or a tag. See [Titles, tags and the index](organize.md).
@@ -147,12 +147,33 @@ The note rotates with the tablet. You keep your strokes, undo history, tool, sel
 
 Pages in one note can have different sizes. The image of each page has its own size in Nextcloud.
 
+## Turn handwriting into typed text
+
+You can replace handwriting with the same words in a clean font, on the page. You need to be signed in with ChatGPT. See [Sign in with ChatGPT](../setup/chatgpt.md).
+
+1. Select the handwriting.
+2. Tap «A texto» and then «Pasar a letra» (Typeset). A message says «Reconociendo la escritura…» (Reading the handwriting…). You can cancel it.
+3. The typed text takes the place of the handwriting: at its upper-left corner, in the colour of the ink, and as large as fits in the room the handwriting took. It keeps the line breaks. It stays selected.
+
+Typed text is part of the page, like ink:
+
+- Drag it to move it, and pull the blue handle to make it larger or smaller.
+- Change its colour, copy it, paste it, delete it, and undo or redo each change.
+- Either eraser removes the whole text at once.
+- A fill does not cover it.
+- If you marked the handwriting as a title or a tag, the typed text keeps the mark.
+- It appears in the page images in Nextcloud, and search finds it.
+
+To fix a word, select only the typed text, tap «A texto» and then «Corregir el texto» (Correct the text). Edit it and tap «Aceptar» (OK). The text keeps its place, size and colour. If it is now too long for the page, it gets smaller so that it fits. To remove it, delete it with the trash button.
+
+Libreta replaces everything you selected. Select only the writing: a drawing inside the box is lost too, although «Deshacer» (Undo) brings it back. If nothing is recognised, a message says «No se ha reconocido texto en el recuadro.» (No text was recognised in the box.) and nothing changes.
+
 ## Convert a selection to text
 
 You need to be signed in with ChatGPT. See [Sign in with ChatGPT](../setup/chatgpt.md).
 
 1. Select the handwriting.
-2. Tap «A texto». A message says «Reconociendo la escritura…» (Reading the handwriting…). You can cancel it.
+2. Tap «A texto» and then «Añadir a la nota como texto» (Add to the note as text). A message says «Reconociendo la escritura…» (Reading the handwriting…). You can cancel it.
 3. A box titled «Texto reconocido» (Recognised text) shows the result. Correct it if needed.
 4. Tap «Añadir a la nota» (Add to the note) to put the text in the note. Or tap «Copiar» (Copy) to copy it.
 

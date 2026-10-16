@@ -16,12 +16,26 @@ data class InkPoint(val x: Float, val y: Float, val t: Int)
  * @param color ARGB colour.
  * @param startedAt wall-clock time of the first point, in epoch milliseconds.
  * @param fill whether the stroke is one band of a fill (docs/design/ink.md): the bands of one fill share [startedAt].
+ * @param text for typed text (docs/design/ink.md), what it says: the stroke is then drawn in a font instead of a line,
+ *   its two [points] are the corners of the text's box, and [width] is the font size. Being a stroke, it is selected,
+ *   moved, scaled, recoloured, copied and undone like any other.
  */
-data class Stroke(val color: Int, val width: Float, val startedAt: Long, val points: List<InkPoint>, val fill: Boolean = false) {
+data class Stroke(
+    val color: Int,
+    val width: Float,
+    val startedAt: Long,
+    val points: List<InkPoint>,
+    val fill: Boolean = false,
+    val text: String? = null,
+) {
 
     init {
         require(points.isNotEmpty()) { "A stroke has at least one point" }
+        require(text == null || points.size == 2) { "Typed text has the two corners of its box" }
     }
+
+    /** Whether this is typed text rather than ink. */
+    val isText: Boolean get() = text != null
 
     /** The rectangle around the stroke, thickness included; computed once, since strokes never change. */
     val bounds: InkRect by lazy { InkRect.around(listOf(this))!! }
@@ -43,6 +57,7 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
     fun touches(area: InkRect): Boolean {
         // [bounds] already counts the thickness: a stroke whose box misses the area cannot touch it.
         val box = bounds
+        if (isText) return box.intersects(area)
         if (box.right < area.left - BOX_MARGIN || box.left > area.right + BOX_MARGIN ||
             box.bottom < area.top - BOX_MARGIN || box.top > area.bottom + BOX_MARGIN
         ) {
@@ -105,6 +120,7 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
     /** Whether the pen passed within [radius] of ([x], [y]), counting the stroke's own thickness. */
     fun isHitBy(x: Float, y: Float, radius: Float): Boolean {
         if (isOutsideDisc(x, y, radius)) return false
+        if (isText) return boxDistanceSquared(x, y) <= radius * radius
         val reach = radius + width / 2
         if (points.size == 1) return distanceSquared(x, y, points[0].x, points[0].y) <= reach * reach
         for (i in 1 until points.size) {
@@ -120,6 +136,8 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
      */
     fun erasedAt(x: Float, y: Float, radius: Float): List<Stroke> {
         if (isOutsideDisc(x, y, radius)) return listOf(this)
+        // Half a word makes no sense: typed text goes whole.
+        if (isText) return if (isHitBy(x, y, radius)) emptyList() else listOf(this)
         val reach = radius + width / 2
         if (points.size == 1) return if (distanceSquared(x, y, points[0].x, points[0].y) <= reach * reach) emptyList() else listOf(this)
         val pieces = ArrayList<List<InkPoint>>()
@@ -180,6 +198,14 @@ data class Stroke(val color: Int, val width: Float, val startedAt: Long, val poi
         if (lengthSquared == 0f) return distanceSquared(x, y, a.x, a.y)
         val t = (((x - a.x) * dx + (y - a.y) * dy) / lengthSquared).coerceIn(0f, 1f)
         return distanceSquared(x, y, a.x + t * dx, a.y + t * dy)
+    }
+
+    /** Squared distance from ([x], [y]) to the box of typed text; 0 inside it. */
+    private fun boxDistanceSquared(x: Float, y: Float): Float {
+        val box = bounds
+        val dx = max(0f, max(box.left - x, x - box.right))
+        val dy = max(0f, max(box.top - y, y - box.bottom))
+        return dx * dx + dy * dy
     }
 
     private fun distanceSquared(x1: Float, y1: Float, x2: Float, y2: Float): Float {

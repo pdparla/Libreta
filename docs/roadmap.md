@@ -26,5 +26,8 @@ From most to least interesting:
   That is what writing with a finger needs. With a capacitive stylus, set `PALM_TOUCH_MAJOR` between the size of the
   stylus and the size of a palm, using the contact sizes that debug builds log with the tag `LibretaInk`. The two-finger
   gesture thresholds (150 ms and 8 dp) also need checking with a real hand and a stylus.
+- **Drawings next to writing in a clean copy.** The picture of a drawing takes the strokes inside a rectangle that the
+  model chooses. When a line of writing is at the same height as the drawing, the picture includes it, because no
+  rectangle can leave it out. Libreta keeps whole words in or out, so no word is cut in two.
 - **Crowded toolbar in the note list.** With six icons, the category selector can be cut off ("Todas las."). It still
   works. It needs a layout pass.

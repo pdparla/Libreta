@@ -8,7 +8,7 @@ works, and why each piece is built the way it is. For how to use these features,
 
 | Piece | Where it runs | What it uses |
 |---|---|---|
-| Conversations, "convert to text", clean copy, title and tag proposals, background transcription | In the app, in Kotlin | OpenAI's Responses API, paid with your own ChatGPT plan |
+| Conversations, "convert to text", typing, clean copy, title and tag proposals, background transcription | In the app, in Kotlin | OpenAI's Responses API, paid with your own ChatGPT plan |
 | Dictation | On a server you run | A `faster-whisper` container (`server/stt`) |
 
 The app talks to `api.openai.com` directly. No Libreta server sits in between.
@@ -121,10 +121,18 @@ small (see [Notebook tools](#notebook-tools)) and why conversations are not stor
 
 ### Models
 
-`AiAssistant` defines two models, and both are `gpt-6.1-sol` with medium reasoning effort: `CHAT_MODEL` for
-conversations and the clean copy, and `CONVERT_MODEL` for reading handwriting. A cheaper and faster model
-(`gpt-6-luna`) was tried for reading handwriting and misread it too often, so reading uses the same model as
-conversation.
+`AiAssistant` defines its models, and all are `gpt-6.1-sol`:
+
+| Model | Effort | Used for |
+|---|---|---|
+| `CHAT_MODEL` | medium | Conversations |
+| `CONVERT_MODEL` | medium | Reading handwriting: "convert to text", typing, titles and tags, transcription for search |
+| `MATH_MODEL` | high | Solving or checking math |
+| `DOC_MODEL` | high | The clean copy |
+
+A cheaper and faster model (`gpt-6-luna`) was tried for reading handwriting and misread it too often, so reading uses
+the same model as conversation. The clean copy reads, understands and organises a whole note in one request, so it
+gets more reasoning, like math.
 
 ### Language of the instructions
 
@@ -152,12 +160,30 @@ written as Markdown (lists, headings, line breaks) with no comments.
 - The picture is rendered with the ink only, on white, without ruled lines or grid, at 2 pixels per unit and with the
   longer side limited to 1600 px. Paper lines add nothing for the model and can confuse it.
 - The renderer adds a white margin around a selection (16 units, or 10% of the longer side). Without it, the strokes
-  touch the edges of the image and the model reads nothing.
+  touch the edges of the image and the model reads nothing. `InkFrame` (`:core`) holds that area and scale, so a point
+  in the image can be mapped back to the page.
 - Images are encoded as RGB 565 and rendered off the UI thread, to stay within the app's memory budget on a 1 GB
   device.
 - The text appears in an editable box. "Add to note" inserts it above the page images, with the same
   precondition-checked merge as saving, so it never overwrites changes made in the meantime (`InkNoteService.addText`).
   The strokes are never touched, and the text is visible in Nextcloud Notes.
+
+## Typing
+
+«Pasar a letra» replaces the selected handwriting with typed text on the page. For how typed text is stored and drawn,
+see [Typed text](ink.md#typed-text).
+
+- **Plain text.** `AiAssistant.transcribeForTyping` sends the selection like "convert to text", with other
+  instructions: plain text with the line breaks, no Markdown, lists with `•`, and formulas in Unicode symbols (`x²`,
+  `√`) rather than LaTeX, because the page draws text in a font and does not render Markdown or LaTeX. Only obvious
+  spelling mistakes are corrected.
+- **Size and place.** The text goes at the upper-left corner of the box around the handwriting, in the colour of its
+  first stroke, at the largest font size at which every line fits in that box (between 8 and 160 units). The text then
+  takes about the room the handwriting took.
+- **One step.** `InkEditor.replaceStrokes` removes the selected strokes and adds the text in one undo step. A title or
+  tag mark that included any of the handwriting now includes the text.
+- **Automatic.** The text replaces the handwriting without a confirmation box, because undo brings the handwriting
+  back. «Corregir el texto» fixes a misread word afterwards.
 
 ## Solve or check math
 
@@ -305,24 +331,40 @@ the Markdown, see [Note format](../reference/note-format.md).
 
 ## Clean copy
 
-"Clean copy" in the handwritten note's menu turns a whole note into a new, structured text note. The handwritten
-note does not change.
+"Clean copy" in the handwritten note's menu turns a whole note into a new text note that reads like documentation: the
+model sees the pages, understands them, and writes them out organised by topic, with pictures of the drawings. The
+handwritten note does not change.
 
-- **Reading the pages.** The app reuses the transcription. A page whose `libreta.text.json` entry is up to date (same
-  fingerprint) is not sent again. The app reads missing pages now, one by one, with the "convert to text" model, and
-  saves the readings in `libreta.text.json`, so search benefits too. Empty pages are skipped.
-- **Ordering.** With one written page, its text is the result. With several, one more request joins them into a
-  single Markdown: without repeats, without sentences cut between pages, with headings and lists where they exist and
-  **without adding anything that is not written**. The titles you marked are passed as a guide to the structure.
-  The instructions require keeping all the text and the marked titles, because a model asked only to tidy tends to
-  drop content. They also forbid an overall title, which the app adds.
-- **New note.** `NoteService.create` creates a text note titled "*Title* (clean copy)" in the same category (in
-  Spanish, "(a limpio)"), numbered if the title exists. It syncs like any note. The note ends with a line saying which
-  handwritten note it comes from and when.
-- **Formulas.** The model writes formulas in LaTeX (`$…$`), which the formatted view and the chat draw. See
-  [Formulas](architecture.md#formulas).
-- **Errors.** If a request fails, the app shows the usual AI message and creates nothing. The pages read so far stay
-  saved for next time. Cancelling creates nothing.
+- **Pages as images.** Each written page is rendered as for "convert to text" (ink only, on white, at most 1600 px)
+  and sent in one request, in order, each with its 1-based number. Empty pages are skipped. A transcript for search
+  that is up to date (same fingerprint) goes along as a hint, but the instructions say the image prevails, because the
+  transcript can be wrong. Images, unlike a transcript, carry the layout, the arrows and the drawings.
+- **Instructions.** Organise by topic in `##` and `###` sections, join related content across pages without repeats,
+  write notes and abbreviations as clear sentences, use lists, numbered steps, tables and bold, keep every fact and
+  formula, correct spelling, **add no information that is not in the note**, and write `[ilegible]` for what cannot
+  be read. Start with a one- or two-sentence summary in italics. The titles the user marked are the main sections.
+  No overall title, which the app adds. Formulas in LaTeX.
+- **Model.** `DOC_MODEL`: high reasoning effort, because one request does the reading, the understanding and the
+  organising of the whole note.
+- **Drawings.** The model writes each drawing as a placeholder on its own line,
+  `![Short description](dibujo:P,X1,Y1,X2,Y2)`: the page and the drawing's corners in **thousandths** of that page
+  image's width and height. Thousandths rather than pixels, because the API may resize an image before the model
+  sees it. `InkFigures` (`:core`) finds the placeholders and `InkFrame.fromThousandths` maps the corners back to the
+  page.
+- **Choosing the strokes.** The model's rectangle is approximate. `InkFigures.strokesIn` widens it by 2 units and
+  takes a stroke when at least half of its box is inside. Handwriting goes by whole words: strokes of at most 48 units
+  that come within 4 units of each other, directly or through others, are judged together by the box around them,
+  so that the edge of the rectangle never cuts a word. Larger strokes (the lines of a drawing) are judged one by one,
+  so a line of text that touches a drawing does not pull the drawing out. Fills go whole. Writing at the same height as
+  a drawing still ends up in its picture, because no rectangle can leave it out.
+- **Pictures.** Only the chosen strokes are drawn (`renderSelection` on a copy of the page with just those strokes), so
+  the text around a drawing stays out of its picture. A placeholder with no strokes, or on a page that does not exist,
+  is removed.
+- **New note.** `CleanCopyNotes` (`:core`) writes the pictures as `dibujo-1.png`, `dibujo-2.png`… in a new
+  `.attachments.<id>/` folder, then the note "*Title* (clean copy)" (in Spanish, "(a limpio)") in the same category,
+  numbered if the title exists, with each placeholder replaced by a link to its picture. The note ends with a line
+  saying which handwritten note it comes from and when. It syncs like any note, with its attachments.
+- **Errors.** If the request fails, the app shows the usual AI message and creates nothing. Cancelling creates nothing.
 
 ## YouTube videos
 

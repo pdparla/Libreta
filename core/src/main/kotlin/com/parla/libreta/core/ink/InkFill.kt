@@ -140,12 +140,24 @@ object InkFill {
             return pieces
         }
 
-        /** Marks as ink every cell whose centre lies within the stroke's half thickness plus [gap] of its line. */
+        /**
+         * Marks as ink every cell whose centre lies within the stroke's half thickness plus [gap] of its line; for
+         * typed text, its whole box, since the shapes of its letters are not known here.
+         */
         fun block(stroke: Stroke, gap: Float) {
+            if (stroke.isText) return blockBox(stroke.bounds, gap)
             val reach = stroke.width / 2 + gap
             val points = stroke.points
             if (points.size == 1) return blockSegment(points[0], points[0], reach)
             for (i in 1 until points.size) blockSegment(points[i - 1], points[i], reach)
+        }
+
+        private fun blockBox(box: InkRect, gap: Float) {
+            val fromC = max(0, floor((box.left - gap) / cell).toInt())
+            val toC = min(columns - 1, floor((box.right + gap) / cell).toInt())
+            val fromR = max(0, floor((box.top - gap) / cell).toInt())
+            val toR = min(rows - 1, floor((box.bottom + gap) / cell).toInt())
+            for (r in fromR..toR) for (c in fromC..toC) cells[r * columns + c] = INK
         }
 
         private fun blockSegment(a: InkPoint, b: InkPoint, reach: Float) {

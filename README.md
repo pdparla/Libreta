@@ -23,7 +23,7 @@ The app was built for a Samsung Galaxy Tab 3 Lite (SM-T113). Its interface is in
 - **Titles, tags and an index.** Mark a title or a tag in your handwriting, and the note gets an index. You can
   filter the list by tag.
 - **Optional AI with your ChatGPT plan.** If you have a ChatGPT plan, you sign in with *Sign in with ChatGPT*
-  and use it from the tablet. You can turn handwriting into text, make a clean copy of a handwritten note, solve or
+  and use it from the tablet. You can turn handwriting into typed text in place, turn a handwritten note into organised notes with its drawings, solve or
   check handwritten math, chat about a selection, and ask questions about your whole notebook. The chat can search
   the web. Libreta has no server of its own for this: the tablet talks to OpenAI directly.
 - **YouTube links.** The tablet can't play YouTube, so a video link shows its title, channel and thumbnail with a

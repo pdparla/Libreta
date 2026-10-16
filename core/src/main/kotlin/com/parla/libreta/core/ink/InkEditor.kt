@@ -156,6 +156,22 @@ class InkEditor(initial: InkDocument, private val maxUndo: Int = 100) {
         return true
     }
 
+    /**
+     * Replaces the strokes at [indexes] of the current page with [replacement], on top of the page, in one undo step;
+     * returns the new strokes' indexes. Handwriting turned into typed text (docs/design/ink.md) keeps its marks: a
+     * title or tag that included any of the old strokes now includes the new ones.
+     */
+    fun replaceStrokes(indexes: Collection<Int>, replacement: List<Stroke>): List<Int> {
+        val doomed = indexes.toSet()
+        if (doomed.isEmpty() || replacement.isEmpty()) return emptyList()
+        val oldIds = doomed.mapNotNullTo(HashSet()) { page.strokes.getOrNull(it)?.startedAt }
+        val newIds = replacement.map { it.startedAt }
+        val kept = page.strokes.filterIndexed { i, _ -> i !in doomed }
+        val marks = page.marks.map { mark -> if (mark.strokes.any { it in oldIds }) mark.copy(strokes = mark.strokes + newIds) else mark }
+        change { pages -> pages[pageIndex] = page.copy(strokes = kept + replacement, marks = marks) }
+        return (kept.size until kept.size + replacement.size).toList()
+    }
+
     /** Adds [strokes] on top of the current page, in one undo step; returns their indexes there. */
     fun insertStrokes(strokes: List<Stroke>): List<Int> {
         if (strokes.isEmpty()) return emptyList()

@@ -2,6 +2,7 @@ package com.parla.libreta.data.ai
 
 import com.parla.libreta.core.ai.ChatMessage
 import com.parla.libreta.core.ai.Speaker
+import com.parla.libreta.core.ink.InkFigures
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONException
@@ -68,17 +69,42 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
-     * One clean Markdown text from the transcripts of several handwritten [pages], in order (docs/design/ai.md):
-     * joined without repeats or sentences cut between pages, structured, and with nothing that is not written.
-     * [titles], marked by the user (docs/design/ink.md), guide the structure.
+     * The handwriting in [png] as plain text, to typeset it in place of the strokes (docs/design/ink.md): line breaks
+     * kept, no Markdown, formulas in Unicode symbols. Empty if there is no legible text.
      */
-    fun cleanCopy(pages: List<String>, titles: List<String>, handle: TurnHandle): String {
-        val request = buildString {
-            if (titles.isNotEmpty()) append("Títulos marcados por el usuario: ").append(titles.joinToString("; ")).append("\n\n")
-            pages.forEachIndexed { i, text -> append("Página ").append(i + 1).append(":\n").append(text.trim()).append("\n\n") }
+    fun transcribeForTyping(png: ByteArray, handle: TurnHandle): String {
+        val input = JSONArray().put(userMessage(JSONArray().put(inputText(CONVERT_REQUEST)).put(inputImage(png))))
+        return responses.respond(CONVERT_MODEL, TYPE_INSTRUCTIONS, input, handle).text.trim().let(::withoutCodeFence)
+    }
+
+    /**
+     * Documentation in Markdown from the [pages] of a handwritten note (docs/design/ai.md#clean-copy): the model sees
+     * each page, understands it and writes it out organised by topic, with each drawing as an [InkFigures]
+     * placeholder. [titles], marked by the user (docs/design/ink.md), are its main sections.
+     */
+    fun cleanCopy(pages: List<CleanCopyPage>, titles: List<String>, handle: TurnHandle): String {
+        val content = JSONArray()
+        content.put(
+            inputText(
+                buildString {
+                    append("Páginas de la nota: ").append(pages.size).append('.')
+                    if (titles.isNotEmpty()) append(" Títulos marcados por el usuario: ").append(titles.joinToString("; ")).append('.')
+                },
+            ),
+        )
+        for (page in pages) {
+            content.put(
+                inputText(
+                    buildString {
+                        append("Página ").append(page.number).append('.')
+                        page.transcript?.takeIf { it.isNotBlank() }?.let { append(" Transcripción de apoyo:\n").append(it.trim()) }
+                    },
+                ),
+            )
+            content.put(inputImage(page.image))
         }
-        val input = JSONArray().put(userMessage(JSONArray().put(inputText(request))))
-        return responses.respond(CHAT_MODEL, CLEAN_INSTRUCTIONS, input, handle).text.trim().let(::withoutCodeFence)
+        val input = JSONArray().put(userMessage(content))
+        return responses.respond(DOC_MODEL, CLEAN_INSTRUCTIONS, input, handle).text.trim().let(::withoutCodeFence)
     }
 
     /**
@@ -167,6 +193,14 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "Si no hay texto legible, no devuelvas nada."
         private const val CONVERT_REQUEST = "Transcribe este recorte."
 
+        private const val TYPE_INSTRUCTIONS =
+            "Transcribe el texto manuscrito de la imagen como texto plano, para ponerlo en letra de imprenta en lugar " +
+                "de lo escrito a mano. Reproduce exactamente lo escrito, en su idioma y con sus saltos de línea; " +
+                "corrige solo las faltas evidentes. No uses Markdown: ni #, ni asteriscos, ni guiones de lista; si hay " +
+                "una lista, empieza cada elemento con «• ». Escribe las fórmulas con símbolos Unicode (x², √, ≤, π, " +
+                "½), no en LaTeX. Ignora los dibujos. Devuelve solo el texto, sin comentarios. " +
+                "Si no hay texto legible, no devuelvas nada."
+
         private const val CHAT_INSTRUCTIONS =
             "Eres el asistente de Libreta, una libreta de notas a mano en una tablet. El usuario te enseña un recorte " +
                 "de lo que ha escrito o dibujado y conversa contigo sobre él. Responde en español, de forma breve y " +
@@ -197,13 +231,32 @@ class AiAssistant(private val responses: ResponsesClient) {
             " Puedes buscar en la web cuando haga falta información actual o que no esté en las notas ni en el recorte; " +
                 "para lo que es del usuario, usa antes sus notas. Cita las páginas que uses con enlaces Markdown."
 
+        /** A clean copy is one request that reads and organises the whole note: worth more thought than a chat turn. */
+        val DOC_MODEL = AiModel("gpt-6.1-sol", "high")
+
         private const val CLEAN_INSTRUCTIONS =
-            "Recibes, en orden, lo transcrito de las páginas de una nota escrita a mano. Únelo en una sola nota en " +
-                "Markdown, limpia y bien estructurada: títulos de sección con ##, listas y tablas donde el original las " +
-                "tenga. No repitas nada, no cortes frases entre páginas, corrige solo errores evidentes de lectura y no " +
-                "añadas nada que no esté escrito. Conserva todo el texto de todas las páginas, también los títulos que " +
-                "marcó el usuario, que van como títulos de sección. No añadas un título general para toda la nota: lo " +
-                "pone la app. Escribe las fórmulas en LaTeX entre $. Devuelve solo el Markdown, sin comentarios."
+            "Recibes, en orden, las páginas de una nota escrita a mano en una tablet, como imágenes. Algunas traen " +
+                "una transcripción de apoyo, que puede tener errores: manda lo que ves en la imagen. Entiende el " +
+                "contenido y conviértelo en una documentación de calidad en Markdown, como unos apuntes pasados a " +
+                "limpio por alguien que domina el tema.\n" +
+                "- Organiza la información por temas, con secciones (##) y subsecciones (###) que reflejen su " +
+                "estructura. Agrupa lo relacionado aunque esté en páginas distintas y no repitas nada. Los títulos que " +
+                "marcó el usuario son las secciones principales.\n" +
+                "- Redacta con frases claras y completas lo que esté en notas sueltas o abreviado, sin cambiar su " +
+                "sentido. Usa listas, listas numeradas para pasos, tablas para datos comparables y negrita para los " +
+                "conceptos clave.\n" +
+                "- Conserva toda la información: datos, nombres, fechas, cifras, ejemplos y fórmulas. Corrige las " +
+                "faltas y los errores evidentes, pero no inventes datos ni añadas información que no esté en la nota. " +
+                "Si algo es ilegible, escribe [ilegible].\n" +
+                "- Escribe las fórmulas en LaTeX, entre $ en línea y entre $$ si ocupan su propia línea; no uses \\( ni \\[.\n" +
+                "- Cada dibujo, esquema, diagrama, gráfica o figura va como imagen donde corresponda, en una línea " +
+                "propia: ![Descripción breve](dibujo:P,X1,Y1,X2,Y2). P es el número de la página; X1,Y1 es la esquina " +
+                "superior izquierda y X2,Y2 la inferior derecha del dibujo, en milésimas del ancho y del alto de la " +
+                "imagen de esa página (de 0 a 1000). El rectángulo abarca el dibujo entero con sus etiquetas, pero no " +
+                "el texto de alrededor. Debajo, explica en una o dos frases lo que muestra. No pongas como imagen el " +
+                "texto normal, las fórmulas que puedas escribir en LaTeX ni los tachones o adornos.\n" +
+                "- Empieza con un resumen de una o dos frases en cursiva. No añadas un título general: lo pone la app.\n" +
+                "Devuelve solo el Markdown, sin comentarios ni bloques de código."
 
         /** Rounds of tool calls in one answer before giving up: a model that never answers must not loop forever. */
         private const val MAX_TOOL_ROUNDS = 8
@@ -233,6 +286,12 @@ private fun inputText(text: String) = JSONObject().put("type", "input_text").put
 
 private fun inputImage(png: ByteArray) =
     JSONObject().put("type", "input_image").put("image_url", "data:image/png;base64," + ByteString.of(*png).base64())
+
+/**
+ * A page of a handwritten note for [AiAssistant.cleanCopy]: its 1-based [number], its [image] (PNG, see
+ * [com.parla.libreta.core.ink.InkFrame.ofPage]) and, when it is up to date, its [transcript] for search as a hint.
+ */
+class CleanCopyPage(val number: Int, val image: ByteArray, val transcript: String?)
 
 /**
  * What to do with handwritten mathematics in a selection (docs/guide/assistant.md#solve-or-check-math): the

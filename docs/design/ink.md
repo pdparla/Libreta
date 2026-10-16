@@ -14,7 +14,7 @@ All types are immutable.
 | Type | Description |
 |---|---|
 | `InkPoint` | `x`, `y` in page units, and `t`, milliseconds since the stroke began. |
-| `Stroke` | `color` (ARGB), `width`, `startedAt` (epoch milliseconds of the first point), the points, and `fill`. |
+| `Stroke` | `color` (ARGB), `width`, `startedAt` (epoch milliseconds of the first point), the points, `fill`, and `text` for typed text. |
 | `InkPage` | `width`, `height` in page units, a `Paper` (`blank`, `lined` or `grid`), the strokes in drawing order, and the marks. |
 | `InkMark` | A title or tag you marked: its text, and the strokes it's made of, identified by their `startedAt`. |
 | `InkDocument` | One or more pages. Each page has its own size, so an upright note can have landscape pages. |
@@ -36,16 +36,19 @@ strokes by it. Moving or recolouring a stroke doesn't change it, so marks follow
 in JVM tests, and bundling another copy would clash with the one in Android.
 
 ```json
-{"format":"libreta-ink","version":2,"pages":[{"width":600,"height":851,"paper":"lined","strokes":[
+{"format":"libreta-ink","version":3,"pages":[{"width":600,"height":851,"paper":"lined","strokes":[
   {"color":"#ff202124","width":3.5,"start":1760197500000,"points":[12.5,40,0,13,41.5,16]},
-  {"color":"#ffffeb3b","width":7.5,"start":1760197600000,"fill":true,"points":[100,201,0,180,201,0]}],
+  {"color":"#ffffeb3b","width":7.5,"start":1760197600000,"fill":true,"points":[100,201,0,180,201,0]},
+  {"color":"#ff202124","width":24,"start":1760197700000,"text":"Hola","points":[60,300,0,112,328,0]}],
   "marks":[{"kind":"title","text":"Trip","strokes":[1760197500000]}]}]}
 ```
 
 - Points are a flat array of `x, y, t` triples, to keep the file small. Coordinates are rounded to 0.1.
-- `fill` is written only when true, and `marks` only when a page has some. A document without marks is written as
-  `"version":1`, exactly as before marks existed, so its fingerprints don't change. The decoder accepts any
-  version up to 2, and rejects a newer one.
+- `fill` is written only when true, `text` only for typed text, and `marks` only when a page has some. A document
+  without marks or typed text is written as `"version":1`, exactly as before marks existed, so its fingerprints don't
+  change. With marks it is version 2, and with typed text version 3. The decoder accepts any version up to 3, and
+  rejects a newer one: an older app refuses a note with typed text instead of opening it and saving the text as a
+  bare line.
 - Unknown mark kinds are skipped instead of failing the whole note.
 
 ## Editing
@@ -76,7 +79,8 @@ Two modes, both with a radius in page units:
   changes, because most touch points hit nothing.
 - **Whole stroke** (`eraseStrokesAt`). It removes every stroke the eraser touches, and any fill it touches, whole.
 
-A cheap bounding-box test (`isOutsideDisc`) runs first for every stroke.
+A cheap bounding-box test (`isOutsideDisc`) runs first for every stroke. Both modes remove typed text whole when the
+eraser touches its box: half a word makes no sense.
 
 ### Sizes
 
@@ -106,7 +110,7 @@ ink is inside, the rectangle stays as drawn and only the AI actions apply.
   stroke width with it. `moveWithin` and `scaleWithin` keep the result inside the page and above a minimum side
   (`MIN_SIDE`).
 - Colour and width use `restyleStrokes`. The width of a selection doesn't apply to fills, because their bands have
-  just enough thickness to cover the shape.
+  just enough thickness to cover the shape, nor to typed text, whose width is its font size.
 - Copy goes to `InkClipboard`, which holds the strokes in the process memory. Only Libreta understands strokes,
   so the system clipboard isn't used, and the contents are lost if Android ends the process. Paste places them 16
   units down and to the right of the original, kept on the page.
@@ -128,7 +132,7 @@ is new and optional, so older versions of the app show the bands as normal strok
 Algorithm:
 
 1. Rasterise the page into a grid. Each cell that touches ink (other fills not counted) is blocked, with the ink
-   thickened by a margin *g* so that small gaps in an outline don't let the fill escape.
+   thickened by a margin *g* so that small gaps in an outline don't let the fill escape. Typed text blocks its whole box.
 2. Flood-fill the free area connected to the tapped cell. It's a scanline fill with an explicit stack, with no
    recursion.
 3. Every *s* units of height, starting at the first row of the area, take the row. Each continuous run of free
@@ -149,6 +153,25 @@ Behaviour:
   All of this is one undo step.
 - **Open areas.** A tap outside any closed shape fills the open region up to the page edges. A tap directly on ink
   fills nothing, and the app says so.
+
+## Typed text
+
+«Pasar a letra» turns handwriting into the same words in a font (see [Typing](ai.md#typing) for how the text is read
+and sized). Typed text is a `Stroke` with a `text`:
+
+- Its two points are the upper-left and lower-right corners of the text's box, and its `width` is the font size.
+  `bounds` is that box, without the half-thickness ink adds.
+- Being a stroke, it needs no other code to be selected, moved, scaled, recoloured, copied, pasted, undone, marked as
+  a title or tag, compared by `InkDiff`, or drawn into the page images. Scaling multiplies the corners and the width by
+  the same factor, so the box and the font size stay in step.
+- `:core` knows only the box. A selection takes the text when the rectangle touches the box, and the eraser when it
+  touches the box. A fill treats the whole box as ink, since the shapes of the letters are not known there.
+- `InkText` (`:app`) lays it out and draws it, with the system's sans-serif font (Roboto): one line under another
+  from the upper-left corner, `fontSpacing` apart. The box is measured with the same paint when the text is created
+  or corrected, so it matches what is drawn. While a selection is dragged, the text becomes a path of its letters
+  (`Paint.getTextPath`) like any other moving stroke.
+- Correcting the text keeps the upper-left corner and the size, unless the longer text would run off the page: then
+  it gets smaller, down to 8 units, and moves in if it still doesn't fit.
 
 ## Viewport, zoom and orientation
 
@@ -241,8 +264,9 @@ decoding (`inSampleSize`).
 
 For text recognition, `renderSelection` draws only the ink in a rectangle on white, without the paper's lines
 (which can be mistaken for writing), with a margin of at least 16 units or 10% of the rectangle. It uses
-2 pixels per unit, or fewer to keep the longer side within 1600 pixels, in RGB 565. It's heavy, so call it
-off the main thread.
+2 pixels per unit, or fewer to keep the longer side within 1600 pixels, in RGB 565. `InkFrame` (`:core`) computes
+that area and scale, so a point the model names in the image maps back to the page. It's heavy, so call it off the
+main thread.
 
 ## Titles and tags
 

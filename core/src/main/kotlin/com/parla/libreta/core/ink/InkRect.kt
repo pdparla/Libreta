@@ -63,7 +63,7 @@ data class InkRect(val left: Float, val top: Float, val right: Float, val bottom
         /** Shortest side of a usable selection, in page units: about a small letter. */
         const val MIN_SIDE = 12f
 
-        /** The smallest rectangle around [strokes], their thickness included; null for none. */
+        /** The smallest rectangle around [strokes], their thickness included (typed text: its box); null for none. */
         fun around(strokes: List<Stroke>): InkRect? {
             if (strokes.isEmpty()) return null
             var left = Float.MAX_VALUE
@@ -71,7 +71,8 @@ data class InkRect(val left: Float, val top: Float, val right: Float, val bottom
             var right = -Float.MAX_VALUE
             var bottom = -Float.MAX_VALUE
             for (stroke in strokes) {
-                val reach = stroke.width / 2
+                // The width of typed text is its font size, and its points are already the corners of its box.
+                val reach = if (stroke.isText) 0f else stroke.width / 2
                 for (p in stroke.points) {
                     left = min(left, p.x - reach)
                     top = min(top, p.y - reach)

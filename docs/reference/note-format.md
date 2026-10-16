@@ -137,11 +137,12 @@ Each page is a PNG at 2 pixels per page unit, with the paper included. A page of
 `libreta.ink.json` holds every stroke of the note.
 
 ```json
-{"format":"libreta-ink","version":2,"pages":[
+{"format":"libreta-ink","version":3,"pages":[
   {"width":600,"height":900,"paper":"lined",
    "strokes":[
      {"color":"#ff202124","width":3.5,"start":1760197500000,"points":[12.5,40,0,13,41.5,16]},
-     {"color":"#ffffeb3b","width":7.5,"start":1760197600000,"fill":true,"points":[100,201,0,180,201,0]}],
+     {"color":"#ffffeb3b","width":7.5,"start":1760197600000,"fill":true,"points":[100,201,0,180,201,0]},
+     {"color":"#ff202124","width":24,"start":1760197700000,"text":"Hola, ¿qué tal?","points":[60,300,0,230,328,0]}],
    "marks":[{"kind":"title","text":"Trip","strokes":[1760197500000]}]}]}
 ```
 
@@ -150,7 +151,7 @@ Each page is a PNG at 2 pixels per page unit, with the paper included. A page of
 | Field | Type | Meaning |
 |---|---|---|
 | `format` | string | Always `libreta-ink`. |
-| `version` | number | `1` or `2`. Libreta writes `2` only when a page has marks, and `1` otherwise. It refuses a file with a higher version. |
+| `version` | number | `1`, `2` or `3`. Libreta writes `3` when a page has typed text, `2` when a page has marks but no typed text, and `1` otherwise. It refuses a file with a higher version, so an older Libreta does not open a note with typed text and lose the text when it saves. |
 | `pages` | array | At least one page. |
 
 ### Page
@@ -171,10 +172,13 @@ Each page is a PNG at 2 pixels per page unit, with the paper included. A page of
 | `start` | integer | Time of the first point, in milliseconds since the Unix epoch. |
 | `points` | array | A flat list of `x, y, t` triples. `x` and `y` are page units rounded to 0.1. `t` is milliseconds since the start of the stroke. The list is never empty and its length is a multiple of 3. |
 | `fill` | boolean | `true` for a band of a fill. Written only when true. |
+| `text` | string | For typed text, what it says, with `\n` between lines. Version 3. Written only for typed text. |
 
 Libreta keeps the time of each point, so moving or resizing ink does not change when it was written.
 
 A **fill** is stored as strokes: horizontal bands of two points each, thick and overlapping, that together cover the shape. All the bands of one fill share the same `start`. Libreta draws them behind the other ink.
+
+**Typed text** is stored as a stroke with a `text`. Its two points are the upper-left and lower-right corners of the text's box, and its `width` is the font size in page units. Libreta draws it in the system's sans-serif font, one line under another, from the upper-left corner.
 
 ### Mark
 
@@ -222,7 +226,21 @@ A mark labels handwriting as a title or a tag.
 
 ## Clean copies
 
-«Pasar a limpio» creates a normal text note called `Title (a limpio)`. It has a `#` title, the text, and a last line in italics that says which handwritten note it comes from and when. It has no special format.
+«Pasar a limpio» creates a normal text note called `Title (a limpio)`. It has a `#` title, the text, and a last line in italics that says which handwritten note it comes from and when. The pictures of the drawings are PNG files in a new `.attachments.<id>/` folder, named `dibujo-1.png`, `dibujo-2.png` and so on, and linked as Markdown images:
+
+```markdown
+# Física (a limpio)
+
+_Apuntes sobre circuitos en serie y en paralelo._
+
+## Circuitos
+
+![Esquema del circuito en serie](.attachments.k3f9a2/dibujo-1.png)
+
+_Pasada a limpio de la nota a mano «Física» el 2026-10-16 18.30._
+```
+
+The pictures are written before the note, so the note never points at a missing file. Otherwise it has no special format.
 
 ## Related
 
