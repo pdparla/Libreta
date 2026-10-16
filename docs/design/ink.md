@@ -198,6 +198,31 @@ and sized). Typed text is a `Stroke` with a `text`:
   page images, so the table shows in Nextcloud Notes and search finds it. Undo restores the drawing but not the
   text, which lives in the Markdown, outside the undo history.
 
+## Clean diagrams
+
+«Diagrama a limpio» turns a sketched diagram into straight shapes, lines and typed text, in one undo step.
+`InkDiagram` (`:core`) holds the logic:
+
+- **Reading.** `AiAssistant.readDiagram` asks for JSON: `nodos` (an id, the text, the shape, `rectangulo`, `elipse`,
+  `rombo` or `ninguna` for text alone, and a `caja`) and `conexiones` (`desde`, `hasta`, `flecha`: `fin`, `ambas` or
+  `ninguna`, and a `texto`). The boxes are in thousandths of the selection image, which `InkFrame.around` of the
+  selection maps back to the page, as for the drawings of a clean copy. `InkDiagram.parse` skips nodes without an id
+  or a box, repeated ids, and edges that do not join two different nodes. Anything that is not such JSON means no
+  diagram.
+- **Alignment.** `aligned` puts nodes whose centres are within 10 units across or down at their average, which is
+  most of what makes a drawn diagram look clean. Sizes are kept.
+- **Strokes.** Each outline is one stroke: a rectangle or a diamond of five corners, an ellipse of 64 segments. A line
+  runs between the centres of two nodes, cut where it meets each outline (box, ellipse or diamond) with a gap of 3
+  units plus the line width, and an arrowhead is a three-point stroke at 25° to the line, 3 line widths long (at least
+  8 units). Lines are as thick as the median width of the ink they replace, in its colour.
+- **Sharp corners.** Strokes are drawn smoothed through the midpoints of their points (see [Drawing](#drawing)), which
+  would round a corner. `InkDiagram.sharp` doubles every corner of the rectangles, diamonds and arrowheads, so each
+  curve's control point lies on its own straight segment, the edges stay straight and the corners sharp.
+- **Texts.** The app types each node's text in the middle of its shape: within 85% of a rectangle, 70% of an ellipse,
+  50% of a diamond, or the whole box for text alone. Every text gets the median of the sizes they could each take
+  (at most 32 units), or less where it does not fit, so the diagram reads as one. An edge's text is three quarters of
+  that size, beside the middle of a steep line or above a flat one.
+
 ## Viewport, zoom and orientation
 
 `InkViewport` (in `:core`, without Android) converts between page and screen:

@@ -106,7 +106,7 @@ If the box holds no ink, it stays as you drew it. Only the AI buttons work.
 
 The text buttons in the same row are:
 
-- «A texto» (To text): a menu to turn the selection into typed text on the page, translate it, make a drawn table clean, or add its text to the note. See [Turn handwriting into typed text](#turn-handwriting-into-typed-text), [Translate on the page](#translate-on-the-page), [Make a table clean](#make-a-table-clean) and [Convert a selection to text](#convert-a-selection-to-text).
+- «A texto» (To text): a menu to turn the selection into typed text on the page, translate it, make a drawn table or diagram clean, or add its text to the note. See [Turn handwriting into typed text](#turn-handwriting-into-typed-text), [Translate on the page](#translate-on-the-page), [Make a table clean](#make-a-table-clean), [Make a diagram clean](#make-a-diagram-clean) and [Convert a selection to text](#convert-a-selection-to-text).
 - «Chat IA» (AI chat): opens a chat about the selection. See [The assistant](assistant.md#chat-about-a-selection).
 - «Mates» (Math): solves the selected mathematics or checks your steps. See [Solve or check math](assistant.md#solve-or-check-math).
 - «Título» (Title) and «Etiqueta» (Tag): mark the selection as a title or a tag. See [Titles, tags and the index](organize.md).
@@ -189,6 +189,21 @@ You can draw a table by hand, with its lines and the text in its cells, and turn
 4. The table is also added to the text of the note as a Markdown table, above the page images, so Nextcloud Notes shows it and search finds it. A message says «Añadido a la nota» (Added to the note).
 
 The first row is the header in the Markdown table. On the page every row looks the same. The lines and the cell texts are separate pieces: you can move the whole table, correct a cell with «Corregir el texto» or delete a line. «Deshacer» (Undo) brings back the drawn table, but the Markdown table stays in the note's text: delete it with «Editar el texto» if you need to. If no table is found, a message says «No se ha encontrado una tabla en el recuadro.» (No table was found in the box.) and nothing changes.
+
+## Make a diagram clean
+
+You can sketch a diagram by hand, such as a flowchart, a tree or a concept map, and turn it into clean shapes. You need to be signed in with ChatGPT.
+
+1. Select the whole diagram.
+2. Tap «A texto» and then «Diagrama a limpio» (Clean diagram).
+3. The sketch is replaced by:
+   - rectangles, ellipses and diamonds with straight edges where you drew boxes, circles and diamonds, with their text typed in the middle;
+   - straight lines between them, with arrowheads where you drew arrows, and their labels typed beside them;
+   - text you wrote with no shape around it, typed in its place.
+
+Shapes that were nearly in line are put exactly in line. The lines are as thick as the ink you drew with, and everything keeps the colour of the ink. The texts share one size where they fit. The diagram stays selected.
+
+Every shape, line and text is a separate piece, so you can move a box, correct a text with «Corregir el texto» or delete an arrow. «Deshacer» (Undo) brings the sketch back. If no diagram is found, a message says «No se ha encontrado un diagrama en el recuadro.» (No diagram was found in the box.) and nothing changes.
 
 ## Convert a selection to text
 

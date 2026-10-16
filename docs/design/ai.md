@@ -197,6 +197,14 @@ see [Typed text](ink.md#typed-text).
   text ([Typed text](ink.md#typed-text)).
 - The language list is fixed in `strings.xml`, and the last language used comes first.
 
+## Clean diagrams
+
+«Diagrama a limpio» sends the selection like "convert to text", and the model returns the diagram's structure as JSON:
+each node with its text, its shape and its box in thousandths of the image, and each connection with its arrowheads
+and its text. Thousandths for the same reason as the drawings of a clean copy. The instructions ask for a precise box,
+because the clean diagram is drawn where it says, and for one connection per branch of a line that splits. For how
+the app draws it, see [Clean diagrams](ink.md#clean-diagrams).
+
 ## Solve or check math
 
 «Mates» opens the chat about the selection with a `MathTask`, and the chat sends its first message at once.

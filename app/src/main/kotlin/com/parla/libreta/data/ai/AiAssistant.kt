@@ -97,6 +97,15 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
+     * The diagram drawn by hand in [png] as JSON for [com.parla.libreta.core.ink.InkDiagram.parse]: its nodes, with
+     * shape, text and box in thousandths of the image, and the lines between them (docs/design/ai.md#clean-diagrams).
+     */
+    fun readDiagram(png: ByteArray, handle: TurnHandle): String {
+        val input = JSONArray().put(userMessage(JSONArray().put(inputText("Lee este diagrama.")).put(inputImage(png))))
+        return responses.respond(CONVERT_MODEL, DIAGRAM_INSTRUCTIONS, input, handle).text.trim().let(::withoutCodeFence)
+    }
+
+    /**
      * Documentation in Markdown from the [pages] of a handwritten note (docs/design/ai.md#clean-copy): the model sees
      * each page, understands it and writes it out organised by topic, with each drawing as an [InkFigures]
      * placeholder. [titles], marked by the user (docs/design/ink.md), are its main sections.
@@ -219,6 +228,22 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "una lista, empieza cada elemento con «• ». Escribe las fórmulas con símbolos Unicode (x², √, ≤, π, " +
                 "½), no en LaTeX. Ignora los dibujos. Devuelve solo el texto, sin comentarios. " +
                 "Si no hay texto legible, no devuelvas nada."
+
+        private const val DIAGRAM_INSTRUCTIONS =
+            "La imagen es un diagrama dibujado a mano: un esquema, un diagrama de flujo, un árbol o un mapa " +
+                "conceptual. Devuelve solo JSON, sin comentarios ni bloques de código, con esta forma: " +
+                "{\"nodos\":[{\"id\":\"n1\",\"texto\":\"…\",\"forma\":\"rectangulo\",\"caja\":[x1,y1,x2,y2]}]," +
+                "\"conexiones\":[{\"desde\":\"n1\",\"hasta\":\"n2\",\"flecha\":\"fin\",\"texto\":\"\"}]}\n" +
+                "- Un nodo es cada caja, círculo, rombo o texto suelto que forma parte del diagrama. forma es la figura " +
+                "que lo rodea: rectangulo, elipse, rombo, o ninguna si es texto sin figura. texto es lo escrito " +
+                "dentro, tal cual, corrigiendo solo faltas evidentes, con \\n para los saltos de línea.\n" +
+                "- caja es el rectángulo que ocupa la figura (o el texto, si no tiene figura), en milésimas del ancho " +
+                "y del alto de la imagen, de 0 a 1000: x1,y1 es la esquina superior izquierda y x2,y2 la inferior " +
+                "derecha. Sé preciso: el diagrama limpio se dibuja en esos sitios.\n" +
+                "- Cada línea o flecha que une dos nodos es una conexión: desde el nodo del que sale hasta el nodo al " +
+                "que llega. flecha dice dónde tiene punta: fin (en el nodo de llegada), ambas o ninguna. texto es lo " +
+                "escrito junto a la línea, o vacío. Si una línea se ramifica, pon una conexión por rama.\n" +
+                "Si en la imagen no hay un diagrama, devuelve {\"nodos\":[]}."
 
         private const val TABLE_INSTRUCTIONS =
             "La imagen es una tabla dibujada a mano. Devuélvela como una tabla de Markdown con exactamente las mismas " +

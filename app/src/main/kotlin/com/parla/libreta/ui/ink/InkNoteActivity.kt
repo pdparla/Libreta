@@ -24,6 +24,7 @@ import android.widget.PopupMenu
 import android.widget.Toast
 import com.parla.libreta.R
 import com.parla.libreta.container
+import com.parla.libreta.core.ink.InkDiagram
 import com.parla.libreta.core.ink.InkDocument
 import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkFigures
@@ -559,6 +560,7 @@ class InkNoteActivity : Activity() {
             actions += R.string.ink_typeset to { typesetSelection() }
             actions += R.string.ink_translate to { chooseLanguage() }
             actions += R.string.ink_clean_table to { cleanTable() }
+            actions += R.string.ink_clean_diagram to { cleanDiagram() }
         }
         actions += R.string.ink_add_as_text to { convertSelection() }
         val menu = PopupMenu(this, convertButton)
@@ -621,6 +623,75 @@ class InkNoteActivity : Activity() {
             afterSelectionEdit()
             addToNote(InkTable.toMarkdown(cells))
         }
+    }
+
+    /**
+     * «Diagrama a limpio»: the AI reads the structure of the diagram in the selection, and straight shapes, lines
+     * and arrows with typed text take its place, in one undo step (docs/design/ink.md#clean-diagrams). Nodes nearly
+     * in line are put in line.
+     */
+    private fun cleanDiagram() {
+        val editor = editor ?: return
+        val page = editor.page
+        val indexes = inkView.selectedStrokes.toList()
+        val strokes = indexes.mapNotNull { page.strokes.getOrNull(it) }
+        // The image the AI sees is of the selection: its frame maps the boxes back to the page.
+        val frame = InkFrame.around(inkView.selection ?: return)
+        readSelection(read = container.ai::readDiagram) { json ->
+            if (editor !== this.editor || editor.page !== page) return@readSelection
+            val diagram = InkDiagram.parse(json, frame)?.aligned()
+                ?: return@readSelection Toast.makeText(this, R.string.ink_diagram_none, Toast.LENGTH_LONG).show()
+            val ink = strokes.filter { !it.fill && !it.isText }
+            val color = ink.firstOrNull()?.color ?: inkView.penColor
+            val lineWidth = ink.map { it.width }.sorted().let { if (it.isEmpty()) inkView.penWidth / inkView.zoom else it[it.size / 2] }
+            val now = System.currentTimeMillis()
+            val shapes = diagram.strokes(color, lineWidth, now)
+            val labels = diagramLabels(diagram, color, now + shapes.size)
+            inkView.selectStrokes(editor.replaceStrokes(indexes, shapes + labels))
+            afterSelectionEdit()
+        }
+    }
+
+    /**
+     * The texts of [diagram] as typed text: each node's centred in it, at one size for all where they fit (the
+     * median of what each could take), and each edge's beside the middle of its line, a little smaller.
+     */
+    private fun diagramLabels(diagram: InkDiagram, color: Int, startedAt: Long): List<Stroke> {
+        fun inner(node: InkDiagram.Node): InkRect {
+            val share = when (node.shape) {
+                InkDiagram.Shape.BOX -> 0.85f
+                InkDiagram.Shape.ELLIPSE -> 0.7f
+                InkDiagram.Shape.DIAMOND -> 0.5f
+                InkDiagram.Shape.NONE -> 1f
+            }
+            val w = node.box.width * share / 2
+            val h = node.box.height * share / 2
+            return InkRect(node.centerX - w, node.centerY - h, node.centerX + w, node.centerY + h)
+        }
+        val named = diagram.nodes.filter { it.text.isNotBlank() }
+        val fits = named.map { InkText.fittedSize(it.text, inner(it)).coerceAtMost(MAX_LABEL_SIZE) }
+        val common = fits.sorted().let { if (it.isEmpty()) PLACED_TEXT_SIZE else it[it.size / 2] }
+        var next = startedAt
+        val labels = ArrayList<Stroke>()
+        named.forEachIndexed { i, node ->
+            val size = minOf(fits[i], common)
+            val (w, h) = InkText.sizeAtOne(node.text)
+            labels += InkText.typed(node.text, node.centerX - w * size / 2, node.centerY - h * size / 2, size, color, next++)
+        }
+        val edgeSize = (common * 0.75f).coerceAtLeast(8f)
+        for (edge in diagram.edges) {
+            if (edge.text.isBlank()) continue
+            val (x, y) = diagram.labelPoint(edge) ?: continue
+            val from = diagram.nodes.first { it.id == edge.from }
+            val to = diagram.nodes.first { it.id == edge.to }
+            val (w, h) = InkText.sizeAtOne(edge.text)
+            // Beside a steep line, above a flat one.
+            val steep = kotlin.math.abs(to.centerY - from.centerY) > kotlin.math.abs(to.centerX - from.centerX)
+            val left = if (steep) x + edgeSize * 0.4f else x - w * edgeSize / 2
+            val top = if (steep) y - h * edgeSize / 2 else y - h * edgeSize - edgeSize * 0.2f
+            labels += InkText.typed(edge.text, left, top, edgeSize, color, next++)
+        }
+        return labels
     }
 
     /** «Traducir…»: the language to translate the selection into, the last one used first. */
@@ -1091,6 +1162,9 @@ class InkNoteActivity : Activity() {
 
         /** Font size of text put on the page, in page units at 1×: about the height of writing between ruled lines. */
         private const val PLACED_TEXT_SIZE = 20f
+
+        /** The largest font size for the text in a clean diagram: big boxes should not get shouting labels. */
+        private const val MAX_LABEL_SIZE = 32f
 
         /** Contacts larger than this are a palm. Calibrated with the AmberVec stylus (docs/design/ink.md). */
         private const val PALM_TOUCH_MAJOR = 0f
