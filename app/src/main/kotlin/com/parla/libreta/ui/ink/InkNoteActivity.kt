@@ -273,7 +273,7 @@ class InkNoteActivity : Activity() {
         convertButton.setOnClickListener { chooseTextAction() }
         titleButton.setOnClickListener { markSelection(InkMark.Kind.TITLE) }
         tagButton.setOnClickListener { markSelection(InkMark.Kind.TAG) }
-        findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this) { showRecognized(it, R.string.stt_dictated_title) } }
+        findViewById<View>(R.id.ink_dictate).setOnClickListener { Dictation.start(this, ::showDictated) }
         chatButton.setOnClickListener { chatAboutSelection() }
         mathButton.setOnClickListener { chooseMathTask() }
 
@@ -747,7 +747,44 @@ class InkNoteActivity : Activity() {
         }
     }
 
-    /** Recognised or dictated text, editable before it goes into the note. */
+    /**
+     * Dictated text, editable, then put on the page as typed text where the user taps next, or added to the note's
+     * text (docs/guide/dictation.md).
+     */
+    private fun showDictated(text: String) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            gravity = Gravity.TOP or Gravity.START
+            minLines = 3
+            setText(text)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.stt_dictated_title)
+            .setView(input)
+            .setPositiveButton(R.string.ink_place_on_page) { _, _ -> placeOnPage(input.text.toString().trim()) }
+            .setNeutralButton(R.string.ai_add_to_note) { _, _ -> addToNote(input.text.toString()) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * Waits for a tap on the page and puts [text] there as typed text (docs/design/ink.md#typed-text), in the pen's
+     * colour, at a size that sits on the ruled lines, as it looks at this zoom. It comes selected, ready to move.
+     */
+    private fun placeOnPage(text: String) {
+        if (text.isEmpty()) return
+        Toast.makeText(this, R.string.ink_place_hint, Toast.LENGTH_LONG).show()
+        inkView.placeAt = place@{ x, y ->
+            val editor = editor ?: return@place
+            val typed = InkText.placed(editor.page, text, x, y, PLACED_TEXT_SIZE / inkView.zoom, inkView.penColor, System.currentTimeMillis())
+            val indexes = editor.insertStrokes(listOf(typed))
+            selectTool(InkView.Tool.SELECT)
+            inkView.selectStrokes(indexes)
+            afterSelectionEdit()
+        }
+    }
+
+    /** Recognised text, editable before it goes into the note. */
     private fun showRecognized(text: String, title: Int) {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
@@ -971,6 +1008,9 @@ class InkNoteActivity : Activity() {
         private const val PREF_ERASER_RADIUS = "eraser_radius"
         private const val DEFAULT_PEN_WIDTH = 3.5f
         private const val DEFAULT_ERASER_RADIUS = 10f
+
+        /** Font size of text put on the page, in page units at 1×: about the height of writing between ruled lines. */
+        private const val PLACED_TEXT_SIZE = 20f
 
         /** Contacts larger than this are a palm. Calibrated with the AmberVec stylus (docs/design/ink.md). */
         private const val PALM_TOUCH_MAJOR = 0f

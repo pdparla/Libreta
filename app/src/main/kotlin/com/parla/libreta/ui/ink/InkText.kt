@@ -55,6 +55,52 @@ object InkText {
     }
 
     /**
+     * [text] with line breaks added so that no line is wider than [maxWidth] at font [size], breaking between words;
+     * a single word wider than that stays whole. The breaks become part of the text: typed text is laid out once.
+     */
+    fun wrap(text: String, size: Float, maxWidth: Float): String {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = TYPEFACE; textSize = size }
+        return linesOf(text).joinToString("\n") { line ->
+            if (paint.measureText(line) <= maxWidth) return@joinToString line
+            val out = StringBuilder()
+            var current = ""
+            for (word in line.split(' ')) {
+                val candidate = if (current.isEmpty()) word else "$current $word"
+                if (current.isEmpty() || paint.measureText(candidate) <= maxWidth) {
+                    current = candidate
+                } else {
+                    out.append(current).append('\n')
+                    current = word
+                }
+            }
+            out.append(current).toString()
+        }
+    }
+
+    /**
+     * Typed [text] put on [page] where the user tapped, ([x], [y]): the first line centred on that height, wrapped to
+     * the page's right edge, moved up if it would run past the bottom, and smaller if even then it does not fit.
+     */
+    fun placed(page: InkPage, text: String, x: Float, y: Float, size: Float, color: Int, startedAt: Long): Stroke {
+        val left = x.coerceAtMost(page.width - EDGE - MIN_WRAP_WIDTH).coerceAtLeast(0f)
+        var fontSize = size
+        while (true) {
+            val wrapped = wrap(text, fontSize, page.width - EDGE - left)
+            val height = sizeAtOne(wrapped).second
+            val lineHeight = height / linesOf(wrapped).size * fontSize
+            val top = (y - lineHeight / 2).coerceAtMost(page.height - height * fontSize).coerceAtLeast(0f)
+            if (height * fontSize <= page.height || fontSize <= MIN_SIZE) return typed(wrapped, left, top, fontSize, color, startedAt)
+            fontSize = max(MIN_SIZE, fontSize * 0.8f)
+        }
+    }
+
+    /** Room left free at the page's right edge, in page units. */
+    private const val EDGE = 16f
+
+    /** The narrowest a placed text is wrapped to: near the right edge it moves left instead. */
+    private const val MIN_WRAP_WIDTH = 120f
+
+    /**
      * Typed [text] at ([left], [top]) and font size [size], as [typed], but kept on [page]: smaller if it would run
      * past its edge, and moved in if even the smallest size does not fit. For a corrected text, which may be longer.
      */

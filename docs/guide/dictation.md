@@ -11,9 +11,20 @@ If dictation is not set up, tapping the microphone shows the message «El dictad
 | Screen | Where | What happens with the text |
 |---|---|---|
 | Text note | Microphone in the top bar | The text is inserted at the cursor. From the formatted view, Libreta switches to the editor and adds the text at the end as a new paragraph. |
-| Handwritten note | Microphone in the first toolbar row | A box titled «Texto dictado» (Dictated text) shows the text. Edit it, then tap «Añadir a la nota» (Add to the note) to add it above the pages, or «Copiar» (Copy). |
+| Handwritten note | Microphone in the first toolbar row | A box titled «Texto dictado» (Dictated text) shows the text. Edit it, then tap «En la página» (On the page) and tap where the text should go: it appears there as typed text. Or tap «Añadir a la nota» (Add to the note) to add it above the pages. |
 | Chat with the assistant | Microphone next to «Enviar» | The text goes into the message box so you can check it before you send it. If the box already has text, the dictation is added after it. |
 
+
+### Put dictated text on the page
+
+In a handwritten note, «En la página» (On the page) turns what you dictated into typed text on the page:
+
+1. Dictate and tap «En la página». A message says «Toca en la página donde quieras el texto.» (Tap the page where you want the text.)
+2. Tap the page. The tap does not draw, whatever tool you had.
+3. The text appears with its first line at the height you tapped, in the pen's colour, about as large as writing between the ruled lines. Long text breaks into lines at the right edge of the page. If it would run past the bottom, it moves up, and if it is taller than the page, it gets smaller.
+4. The text comes selected, with the select tool on, so you can drag it or resize it at once.
+
+It is typed text like the one «Pasar a letra» makes. See [Turn handwriting into typed text](handwriting.md#turn-handwriting-into-typed-text).
 ## Dictate
 
 1. Tap the microphone. A box titled «Dictado» (Dictation) appears and the recording starts. It shows the time, for example «Grabando… 0:12 de 5:00».

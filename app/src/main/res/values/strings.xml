@@ -173,6 +173,8 @@
     <string name="stt_error_token">el servicio de dictado no acepta el token; vuelve a emparejar con scripts/stt-pair.sh</string>
     <string name="stt_no_microphone">No se pudo usar el micrófono.</string>
     <string name="stt_dictated_title">Texto dictado</string>
+    <string name="ink_place_on_page">En la página</string>
+    <string name="ink_place_hint">Toca en la página donde quieras el texto.</string>
     <string name="stt_import_ok">Dictado configurado: %1$s</string>
     <string name="nextcloud_ca_import_ok">CA de Nextcloud importada: %1$s</string>
     <string name="nextcloud_ca_removed">CA de Nextcloud eliminada: se usan los certificados del sistema.</string>

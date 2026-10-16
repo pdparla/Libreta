@@ -42,6 +42,9 @@ import kotlin.math.max
  * without them; the change goes into the document, as one undo step, when the finger lifts.
  *
  * With [Tool.FILL], a tap fills the shape under it with [penColor] (docs/design/ink.md).
+ *
+ * While [placeAt] is set, whatever the tool, the next tap does not draw: it hands its point on the page to
+ * [placeAt], which is then cleared. Dictated text is put on the page this way.
  */
 class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
@@ -98,6 +101,9 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     /** Called when the last finger leaves the page. */
     var onTouchEnd: () -> Unit = {}
+
+    /** Takes the next tap instead of the tool, with its point in page units; cleared once it has. */
+    var placeAt: ((x: Float, y: Float) -> Unit)? = null
 
     /** Called with the view size in page units (dp) once it is laid out, to size new documents. */
     var onSizeKnown: (width: Int, height: Int) -> Unit = { _, _ -> }
@@ -513,6 +519,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         downY = event.getY(index)
         startedAt = System.currentTimeMillis()
         points.clear()
+        if (placeAt != null) return
         when (tool) {
             Tool.PEN -> {
                 livePaint = InkRenderer.strokePaint(penColor, penWidth / zoom * scale)
@@ -557,6 +564,7 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     }
 
     private fun move(editor: InkEditor, event: MotionEvent, index: Int) {
+        if (placeAt != null) return
         if (tool == Tool.ERASER) return eraseAlong(editor, event, index)
         if (tool == Tool.SELECT) return select(editor, event, index)
         if (tool == Tool.FILL) return
@@ -568,6 +576,12 @@ class InkView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     private fun end(editor: InkEditor) {
         activePointer = NO_POINTER
+        placeAt?.let { place ->
+            val viewport = viewport ?: return
+            placeAt = null
+            place(viewport.toPageX(downX).coerceIn(0f, editor.page.width.toFloat()), viewport.toPageY(downY).coerceIn(0f, editor.page.height.toFloat()))
+            return
+        }
         if (tool == Tool.ERASER) {
             editor.endGesture()
             eraserX = Float.NaN

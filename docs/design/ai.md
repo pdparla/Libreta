@@ -404,7 +404,7 @@ to the server and the text returns to the tablet.
   deleted after sending or cancelling.
 - The client waits up to 5 minutes for the answer, because a long recording takes a while on a server CPU.
 - Where the text goes depends on the screen: into the text editor at the cursor; into an editable "dictated text" box in
-  a handwritten note, with "Add to note" or "Copy"; into the input field in the chat, so you can review it before
+  a handwritten note, with "On the page" (typed text where the user taps next) or "Add to note"; into the input field in the chat, so you can review it before
   sending.
 
 ### The service (`server/stt`)

@@ -170,6 +170,10 @@ and sized). Typed text is a `Stroke` with a `text`:
   from the upper-left corner, `fontSpacing` apart. The box is measured with the same paint when the text is created
   or corrected, so it matches what is drawn. While a selection is dragged, the text becomes a path of its letters
   (`Paint.getTextPath`) like any other moving stroke.
+- Dictated text is put where the user taps (`InkView.placeAt` takes that one tap instead of the tool): the first
+  line centred on the tap, 20 units at 1× (divided by the zoom), wrapped to the page's right edge less 16 units, and
+  moved up or made smaller if it would leave the page. The line breaks become part of the text: it is laid out once,
+  so it never reflows when zoomed.
 - Correcting the text keeps the upper-left corner and the size, unless the longer text would run off the page: then
   it gets smaller, down to 8 units, and moves in if it still doesn't fit.
 
