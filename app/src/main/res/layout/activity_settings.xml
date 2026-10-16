@@ -186,5 +186,12 @@
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:textColor="?android:attr/textColorSecondary" />
+
+        <CheckBox
+            android:id="@+id/settings_circled_questions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_circled_questions" />
     </LinearLayout>
 </ScrollView>

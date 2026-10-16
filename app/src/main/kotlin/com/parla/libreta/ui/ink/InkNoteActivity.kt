@@ -29,6 +29,7 @@ import com.parla.libreta.core.ink.InkDocument
 import com.parla.libreta.core.ink.InkEditor
 import com.parla.libreta.core.ink.InkFigures
 import com.parla.libreta.core.ink.InkFrame
+import com.parla.libreta.core.ink.InkLoops
 import com.parla.libreta.core.ink.InkMark
 import com.parla.libreta.core.ink.InkOutline
 import com.parla.libreta.core.ink.InkPage
@@ -80,6 +81,13 @@ class InkNoteActivity : Activity() {
     private var deleted = false
     private val handler = Handler(Looper.getMainLooper())
     private val autosave = Runnable { autosave() }
+    private val askCircled = Runnable { askCircled() }
+
+    /** Whether a finger or the stylus is on the page: an answer that arrives then waits until it lifts. */
+    private var touching = false
+
+    /** The circles already asked about, by their start time: each is asked once (docs/design/ink.md#circled-questions). */
+    private val askedCircles = HashSet<Long>()
 
     /**
      * Autosave renders and compresses the pages, which janks the UI on this tablet, so it runs on [saver]. The
@@ -141,8 +149,16 @@ class InkNoteActivity : Activity() {
         inkView.maxTouchMajor = PALM_TOUCH_MAJOR
         inkView.onChange = ::updateControls
         // Autosave: once the page has been left alone for a moment, not while writing.
-        inkView.onTouchStart = { handler.removeCallbacks(autosave) }
-        inkView.onTouchEnd = ::scheduleAutosave
+        inkView.onTouchStart = {
+            touching = true
+            handler.removeCallbacks(autosave)
+            handler.removeCallbacks(askCircled)
+        }
+        inkView.onTouchEnd = {
+            touching = false
+            scheduleAutosave()
+            scheduleCircledQuestion()
+        }
         inkView.onSelectionChange = ::updateControls
         inkView.onZoomChange = { showZoom() }
         inkView.onNothingToFill = { Toast.makeText(this, R.string.ink_fill_nothing, Toast.LENGTH_SHORT).show() }
@@ -173,6 +189,7 @@ class InkNoteActivity : Activity() {
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(autosave)
+        handler.removeCallbacks(askCircled)
         save()
         saveToolPreferences()
         // Read what changed in the background, for search; never while writing (docs/design/ai.md).
@@ -382,6 +399,65 @@ class InkNoteActivity : Activity() {
         inkView.refreshAfter()
         updateControls()
         scheduleAutosave()
+    }
+
+    /**
+     * After a pen stroke, if it circles writing (docs/design/ink.md#circled-questions), asks about it once the pen
+     * has rested [QUESTION_DELAY_MS]: writing on cancels it, so a circle that is part of a drawing is not asked about
+     * while it is being drawn.
+     */
+    private fun scheduleCircledQuestion() {
+        handler.removeCallbacks(askCircled)
+        if (inkView.tool != InkView.Tool.PEN || !container.settings.answersCircledQuestions) return
+        val loop = editor?.page?.let(InkLoops::circledQuestion) ?: return
+        if (loop.startedAt in askedCircles || container.chatGptSessions.load() == null) return
+        handler.postDelayed(askCircled, QUESTION_DELAY_MS)
+    }
+
+    /**
+     * Sends the circle and the page to the AI. If what is circled is a question, the answer goes next to the circle
+     * as typed text in [ANSWER_COLOR], as one undo step; if not, nothing happens.
+     */
+    private fun askCircled() {
+        val editor = editor ?: return
+        val page = editor.page
+        val pageIndex = editor.pageIndex
+        val loop = InkLoops.circledQuestion(page) ?: return
+        if (!askedCircles.add(loop.startedAt)) return
+        val zoom = inkView.zoom
+        Toast.makeText(this, R.string.ink_answering, Toast.LENGTH_SHORT).show()
+        container.aiBackground.execute({
+            val circled = InkRenderer.renderSelection(page, loop.bounds)
+            val whole = InkRenderer.renderFrame(page, InkFrame.ofPage(page))
+            container.ai.answerCircled(circled, whole, TurnHandle())
+        }) { result ->
+            if (isDestroyed) return@execute
+            result
+                .onSuccess { answer -> if (answer != null) placeAnswer(answer, pageIndex, loop, zoom) }
+                .onFailure { Toast.makeText(this, AiMessages.failure(this, it), Toast.LENGTH_LONG).show() }
+        }
+    }
+
+    /**
+     * Puts [answer] beside [loop]: on the right if there is room there, below it if not. Dropped if the loop is gone
+     * or the user went to another page; it waits while a finger is on the page, so that it never lands mid-stroke.
+     */
+    private fun placeAnswer(answer: String, pageIndex: Int, loop: Stroke, zoom: Float) {
+        val editor = editor ?: return
+        if (touching) {
+            handler.postDelayed({ placeAnswer(answer, pageIndex, loop, zoom) }, ANSWER_RETRY_MS)
+            return
+        }
+        if (editor.pageIndex != pageIndex || editor.page.strokes.none { it === loop }) return
+        val page = editor.page
+        val box = loop.bounds
+        val size = ANSWER_SIZE / zoom
+        val onRight = page.width - box.right - ANSWER_GAP >= ANSWER_MIN_WIDTH
+        val x = if (onRight) box.right + ANSWER_GAP else box.left
+        // Beside the circle, the first line at its middle height; under it, just below.
+        val y = if (onRight) (box.top + box.bottom) / 2 else box.bottom + ANSWER_GAP + size * 0.6f
+        editor.insertStrokes(listOf(InkText.placed(page, answer, x, y, size, ANSWER_COLOR, System.currentTimeMillis())))
+        afterEdit()
     }
 
     /** Saves [AUTOSAVE_DELAY_MS] after the last touch, so that a crash or a dead battery loses little. */
@@ -1162,6 +1238,18 @@ class InkNoteActivity : Activity() {
 
         /** Font size of text put on the page, in page units at 1×: about the height of writing between ruled lines. */
         private const val PLACED_TEXT_SIZE = 20f
+
+        /** Rest after circling before asking: long enough to write a question mark after the circle. */
+        private const val QUESTION_DELAY_MS = 1_500L
+        private const val ANSWER_RETRY_MS = 500L
+
+        /** Answers to circled questions: smaller than writing, in blue, like a note from someone else. */
+        private const val ANSWER_SIZE = 16f
+        private const val ANSWER_COLOR = 0xff1a73e8.toInt()
+        private const val ANSWER_GAP = 10f
+
+        /** The narrowest room beside a circle for its answer; with less, the answer goes below. */
+        private const val ANSWER_MIN_WIDTH = 140f
 
         /** The largest font size for the text in a clean diagram: big boxes should not get shouting labels. */
         private const val MAX_LABEL_SIZE = 32f

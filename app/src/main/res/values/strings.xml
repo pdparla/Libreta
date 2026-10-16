@@ -69,6 +69,7 @@
     <string name="ink_translate">Traducir…</string>
     <string name="ink_clean_table">Tabla a limpio</string>
     <string name="ink_clean_diagram">Diagrama a limpio</string>
+    <string name="ink_answering">Pensando la respuesta a lo que has rodeado…</string>
     <string name="ink_diagram_none">No se ha encontrado un diagrama en el recuadro.</string>
     <string name="ink_table_none">No se ha encontrado una tabla en el recuadro.</string>
     <string name="ink_translate_into">Traducir al</string>
@@ -251,6 +252,7 @@
     <string name="settings_stt_ok">Conexión correcta con el servicio de dictado. Modelo: %1$s.</string>
     <string name="settings_stt_failed">Sin conexión con el servicio de dictado: %1$s</string>
     <string name="settings_transcribe">Transcribir lo escrito a mano para buscarlo</string>
+    <string name="settings_circled_questions">Responder en la página a las preguntas que rodees</string>
     <string name="settings_transcribe_counting">Contando páginas pendientes…</string>
     <plurals name="settings_transcribe_pending">
         <item quantity="one">Una página pendiente de transcribir.</item>

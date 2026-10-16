@@ -106,6 +106,19 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
+     * The answer to what the user circled on a page (docs/design/ai.md#circled-questions): [circled] is the circled
+     * area and [page] the whole page, for context. Plain text of a few sentences, or null if what is circled is not
+     * a question or a request.
+     */
+    fun answerCircled(circled: ByteArray, page: ByteArray, handle: TurnHandle): String? {
+        val content = JSONArray()
+            .put(inputText("Lo que he rodeado:")).put(inputImage(circled))
+            .put(inputText("La página entera:")).put(inputImage(page))
+        val answer = responses.respond(CHAT_MODEL, CIRCLED_INSTRUCTIONS, JSONArray().put(userMessage(content)), handle).text.trim().let(::withoutCodeFence)
+        return answer.takeUnless { it.isBlank() || it.trimEnd('.', '!', ' ').equals(NOT_A_QUESTION, ignoreCase = true) }
+    }
+
+    /**
      * Documentation in Markdown from the [pages] of a handwritten note (docs/design/ai.md#clean-copy): the model sees
      * each page, understands it and writes it out organised by topic, with each drawing as an [InkFigures]
      * placeholder. [titles], marked by the user (docs/design/ink.md), are its main sections.
@@ -228,6 +241,17 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "una lista, empieza cada elemento con «• ». Escribe las fórmulas con símbolos Unicode (x², √, ≤, π, " +
                 "½), no en LaTeX. Ignora los dibujos. Devuelve solo el texto, sin comentarios. " +
                 "Si no hay texto legible, no devuelvas nada."
+
+        /** What the model answers when the circle holds no question. */
+        private const val NOT_A_QUESTION = "NADA"
+
+        private const val CIRCLED_INSTRUCTIONS =
+            "Eres el asistente de Libreta, una libreta en la que el usuario escribe a mano. Ha rodeado algo con un " +
+                "círculo en su página. La primera imagen es lo rodeado; la segunda, la página entera, como contexto. " +
+                "Si lo rodeado es una pregunta o una petición dirigida a ti, contéstala en español como lo haría un " +
+                "compañero en el margen: breve (de una a tres frases), directa y exacta. Devuelve texto plano, sin " +
+                "Markdown, con las fórmulas en símbolos Unicode (x², √, ≤). Si no es una pregunta ni una petición " +
+                "(una palabra o un título destacados, un dibujo, un número), responde exactamente NADA."
 
         private const val DIAGRAM_INSTRUCTIONS =
             "La imagen es un diagrama dibujado a mano: un esquema, un diagrama de flujo, un árbol o un mapa " +

@@ -205,6 +205,19 @@ and its text. Thousandths for the same reason as the drawings of a clean copy. T
 because the clean diagram is drawn where it says, and for one connection per branch of a line that splits. For how
 the app draws it, see [Clean diagrams](ink.md#clean-diagrams).
 
+## Circled questions
+
+When the user circles writing on a page (see [Circled questions](ink.md#circled-questions) for what counts),
+`AiAssistant.answerCircled` sends two images: the circled area, rendered like a selection, and the whole page as
+context, since a question often points at something else on it. The instructions ask for an answer in Spanish of one
+to three sentences, in plain text with Unicode formulas, as a classmate would write in the margin, or exactly `NADA`
+when what is circled is not a question or a request. The app treats `NADA` and an empty answer as "nothing to say".
+
+- **Model.** `CHAT_MODEL`, medium effort, without tools or web search: a short answer in a few seconds.
+- **Cost.** One request per circle that holds at least two strokes, decided on the tablet. The setting «Responder en
+  la página a las preguntas que rodees» turns it off.
+- **Errors.** No session: nothing is asked. A failed request shows the usual AI message.
+
 ## Solve or check math
 
 «Mates» opens the chat about the selection with a `MathTask`, and the chat sends its first message at once.

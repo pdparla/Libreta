@@ -75,6 +75,10 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.settings_stt_test).setOnClickListener { testDictation() }
         showDictation(null)
         setUpTranscription()
+        findViewById<CheckBox>(R.id.settings_circled_questions).apply {
+            isChecked = container.settings.answersCircledQuestions
+            setOnCheckedChangeListener { _, enabled -> container.settings.answersCircledQuestions = enabled }
+        }
     }
 
     /** Which roots Nextcloud's certificate is checked against: the imported CA or the system's. */

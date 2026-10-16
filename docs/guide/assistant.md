@@ -5,6 +5,7 @@ Libreta has an AI assistant that works on your notes. It can:
 - answer questions about all your notes ([Ask your notebook](#ask-your-notebook));
 - turn a whole handwritten note into organised notes, with pictures of its drawings ([Make a clean copy of a note](#make-a-clean-copy-of-a-note));
 - talk about a part of a handwritten page ([Chat about a selection](#chat-about-a-selection));
+- answer a question you write and circle on the page ([Ask in the margin](#ask-in-the-margin));
 - search the web when a question needs it ([Web search](#web-search)).
 
 The assistant talks to OpenAI directly from the tablet. It uses your ChatGPT subscription, so there is no extra key or server to set up.
@@ -56,6 +57,20 @@ Before the assistant creates a note or adds text, a dialog titled «¿Permitir?�
 Stopping the answer or leaving the chat also counts as «No».
 
 The assistant never edits or deletes existing text. It only creates notes and adds text.
+
+## Ask in the margin
+
+Write a question on a handwritten page and draw a circle around it, in one stroke, with the pen. Lift the pen and wait: about a second and a half later a message says «Pensando la respuesta a lo que has rodeado…» (Thinking about what you circled…), and a few seconds after that the answer appears next to the circle, in small blue typed text, like a note from a classmate.
+
+- The answer goes to the right of the circle if there is room, and under it if not. It is one to three sentences, with formulas in symbols such as `x²`.
+- If what you circled is not a question or a request, for example a word you wanted to highlight, nothing appears.
+- If you go on writing before the pause ends, nothing is asked. Each circle is asked about once.
+- The answer is typed text: you can move it, correct it or delete it. «Deshacer» (Undo) removes it.
+- If you leave the page or the note before the answer arrives, it is dropped.
+
+The circle must close more or less on itself, be at least about a finger wide, and hold at least two strokes. Libreta checks this on the tablet, so circles that hold nothing, small «o»s and lines never reach the assistant. Each circle that does reach it uses your ChatGPT plan like one chat message.
+
+To turn this off, clear «Responder en la página a las preguntas que rodees» (Answer the questions you circle on the page) in «Ajustes» (Settings).
 
 ## Make a clean copy of a note
 

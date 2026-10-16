@@ -13,6 +13,12 @@ import com.parla.libreta.data.remote.ServerConfig
 class SettingsStore(context: Context) {
 
     private val prefs = context.getSharedPreferences("server", Context.MODE_PRIVATE)
+    private val aiPrefs = context.getSharedPreferences("ai", Context.MODE_PRIVATE)
+
+    /** Whether a question circled on a handwritten page is answered on the page (docs/guide/assistant.md). */
+    var answersCircledQuestions: Boolean
+        get() = aiPrefs.getBoolean(KEY_CIRCLED_QUESTIONS, true)
+        set(value) = aiPrefs.edit().putBoolean(KEY_CIRCLED_QUESTIONS, value).apply()
 
     fun load(): ServerConfig = ServerConfig(
         serverUrl = prefs.getString(KEY_URL, "").orEmpty(),
@@ -38,5 +44,6 @@ class SettingsStore(context: Context) {
         const val KEY_PASSWORD = "app_password"
         const val KEY_FOLDER = "notes_folder"
         const val KEY_CERTIFICATE_NAME = "certificate_name"
+        const val KEY_CIRCLED_QUESTIONS = "answer_circled_questions"
     }
 }

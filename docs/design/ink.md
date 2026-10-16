@@ -223,6 +223,26 @@ and sized). Typed text is a `Stroke` with a `text`:
   (at most 32 units), or less where it does not fit, so the diagram reads as one. An edge's text is three quarters of
   that size, beside the middle of a steep line or above a flat one.
 
+## Circled questions
+
+A question written and circled on the page is answered by the AI (see [Circled questions](ai.md#circled-questions)).
+`InkLoops` (`:core`) decides on the tablet what counts as a circle, so that only likely questions cost a request:
+
+- **A loop** is one pen stroke (not a fill or typed text) of at least 8 points, at least 40 units across and 15
+  thick, whose ends meet within 30% of its larger side, and whose length is at least 1.3 times its box's width plus
+  height (a circle is about 1.57). Lines, open arcs, small letters and back-and-forth scribbles are not loops.
+- **What it holds** is every other stroke, fills left out, whose box lies within the loop's box and whose box centre
+  is inside the loop, closed from its last point to its first (ray casting).
+- **When.** After each touch with the pen, if the page's last stroke is a loop holding at least two strokes and was not
+  asked about before, the question is asked once the pen has rested 1.5 seconds. Touching the page again cancels it,
+  so the circle of a drawing in progress is not sent, and a question mark written after the circle still gets in.
+  Each loop is asked about once per opening of the note, by its `startedAt`.
+- **The answer** is typed text, 16 units at 1× (divided by the zoom), in blue (`#1a73e8`). It goes to the right of the
+  loop, with its first line at the loop's middle height, when there are 140 units of room; otherwise under it. It is
+  wrapped and kept on the page like dictated text, and added as one undo step. It is dropped if the loop is gone or
+  the user is on another page, and it waits while a finger is on the page so that it never lands in the middle of a
+  stroke.
+
 ## Viewport, zoom and orientation
 
 `InkViewport` (in `:core`, without Android) converts between page and screen:
