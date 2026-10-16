@@ -106,7 +106,7 @@ If the box holds no ink, it stays as you drew it. Only the AI buttons work.
 
 The text buttons in the same row are:
 
-- «A texto» (To text): a menu to turn the selection into typed text on the page or to add its text to the note. See [Turn handwriting into typed text](#turn-handwriting-into-typed-text) and [Convert a selection to text](#convert-a-selection-to-text).
+- «A texto» (To text): a menu to turn the selection into typed text on the page, translate it, or add its text to the note. See [Turn handwriting into typed text](#turn-handwriting-into-typed-text), [Translate on the page](#translate-on-the-page) and [Convert a selection to text](#convert-a-selection-to-text).
 - «Chat IA» (AI chat): opens a chat about the selection. See [The assistant](assistant.md#chat-about-a-selection).
 - «Mates» (Math): solves the selected mathematics or checks your steps. See [Solve or check math](assistant.md#solve-or-check-math).
 - «Título» (Title) and «Etiqueta» (Tag): mark the selection as a title or a tag. See [Titles, tags and the index](organize.md).
@@ -167,6 +167,17 @@ Typed text is part of the page, like ink:
 To fix a word, select only the typed text, tap «A texto» and then «Corregir el texto» (Correct the text). Edit it and tap «Aceptar» (OK). The text keeps its place, size and colour. If it is now too long for the page, it gets smaller so that it fits. To remove it, delete it with the trash button.
 
 Libreta replaces everything you selected. Select only the writing: a drawing inside the box is lost too, although «Deshacer» (Undo) brings it back. If nothing is recognised, a message says «No se ha reconocido texto en el recuadro.» (No text was recognised in the box.) and nothing changes.
+
+## Translate on the page
+
+You can write in one language and get the translation under it, on the page. You need to be signed in with ChatGPT.
+
+1. Select the writing.
+2. Tap «A texto» and then «Traducir…» (Translate…).
+3. Choose the language: «Inglés», «Español», «Francés», «Alemán», «Italiano», «Portugués» or «Catalán». The one you used last is first in the list.
+4. The translation appears under the original as typed text, in the colour of the ink and about as large as the original. It breaks into lines at the right edge of the page. It comes selected, so you can move it.
+
+Your writing does not change. The translation is typed text like any other: you can move it, correct it with «Corregir el texto» or delete it.
 
 ## Convert a selection to text
 

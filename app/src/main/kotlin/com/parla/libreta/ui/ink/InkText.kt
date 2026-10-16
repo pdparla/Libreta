@@ -117,10 +117,13 @@ object InkText {
      * Typed [text] in place of the handwriting in [area]: at its upper-left corner, as large as fits in it, so that
      * the text takes about the room the handwriting took.
      */
-    fun fitted(text: String, area: InkRect, color: Int, startedAt: Long): Stroke {
+    fun fitted(text: String, area: InkRect, color: Int, startedAt: Long): Stroke =
+        typed(text, area.left, area.top, fittedSize(text, area), color, startedAt)
+
+    /** The largest font size, within limits, at which every line of [text] fits in [area]. */
+    fun fittedSize(text: String, area: InkRect): Float {
         val (width, height) = sizeAtOne(text)
-        val size = min(area.width / max(width, 0.01f), area.height / max(height, 0.01f)).coerceIn(MIN_SIZE, MAX_SIZE)
-        return typed(text, area.left, area.top, size, color, startedAt)
+        return min(area.width / max(width, 0.01f), area.height / max(height, 0.01f)).coerceIn(MIN_SIZE, MAX_SIZE)
     }
 
     /** Draws [stroke] (typed text) at [scale] with [paint], which it reconfigures. */

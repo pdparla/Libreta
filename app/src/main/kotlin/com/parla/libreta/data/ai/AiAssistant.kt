@@ -78,6 +78,16 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
+     * The handwriting in [png] translated into [language] (its name in Spanish, such as "inglés"), as plain text like
+     * [transcribeForTyping], to put on the page next to the original (docs/design/ai.md#translation). Empty if there
+     * is no legible text.
+     */
+    fun translateForTyping(png: ByteArray, language: String, handle: TurnHandle): String {
+        val input = JSONArray().put(userMessage(JSONArray().put(inputText("Traduce este recorte al $language.")).put(inputImage(png))))
+        return responses.respond(CONVERT_MODEL, TRANSLATE_INSTRUCTIONS, input, handle).text.trim().let(::withoutCodeFence)
+    }
+
+    /**
      * Documentation in Markdown from the [pages] of a handwritten note (docs/design/ai.md#clean-copy): the model sees
      * each page, understands it and writes it out organised by topic, with each drawing as an [InkFigures]
      * placeholder. [titles], marked by the user (docs/design/ink.md), are its main sections.
@@ -199,6 +209,14 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "corrige solo las faltas evidentes. No uses Markdown: ni #, ni asteriscos, ni guiones de lista; si hay " +
                 "una lista, empieza cada elemento con «• ». Escribe las fórmulas con símbolos Unicode (x², √, ≤, π, " +
                 "½), no en LaTeX. Ignora los dibujos. Devuelve solo el texto, sin comentarios. " +
+                "Si no hay texto legible, no devuelvas nada."
+
+        private const val TRANSLATE_INSTRUCTIONS =
+            "Lee el texto manuscrito de la imagen y tradúcelo al idioma que se pide, con naturalidad y sin añadir " +
+                "nada. Devuelve texto plano, para ponerlo en letra de imprenta junto al original: conserva los saltos " +
+                "de línea, no uses Markdown (ni #, ni asteriscos, ni guiones de lista; si hay una lista, empieza cada " +
+                "elemento con «• ») y escribe las fórmulas con símbolos Unicode (x², √, ≤), sin traducir nombres " +
+                "propios ni fórmulas. Ignora los dibujos. Devuelve solo la traducción, sin comentarios. " +
                 "Si no hay texto legible, no devuelvas nada."
 
         private const val CHAT_INSTRUCTIONS =

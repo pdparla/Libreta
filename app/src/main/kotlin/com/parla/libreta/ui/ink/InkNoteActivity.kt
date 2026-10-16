@@ -554,7 +554,10 @@ class InkNoteActivity : Activity() {
         val actions = ArrayList<Pair<Int, () -> Unit>>()
         val typed = selectedStrokes().singleOrNull()?.takeIf { it.isText }
         if (typed != null) actions += R.string.ink_edit_typed to { editTyped() }
-        if (inkView.selectedStrokes.isNotEmpty()) actions += R.string.ink_typeset to { typesetSelection() }
+        if (inkView.selectedStrokes.isNotEmpty()) {
+            actions += R.string.ink_typeset to { typesetSelection() }
+            actions += R.string.ink_translate to { chooseLanguage() }
+        }
         actions += R.string.ink_add_as_text to { convertSelection() }
         val menu = PopupMenu(this, convertButton)
         actions.forEachIndexed { i, (label, _) -> menu.menu.add(0, i, i, label) }
@@ -579,6 +582,42 @@ class InkNoteActivity : Activity() {
             val color = strokes.firstOrNull { !it.fill }?.color ?: strokes.first().color
             val typed = InkText.fitted(text.trim(), area, color, System.currentTimeMillis())
             inkView.selectStrokes(editor.replaceStrokes(indexes, listOf(typed)))
+            afterSelectionEdit()
+        }
+    }
+
+    /** «Traducir…»: the language to translate the selection into, the last one used first. */
+    private fun chooseLanguage() {
+        val names = resources.getStringArray(R.array.ink_languages).toList()
+        val last = toolPreferences.getString(PREF_LANGUAGE, null)?.takeIf { it in names }
+        val ordered = if (last == null) names else listOf(last) + (names - last)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ink_translate_into)
+            .setItems(ordered.toTypedArray()) { _, which ->
+                toolPreferences.edit().putString(PREF_LANGUAGE, ordered[which]).apply()
+                translateSelection(ordered[which])
+            }
+            .show()
+    }
+
+    /**
+     * The AI reads the selected writing and translates it into [language]; the translation goes under the original,
+     * which stays, as typed text about the size of the original and in its colour (docs/design/ai.md#translation).
+     */
+    private fun translateSelection(language: String) {
+        val editor = editor ?: return
+        val page = editor.page
+        val strokes = inkView.selectedStrokes.mapNotNull { page.strokes.getOrNull(it) }
+        val area = InkRect.around(strokes) ?: return
+        readSelection(read = { png, handle -> container.ai.translateForTyping(png, language.lowercase(Locale.ROOT), handle) }) { text ->
+            if (editor !== this.editor || editor.page !== page) return@readSelection
+            if (text.isBlank()) return@readSelection Toast.makeText(this, R.string.ai_convert_nothing, Toast.LENGTH_LONG).show()
+            val size = InkText.fittedSize(text.trim(), area)
+            val color = strokes.firstOrNull { !it.fill }?.color ?: strokes.first().color
+            // The first line's middle half a line under the original.
+            val y = area.bottom + size * TRANSLATION_GAP
+            val typed = InkText.placed(page, text.trim(), area.left, y, size, color, System.currentTimeMillis())
+            inkView.selectStrokes(editor.insertStrokes(listOf(typed)))
             afterSelectionEdit()
         }
     }
@@ -1006,6 +1045,10 @@ class InkNoteActivity : Activity() {
         private const val PREF_PEN_WIDTH = "pen_width"
         private const val PREF_ERASE_STROKES = "erase_strokes"
         private const val PREF_ERASER_RADIUS = "eraser_radius"
+        private const val PREF_LANGUAGE = "translate_language"
+
+        /** Where a translation's first line goes under the original, in font sizes: its middle a little below. */
+        private const val TRANSLATION_GAP = 1.1f
         private const val DEFAULT_PEN_WIDTH = 3.5f
         private const val DEFAULT_ERASER_RADIUS = 10f
 

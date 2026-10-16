@@ -185,6 +185,18 @@ see [Typed text](ink.md#typed-text).
 - **Automatic.** The text replaces the handwriting without a confirmation box, because undo brings the handwriting
   back. «Corregir el texto» fixes a misread word afterwards.
 
+## Translation
+
+«Traducir…» puts a translation of the selection under it, as typed text, and leaves the handwriting as it is.
+
+- `AiAssistant.translateForTyping` sends the selection with the target language (its Spanish name) and asks for a
+  natural translation in plain text with the same rules as [Typing](#typing): line breaks kept, no Markdown, formulas in
+  Unicode symbols, and proper names and formulas left untranslated.
+- The font size is the one at which the translation would fit in the box of the original, so it looks about as large.
+  Its first line is centred 1.1 font sizes below the original, and it is wrapped and kept on the page like dictated
+  text ([Typed text](ink.md#typed-text)).
+- The language list is fixed in `strings.xml`, and the last language used comes first.
+
 ## Solve or check math
 
 «Mates» opens the chat about the selection with a `MathTask`, and the chat sends its first message at once.

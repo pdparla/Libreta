@@ -164,7 +164,9 @@ ChatGPT session for the AI and a paired dictation server for voice. Skip the sec
    it, undo and redo. Choose «A texto» > «Corregir el texto», make it longer, and check that it stays on the page.
    Erase it with each eraser mode, and fill around it. Leave the note and open it again.
    Dictate a long sentence in the note, choose «En la página» and tap near the right edge: check that the text starts
-   at the tap, breaks into lines at the edge and comes selected.
+   at the tap, breaks into lines at the edge and comes selected. Select a handwritten word and choose «A texto» >
+   «Traducir…» > «Inglés»: check that the translation appears under it and the handwriting stays. Translate again and
+   check that «Inglés» is now first.
 9. In the general chat, ask about a text note and a handwritten note. Check the gray tool lines, the note links (the link
    opens the note, on the right page for handwriting), and the permission dialog for creating a note. Decline once
    and check that nothing is written.

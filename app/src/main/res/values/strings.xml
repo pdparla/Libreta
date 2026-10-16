@@ -66,6 +66,17 @@
     <string name="ink_typeset">Pasar a letra</string>
     <string name="ink_add_as_text">Añadir a la nota como texto</string>
     <string name="ink_edit_typed">Corregir el texto</string>
+    <string name="ink_translate">Traducir…</string>
+    <string name="ink_translate_into">Traducir al</string>
+    <string-array name="ink_languages">
+        <item>Inglés</item>
+        <item>Español</item>
+        <item>Francés</item>
+        <item>Alemán</item>
+        <item>Italiano</item>
+        <item>Portugués</item>
+        <item>Catalán</item>
+    </string-array>
     <string name="ink_typed_empty">El texto no puede quedar vacío. Para quitarlo, bórralo.</string>
     <string name="ink_math">Mates</string>
     <string name="ink_math_solve">Resolver</string>
