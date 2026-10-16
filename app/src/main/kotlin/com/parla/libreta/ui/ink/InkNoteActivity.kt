@@ -32,6 +32,7 @@ import com.parla.libreta.core.ink.InkMark
 import com.parla.libreta.core.ink.InkOutline
 import com.parla.libreta.core.ink.InkPage
 import com.parla.libreta.core.ink.InkRect
+import com.parla.libreta.core.ink.InkTable
 import com.parla.libreta.core.ink.InkSizes
 import com.parla.libreta.core.ink.InkTranscripts
 import com.parla.libreta.core.ink.InkNote
@@ -557,6 +558,7 @@ class InkNoteActivity : Activity() {
         if (inkView.selectedStrokes.isNotEmpty()) {
             actions += R.string.ink_typeset to { typesetSelection() }
             actions += R.string.ink_translate to { chooseLanguage() }
+            actions += R.string.ink_clean_table to { cleanTable() }
         }
         actions += R.string.ink_add_as_text to { convertSelection() }
         val menu = PopupMenu(this, convertButton)
@@ -583,6 +585,41 @@ class InkNoteActivity : Activity() {
             val typed = InkText.fitted(text.trim(), area, color, System.currentTimeMillis())
             inkView.selectStrokes(editor.replaceStrokes(indexes, listOf(typed)))
             afterSelectionEdit()
+        }
+    }
+
+    /**
+     * «Tabla a limpio»: the AI reads the table drawn in the selection, and straight lines with typed text in each
+     * cell take its place, in one undo step, covering the same area (docs/design/ink.md#clean-tables). The table also
+     * goes into the note's text as Markdown, so it shows in Nextcloud Notes and search finds it.
+     */
+    private fun cleanTable() {
+        val editor = editor ?: return
+        val page = editor.page
+        val indexes = inkView.selectedStrokes.toList()
+        val strokes = indexes.mapNotNull { page.strokes.getOrNull(it) }
+        val area = InkRect.around(strokes) ?: return
+        readSelection(read = container.ai::readTable) { text ->
+            if (editor !== this.editor || editor.page !== page) return@readSelection
+            val cells = InkTable.parse(text) ?: return@readSelection Toast.makeText(this, R.string.ink_table_none, Toast.LENGTH_LONG).show()
+            val ink = strokes.filter { !it.fill && !it.isText }
+            val color = ink.firstOrNull()?.color ?: inkView.penColor
+            // The lines as thick as the ink they replace: the median, so that one heavy stroke does not set it.
+            val lineWidth = ink.map { it.width }.sorted().let { if (it.isEmpty()) inkView.penWidth / inkView.zoom else it[it.size / 2] }
+            val layout = InkTable.layout(cells, area, InkText::sizeAtOne)
+            val now = System.currentTimeMillis()
+            val grid = InkTable.gridStrokes(layout, color, lineWidth, now)
+            var next = now + grid.size
+            val texts = cells.flatMapIndexed { r, row ->
+                row.mapIndexedNotNull { c, cell ->
+                    if (cell.isBlank()) return@mapIndexedNotNull null
+                    val (x, y) = InkTable.textOrigin(layout, r, c, InkText.sizeAtOne(cell).second)
+                    InkText.typed(cell, x, y, layout.size, color, next++)
+                }
+            }
+            inkView.selectStrokes(editor.replaceStrokes(indexes, grid + texts))
+            afterSelectionEdit()
+            addToNote(InkTable.toMarkdown(cells))
         }
     }
 

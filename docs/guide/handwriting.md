@@ -106,7 +106,7 @@ If the box holds no ink, it stays as you drew it. Only the AI buttons work.
 
 The text buttons in the same row are:
 
-- «A texto» (To text): a menu to turn the selection into typed text on the page, translate it, or add its text to the note. See [Turn handwriting into typed text](#turn-handwriting-into-typed-text), [Translate on the page](#translate-on-the-page) and [Convert a selection to text](#convert-a-selection-to-text).
+- «A texto» (To text): a menu to turn the selection into typed text on the page, translate it, make a drawn table clean, or add its text to the note. See [Turn handwriting into typed text](#turn-handwriting-into-typed-text), [Translate on the page](#translate-on-the-page), [Make a table clean](#make-a-table-clean) and [Convert a selection to text](#convert-a-selection-to-text).
 - «Chat IA» (AI chat): opens a chat about the selection. See [The assistant](assistant.md#chat-about-a-selection).
 - «Mates» (Math): solves the selected mathematics or checks your steps. See [Solve or check math](assistant.md#solve-or-check-math).
 - «Título» (Title) and «Etiqueta» (Tag): mark the selection as a title or a tag. See [Titles, tags and the index](organize.md).
@@ -178,6 +178,17 @@ You can write in one language and get the translation under it, on the page. You
 4. The translation appears under the original as typed text, in the colour of the ink and about as large as the original. It breaks into lines at the right edge of the page. It comes selected, so you can move it.
 
 Your writing does not change. The translation is typed text like any other: you can move it, correct it with «Corregir el texto» or delete it.
+
+## Make a table clean
+
+You can draw a table by hand, with its lines and the text in its cells, and turn it into a clean table. You need to be signed in with ChatGPT.
+
+1. Select the whole table, lines included.
+2. Tap «A texto» and then «Tabla a limpio» (Clean table).
+3. The drawn table is replaced by straight lines with typed text in each cell. It covers the same area, with the same rows and columns. Each column is as wide as its text needs, and the room left over is shared out. The lines are as thick as the ink you drew with, and everything keeps the colour of the ink. The table stays selected.
+4. The table is also added to the text of the note as a Markdown table, above the page images, so Nextcloud Notes shows it and search finds it. A message says «Añadido a la nota» (Added to the note).
+
+The first row is the header in the Markdown table. On the page every row looks the same. The lines and the cell texts are separate pieces: you can move the whole table, correct a cell with «Corregir el texto» or delete a line. «Deshacer» (Undo) brings back the drawn table, but the Markdown table stays in the note's text: delete it with «Editar el texto» if you need to. If no table is found, a message says «No se ha encontrado una tabla en el recuadro.» (No table was found in the box.) and nothing changes.
 
 ## Convert a selection to text
 

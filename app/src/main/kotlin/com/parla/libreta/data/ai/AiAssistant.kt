@@ -88,6 +88,15 @@ class AiAssistant(private val responses: ResponsesClient) {
     }
 
     /**
+     * The table drawn by hand in [png] as a Markdown table ([com.parla.libreta.core.ink.InkTable.parse]), to draw it
+     * clean and add it to the note (docs/design/ink.md#clean-tables). No table: no answer, or text without one.
+     */
+    fun readTable(png: ByteArray, handle: TurnHandle): String {
+        val input = JSONArray().put(userMessage(JSONArray().put(inputText("Lee esta tabla.")).put(inputImage(png))))
+        return responses.respond(CONVERT_MODEL, TABLE_INSTRUCTIONS, input, handle).text.trim().let(::withoutCodeFence)
+    }
+
+    /**
      * Documentation in Markdown from the [pages] of a handwritten note (docs/design/ai.md#clean-copy): the model sees
      * each page, understands it and writes it out organised by topic, with each drawing as an [InkFigures]
      * placeholder. [titles], marked by the user (docs/design/ink.md), are its main sections.
@@ -210,6 +219,14 @@ class AiAssistant(private val responses: ResponsesClient) {
                 "una lista, empieza cada elemento con «• ». Escribe las fórmulas con símbolos Unicode (x², √, ≤, π, " +
                 "½), no en LaTeX. Ignora los dibujos. Devuelve solo el texto, sin comentarios. " +
                 "Si no hay texto legible, no devuelvas nada."
+
+        private const val TABLE_INSTRUCTIONS =
+            "La imagen es una tabla dibujada a mano. Devuélvela como una tabla de Markdown con exactamente las mismas " +
+                "filas y columnas, en el mismo orden: la primera fila de la tabla dibujada es la cabecera. Copia el " +
+                "texto de cada celda tal como está escrito, corrigiendo solo faltas evidentes; deja vacías las celdas " +
+                "vacías y usa <br> para un salto de línea dentro de una celda. Escribe las fórmulas con símbolos " +
+                "Unicode (x², √). Devuelve solo la tabla, sin comentarios ni bloques de código. " +
+                "Si en la imagen no hay una tabla, no devuelvas nada."
 
         private const val TRANSLATE_INSTRUCTIONS =
             "Lee el texto manuscrito de la imagen y tradúcelo al idioma que se pide, con naturalidad y sin añadir " +

@@ -67,6 +67,8 @@
     <string name="ink_add_as_text">Añadir a la nota como texto</string>
     <string name="ink_edit_typed">Corregir el texto</string>
     <string name="ink_translate">Traducir…</string>
+    <string name="ink_clean_table">Tabla a limpio</string>
+    <string name="ink_table_none">No se ha encontrado una tabla en el recuadro.</string>
     <string name="ink_translate_into">Traducir al</string>
     <string-array name="ink_languages">
         <item>Inglés</item>

@@ -40,7 +40,7 @@ object InkText {
     }
 
     /** Width and height of [text] at font size 1, in page units. */
-    private fun sizeAtOne(text: String): Pair<Float, Float> {
+    fun sizeAtOne(text: String): Pair<Float, Float> {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = TYPEFACE; textSize = MEASURE_SIZE }
         val lines = linesOf(text)
         val width = lines.maxOf { paint.measureText(it) } / MEASURE_SIZE

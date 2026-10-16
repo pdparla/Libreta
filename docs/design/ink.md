@@ -177,6 +177,27 @@ and sized). Typed text is a `Stroke` with a `text`:
 - Correcting the text keeps the upper-left corner and the size, unless the longer text would run off the page: then
   it gets smaller, down to 8 units, and moves in if it still doesn't fit.
 
+## Clean tables
+
+«Tabla a limpio» turns a table drawn by hand into straight lines and typed text, in one undo step
+(`InkEditor.replaceStrokes`). `InkTable` (`:core`) holds the logic:
+
+- **Reading.** `AiAssistant.readTable` asks for a Markdown table with the same rows and columns, the first row as
+  header, `<br>` for a break inside a cell and empty cells left empty. `InkTable.parse` takes the first table in the
+  answer, drops the separator row, reads `\|` as a bar and `<br>` as a line break, and pads short rows. A Markdown
+  table is easy to check and is what the note's text needs anyway, so no other format is asked for.
+- **Layout.** `InkTable.layout` measures every cell's text at font size 1 (`InkText.sizeAtOne`). A column is as wide
+  as its widest text and a row as tall as its tallest, plus padding (0.4 and 0.25 font sizes). The font size is the
+  largest at which that fits in the box of the drawn table, from 8 to 60 units. The spare room then widens the columns
+  and heightens the rows in proportion, so the clean table covers the drawn one. At 8 units a table that does not fit
+  grows past the box.
+- **Strokes.** The grid is one straight two-point stroke per row edge and per column edge
+  (`InkTable.gridStrokes`), as thick as the median width of the ink it replaces and in its colour. Each non-empty cell
+  is one typed text, padded from the left and centred in its row. Every stroke gets its own `startedAt`.
+- **The note's text.** `InkTable.toMarkdown` writes the table back and `InkNoteService.addText` adds it above the
+  page images, so the table shows in Nextcloud Notes and search finds it. Undo restores the drawing but not the
+  text, which lives in the Markdown, outside the undo history.
+
 ## Viewport, zoom and orientation
 
 `InkViewport` (in `:core`, without Android) converts between page and screen:
